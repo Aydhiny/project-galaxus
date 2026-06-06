@@ -1,0 +1,124 @@
+"use server";
+
+import { db } from "@/lib/db";
+import { dailyCheckins } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { format } from "date-fns";
+
+export async function getTodayCheckin() {
+  const today = format(new Date(), "yyyy-MM-dd");
+  const rows = await db
+    .select()
+    .from(dailyCheckins)
+    .where(eq(dailyCheckins.date, today))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getCheckinByDate(date: string) {
+  const rows = await db
+    .select()
+    .from(dailyCheckins)
+    .where(eq(dailyCheckins.date, date))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getRecentCheckins(days = 30) {
+  const rows = await db
+    .select()
+    .from(dailyCheckins)
+    .orderBy(dailyCheckins.date);
+  return rows.slice(-days);
+}
+
+export async function upsertCheckin(
+  date: string,
+  data: Partial<typeof dailyCheckins.$inferInsert>
+) {
+  const existing = await db
+    .select()
+    .from(dailyCheckins)
+    .where(eq(dailyCheckins.date, date))
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(dailyCheckins)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(dailyCheckins.date, date));
+  } else {
+    await db.insert(dailyCheckins).values({ date, ...data });
+  }
+
+  revalidatePath("/");
+  revalidatePath("/daily");
+  revalidatePath("/spiritual");
+  revalidatePath("/training");
+}
+
+export async function calculateStreak(field: keyof typeof dailyCheckins.$inferSelect) {
+  const rows = await db
+    .select()
+    .from(dailyCheckins)
+    .orderBy(dailyCheckins.date);
+
+  let streak = 0;
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  const sorted = [...rows].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  for (const row of sorted) {
+    const val = row[field as keyof typeof row];
+    if (val === true) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+export async function getStreaks() {
+  const rows = await db
+    .select()
+    .from(dailyCheckins)
+    .orderBy(dailyCheckins.date);
+
+  const sorted = [...rows].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  function calcStreak(field: keyof (typeof sorted)[0]) {
+    let s = 0;
+    for (const row of sorted) {
+      if (row[field] === true) s++;
+      else break;
+    }
+    return s;
+  }
+
+  return {
+    training: calcStreak("training"),
+    meditation: calcStreak("meditation"),
+    music: calcStreak("music"),
+    writing: calcStreak("writing"),
+    gratitude: calcStreak("gratitude"),
+    prayers: getPrayerStreak(sorted),
+  };
+}
+
+function getPrayerStreak(sorted: (typeof dailyCheckins.$inferSelect)[]) {
+  let s = 0;
+  for (const row of sorted) {
+    const allFive =
+      row.fajr && row.dhuhr && row.asr && row.maghrib && row.isha;
+    if (allFive) s++;
+    else break;
+  }
+  return s;
+}
