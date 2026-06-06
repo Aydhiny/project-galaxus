@@ -7,8 +7,12 @@ import { revalidatePath } from "next/cache";
 import { format } from "date-fns";
 
 export async function getJournalEntries(type?: string) {
-  const all = await db.select().from(journalEntries).orderBy(desc(journalEntries.createdAt));
-  return type ? all.filter((e) => e.type === type) : all;
+  try {
+    const all = await db.select().from(journalEntries).orderBy(desc(journalEntries.createdAt));
+    return type ? all.filter((e) => e.type === type) : all;
+  } catch {
+    return [];
+  }
 }
 
 export async function addJournalEntry(data: {

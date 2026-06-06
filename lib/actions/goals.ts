@@ -7,29 +7,37 @@ import { revalidatePath } from "next/cache";
 import { format } from "date-fns";
 
 export async function getGoals() {
-  return db
-    .select()
-    .from(dailyGoals)
-    .where(eq(dailyGoals.isActive, true))
-    .orderBy(dailyGoals.orderIndex);
+  try {
+    return await db
+      .select()
+      .from(dailyGoals)
+      .where(eq(dailyGoals.isActive, true))
+      .orderBy(dailyGoals.orderIndex);
+  } catch {
+    return [];
+  }
 }
 
 export async function getTodayGoalCompletions() {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const goals = await getGoals();
-  const completions = await db
-    .select()
-    .from(goalCompletions)
-    .where(eq(goalCompletions.date, today));
+  try {
+    const today = format(new Date(), "yyyy-MM-dd");
+    const goals = await getGoals();
+    const completions = await db
+      .select()
+      .from(goalCompletions)
+      .where(eq(goalCompletions.date, today));
 
-  const completionMap = new Map(
-    completions.map((c) => [c.goalId, c.completed])
-  );
+    const completionMap = new Map(
+      completions.map((c) => [c.goalId, c.completed])
+    );
 
-  return goals.map((g) => ({
-    ...g,
-    completed: completionMap.get(g.id) ?? false,
-  }));
+    return goals.map((g) => ({
+      ...g,
+      completed: completionMap.get(g.id) ?? false,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function toggleGoalCompletion(goalId: number, date?: string) {

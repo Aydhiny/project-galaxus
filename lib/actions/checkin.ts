@@ -7,13 +7,17 @@ import { revalidatePath } from "next/cache";
 import { format } from "date-fns";
 
 export async function getTodayCheckin() {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const rows = await db
-    .select()
-    .from(dailyCheckins)
-    .where(eq(dailyCheckins.date, today))
-    .limit(1);
-  return rows[0] ?? null;
+  try {
+    const today = format(new Date(), "yyyy-MM-dd");
+    const rows = await db
+      .select()
+      .from(dailyCheckins)
+      .where(eq(dailyCheckins.date, today))
+      .limit(1);
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getCheckinByDate(date: string) {
@@ -26,11 +30,15 @@ export async function getCheckinByDate(date: string) {
 }
 
 export async function getRecentCheckins(days = 30) {
-  const rows = await db
-    .select()
-    .from(dailyCheckins)
-    .orderBy(dailyCheckins.date);
-  return rows.slice(-days);
+  try {
+    const rows = await db
+      .select()
+      .from(dailyCheckins)
+      .orderBy(dailyCheckins.date);
+    return rows.slice(-days);
+  } catch {
+    return [];
+  }
 }
 
 export async function upsertCheckin(
@@ -84,6 +92,7 @@ export async function calculateStreak(field: keyof typeof dailyCheckins.$inferSe
 }
 
 export async function getStreaks() {
+  try {
   const rows = await db
     .select()
     .from(dailyCheckins)
@@ -110,6 +119,9 @@ export async function getStreaks() {
     gratitude: calcStreak("gratitude"),
     prayers: getPrayerStreak(sorted),
   };
+  } catch {
+    return { training: 0, meditation: 0, music: 0, writing: 0, gratitude: 0, prayers: 0 };
+  }
 }
 
 function getPrayerStreak(sorted: (typeof dailyCheckins.$inferSelect)[]) {

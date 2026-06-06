@@ -6,7 +6,11 @@ import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function getCourses() {
-  return db.select().from(courses).orderBy(desc(courses.createdAt));
+  try {
+    return await db.select().from(courses).orderBy(desc(courses.createdAt));
+  } catch {
+    return [];
+  }
 }
 
 export async function addCourse(data: {

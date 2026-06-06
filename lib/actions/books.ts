@@ -6,7 +6,11 @@ import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function getBooks() {
-  return db.select().from(books).orderBy(desc(books.createdAt));
+  try {
+    return db.select().from(books).orderBy(desc(books.createdAt));
+  } catch {
+    return [];
+  }
 }
 
 export async function addBook(data: {
@@ -69,6 +73,7 @@ export async function deleteBook(id: number) {
 }
 
 export async function getMonthlyReadingStats() {
+  try {
   const all = await db.select().from(books);
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -86,4 +91,7 @@ export async function getMonthlyReadingStats() {
     currentlyReading: all.filter((b) => b.status === "reading").length,
     planned: all.filter((b) => b.status === "planned").length,
   };
+  } catch {
+    return { completedThisMonth: 0, totalCompleted: 0, currentlyReading: 0, planned: 0 };
+  }
 }
