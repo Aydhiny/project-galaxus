@@ -21,14 +21,6 @@ const QUOTES = [
   { text: "Seek knowledge from the cradle to the grave.", source: "Prophet Muhammad ﷺ" },
 ];
 
-// All video IDs verified June 2025
-const VIDEOS = [
-  { id: "OLQRAMZi--c", title: "How to Increase Motivation & Drive", channel: "Huberman Lab Essentials · 2025" },
-  { id: "5j3S2ZuiJfc", title: "Get Up and Get It Done in 2025", channel: "David Goggins · Jun 2025" },
-  { id: "uZaUrI5SwUA", title: "Master Yourself, Master Your Reality", channel: "David Goggins · Aug 2025" },
-  { id: "GrhLT9P61Z8", title: "Improve Motivation & Focus via Dopamine", channel: "Andrew Huberman · 2024" },
-];
-
 export default async function FeedPage() {
   const [checkin, streaks, readingStats, goals] = await Promise.all([
     getTodayCheckin(),
@@ -55,7 +47,6 @@ export default async function FeedPage() {
       completedGoals={completedGoals}
       totalGoals={goals.length}
       readingStats={readingStats}
-      videos={VIDEOS}
     />
   );
 }

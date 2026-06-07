@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { StreakRing } from "@/components/streak-ring";
 import Link from "next/link";
 import {
-  BookOpen, Dumbbell, Moon, CheckCircle2, Play,
+  BookOpen, Dumbbell, Moon, CheckCircle2,
   Quote, ChevronRight, Flame, Sparkles, GitBranch,
 } from "lucide-react";
 
@@ -16,12 +16,11 @@ interface Props {
   completedGoals: number;
   totalGoals: number;
   readingStats: { completedThisMonth: number; currentlyReading: number; totalCompleted: number; planned: number };
-  videos: { id: string; title: string; channel: string }[];
 }
 
 export function FeedClient({
   quote, dateStr, streaks, prayersDone,
-  completedGoals, totalGoals, readingStats, videos,
+  completedGoals, totalGoals, readingStats,
 }: Props) {
   const [typed, setTyped] = useState("");
   const greeting = "As-salamu alaykum, Ajdin.";
@@ -40,7 +39,7 @@ export function FeedClient({
 
   return (
     <div className="min-h-full">
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-card border-b border-border px-6 pt-10 pb-8">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-6 right-16 w-48 h-48 rounded-full blur-3xl opacity-15" style={{ background: "var(--gold)" }} />
@@ -64,7 +63,7 @@ export function FeedClient({
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-        {/* Quote */}
+        {/* ── Quote ──────────────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[var(--gold)]/20 bg-[var(--gold-muted)] p-6 relative overflow-hidden">
           <Quote className="absolute top-4 right-4 w-8 h-8 text-[var(--gold)]/15" />
           <p className="text-lg font-medium leading-relaxed" style={{ fontFamily: "var(--font-heading)" }}>
@@ -73,21 +72,21 @@ export function FeedClient({
           <p className="text-sm text-muted-foreground mt-3">— {quote.source}</p>
         </div>
 
-        {/* Streaks */}
+        {/* ── Streaks ────────────────────────────────────────────────────────── */}
         <div>
           <SectionHeader title="Current Streaks" icon={<Flame className="w-4 h-4" />} />
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 p-5 rounded-2xl border border-border bg-card warm-card">
-            <StreakRing value={streaks.prayers} label="Prayers" color="var(--emerald)" />
-            <StreakRing value={streaks.training} label="Training" color="var(--gold)" />
+            <StreakRing value={streaks.prayers}   label="Prayers"   color="var(--emerald)" />
+            <StreakRing value={streaks.training}  label="Training"  color="var(--gold)" />
             <StreakRing value={streaks.meditation} label="Meditation" color="oklch(0.65 0.20 290)" />
-            <StreakRing value={streaks.music} label="Music" color="oklch(0.70 0.19 32)" />
+            <StreakRing value={streaks.music}     label="Music"     color="oklch(0.70 0.19 32)" />
             <StreakRing value={streaks.gratitude} label="Gratitude" color="oklch(0.65 0.18 200)" />
-            <StreakRing value={streaks.writing} label="Writing" color="oklch(0.62 0.18 25)" />
+            <StreakRing value={streaks.writing}   label="Writing"   color="oklch(0.62 0.18 25)" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Left */}
+          {/* ── Left: today's stats + quick nav ──────────────────────────────── */}
           <div className="lg:col-span-2 space-y-5">
             <div className="rounded-2xl border border-border bg-card p-5 warm-card">
               <div className="flex items-center justify-between mb-3">
@@ -99,12 +98,13 @@ export function FeedClient({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "Prayers", val: `${prayersDone}/5`, href: "/daily" },
+                  { label: "Prayers",  val: `${prayersDone}/5`,                    href: "/daily" },
                   { label: "Training", val: streaks.training > 0 ? "Active" : "—", href: "/training" },
-                  { label: "Reading", val: `${readingStats.currentlyReading} active`, href: "/reading" },
-                  { label: "Goals", val: `${completedGoals}/${totalGoals}`, href: "/goals" },
+                  { label: "Reading",  val: `${readingStats.currentlyReading} active`, href: "/reading" },
+                  { label: "Goals",    val: `${completedGoals}/${totalGoals}`,      href: "/goals" },
                 ].map((s) => (
-                  <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors">
+                  <Link key={s.label} href={s.href}
+                    className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
                     <p className="font-semibold text-sm mt-0.5">{s.val}</p>
                   </Link>
@@ -114,12 +114,13 @@ export function FeedClient({
 
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "Daily Check-in", href: "/daily", icon: <CheckCircle2 className="w-4 h-4" />, color: "var(--gold)" },
-                { label: "Home Workout", href: "/workout", icon: <Dumbbell className="w-4 h-4" />, color: "oklch(0.70 0.19 32)" },
-                { label: "Meditate", href: "/meditation", icon: <Sparkles className="w-4 h-4" />, color: "oklch(0.65 0.20 290)" },
-                { label: "Spiritual", href: "/spiritual", icon: <Moon className="w-4 h-4" />, color: "var(--emerald)" },
+                { label: "Daily Check-in", href: "/daily",      icon: <CheckCircle2 className="w-4 h-4" />, color: "var(--gold)" },
+                { label: "Home Workout",   href: "/workout",    icon: <Dumbbell className="w-4 h-4" />,     color: "oklch(0.70 0.19 32)" },
+                { label: "Meditate",       href: "/meditation", icon: <Sparkles className="w-4 h-4" />,     color: "oklch(0.65 0.20 290)" },
+                { label: "Spiritual",      href: "/spiritual",  icon: <Moon className="w-4 h-4" />,         color: "var(--emerald)" },
               ].map((c) => (
-                <Link key={c.href} href={c.href} className="rounded-xl border border-border bg-card p-3 flex items-center gap-2 hover:bg-accent transition-colors group warm-card">
+                <Link key={c.href} href={c.href}
+                  className="rounded-xl border border-border bg-card p-3 flex items-center gap-2 hover:bg-accent transition-colors group warm-card">
                   <span style={{ color: c.color }}>{c.icon}</span>
                   <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{c.label}</span>
                   <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />
@@ -128,46 +129,18 @@ export function FeedClient({
             </div>
           </div>
 
-          {/* Right */}
-          <div className="lg:col-span-3 space-y-5">
-            <div>
-              <SectionHeader title="Watch Today" icon={<Play className="w-4 h-4" />} />
-              <div className="grid grid-cols-2 gap-3">
-                {videos.map((v) => (
-                  <a key={v.id} href={`https://youtube.com/watch?v=${v.id}`} target="_blank" rel="noopener noreferrer"
-                    className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[var(--gold)]/40 transition-all warm-card">
-                    <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`https://img.youtube.com/vi/${v.id}/mqdefault.jpg`} alt={v.title}
-                        className="w-full aspect-video object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-9 h-9 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
-                          <Play className="w-4 h-4 text-white ml-0.5" />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-3">
-                      <p className="text-xs font-medium line-clamp-2 leading-snug">{v.title}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">{v.channel}</p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
-              <div className="rounded-2xl border border-border bg-card p-4 warm-card overflow-hidden">
-                {/* Light mode: normal. Dark mode: invert so the white bg becomes dark */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://ghchart.rshah.org/C9A84C/Aydhiny"
-                  alt="GitHub contributions"
-                  className="w-full h-auto rounded-lg"
-                  style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }}
-                />
-                <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
-              </div>
+          {/* ── Right: GitHub activity ────────────────────────────────────────── */}
+          <div className="lg:col-span-3">
+            <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
+            <div className="rounded-2xl border border-border bg-card p-5 warm-card overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://ghchart.rshah.org/C9A84C/Aydhiny"
+                alt="GitHub contribution graph"
+                className="w-full h-auto rounded-lg"
+                style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }}
+              />
+              <p className="text-[10px] text-muted-foreground mt-3 text-right">github.com/Aydhiny</p>
             </div>
           </div>
         </div>
@@ -178,8 +151,12 @@ export function FeedClient({
 
 function StatPill({ icon, label, color, active }: { icon: React.ReactNode; label: string; color: string; active: boolean }) {
   return (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${active ? "border-transparent text-background" : "border-border text-muted-foreground"}`}
-      style={active ? { background: color } : {}}>
+    <div
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+        active ? "border-transparent text-background" : "border-border text-muted-foreground"
+      }`}
+      style={active ? { background: color } : {}}
+    >
       {icon}{label}
     </div>
   );

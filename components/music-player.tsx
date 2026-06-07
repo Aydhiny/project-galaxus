@@ -7,34 +7,34 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
-// ─── Track definitions (all IDs verified June 2025) ─────────────────────────
+// ─── Track definitions ────────────────────────────────────────────────────────
 const TRACKS = [
   {
     id: "lofi",
     label: "Lofi Beats",
     icon: "🎵",
-    videoId: "jfKfPfyJRdk", // Lofi Girl 24/7 — active live stream
+    videoId: "jfKfPfyJRdk", // Lofi Girl 24/7 live stream — confirmed active
     color: "oklch(0.65 0.20 290)",
   },
   {
     id: "classical",
     label: "Classical",
     icon: "🎻",
-    videoId: "OYifjZ8jLQs", // 3 Hours Chopin — uploaded June 2025
+    videoId: "OYifjZ8jLQs", // 3 Hours Chopin — June 2025
     color: "oklch(0.72 0.14 78)",
   },
   {
     id: "zelda",
-    label: "Zelda TotK",
+    label: "Zelda & Chill",
     icon: "🗡️",
-    videoId: "F_ICsY-cILU", // Full Original Soundtrack — confirmed
+    videoId: "GdzrrWA8e7A", // Zelda & Chill by Mikel — licensed lofi remix, not Nintendo OST
     color: "oklch(0.68 0.14 158)",
   },
   {
     id: "study",
-    label: "Deep Focus",
+    label: "40Hz Focus",
     icon: "🧠",
-    videoId: "tPO9jxUKIsc", // 6 Hours Classical for Studying
+    videoId: "7Kdc95rNQlc", // 40Hz Gamma Waves — April 2026, deep frequencies
     color: "oklch(0.76 0.17 50)",
   },
 ];
