@@ -5,7 +5,7 @@ import { StreakRing } from "@/components/streak-ring";
 import Link from "next/link";
 import {
   BookOpen, Dumbbell, Moon, CheckCircle2,
-  Quote, ChevronRight, Flame, Sparkles, GitBranch,
+  Quote, ChevronRight, Flame, Sparkles, GitBranch, Play,
 } from "lucide-react";
 
 interface Props {
@@ -16,11 +16,12 @@ interface Props {
   completedGoals: number;
   totalGoals: number;
   readingStats: { completedThisMonth: number; currentlyReading: number; totalCompleted: number; planned: number };
+  videos: { id: string; title: string; channel: string }[];
 }
 
 export function FeedClient({
   quote, dateStr, streaks, prayersDone,
-  completedGoals, totalGoals, readingStats,
+  completedGoals, totalGoals, readingStats, videos,
 }: Props) {
   const [typed, setTyped] = useState("");
   const greeting = "As-salamu alaykum, Ajdin.";
@@ -129,18 +130,30 @@ export function FeedClient({
             </div>
           </div>
 
-          {/* ── Right: GitHub activity ────────────────────────────────────────── */}
-          <div className="lg:col-span-3">
-            <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
-            <div className="rounded-2xl border border-border bg-card p-5 warm-card overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://ghchart.rshah.org/C9A84C/Aydhiny"
-                alt="GitHub contribution graph"
-                className="w-full h-auto rounded-lg"
-                style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }}
-              />
-              <p className="text-[10px] text-muted-foreground mt-3 text-right">github.com/Aydhiny</p>
+          {/* ── Right: videos + GitHub ───────────────────────────────────────── */}
+          <div className="lg:col-span-3 space-y-5">
+            {/* Videos — randomised each refresh, play inline */}
+            <div>
+              <SectionHeader title="Watch Today" icon={<Play className="w-4 h-4" />} />
+              <div className="grid grid-cols-2 gap-3">
+                {videos.map((v) => (
+                  <InlineVideoCard key={v.id} id={v.id} title={v.title} channel={v.channel} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
+              <div className="rounded-2xl border border-border bg-card p-4 warm-card overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://ghchart.rshah.org/C9A84C/Aydhiny"
+                  alt="GitHub contribution graph"
+                  className="w-full h-auto rounded-lg"
+                  style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }}
+                />
+                <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
+              </div>
             </div>
           </div>
         </div>
@@ -168,5 +181,54 @@ function SectionHeader({ title, icon }: { title: string; icon: React.ReactNode }
       <span className="text-muted-foreground">{icon}</span>
       <h2 className="text-sm font-semibold">{title}</h2>
     </div>
+  );
+}
+
+// Click thumbnail → embed replaces it with autoplay
+// This works because the click IS the user gesture that unlocks autoplay
+function InlineVideoCard({ id, title, channel }: { id: string; title: string; channel: string }) {
+  const [playing, setPlaying] = useState(false);
+
+  if (playing) {
+    return (
+      <div className="rounded-xl border border-[var(--gold)]/30 bg-card overflow-hidden warm-card">
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+          className="w-full aspect-video"
+          title={title}
+        />
+        <div className="px-3 py-2">
+          <p className="text-xs font-medium line-clamp-1">{title}</p>
+          <p className="text-[10px] text-muted-foreground">{channel}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setPlaying(true)}
+      className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[var(--gold)]/40 transition-all warm-card text-left w-full"
+    >
+      <div className="relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`https://img.youtube.com/vi/${id}/mqdefault.jpg`}
+          alt={title}
+          className="w-full aspect-video object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center group-hover:bg-[var(--gold)] transition-colors">
+            <Play className="w-4 h-4 text-white ml-0.5" />
+          </div>
+        </div>
+      </div>
+      <div className="px-3 py-2.5">
+        <p className="text-xs font-medium line-clamp-2 leading-snug">{title}</p>
+        <p className="text-[10px] text-muted-foreground mt-1">{channel}</p>
+      </div>
+    </button>
   );
 }

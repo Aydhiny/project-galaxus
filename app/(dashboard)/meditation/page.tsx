@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Wind, Circle, Play, Pause, RotateCcw, Sparkles } from "lucide-react";
+import { upsertCheckin } from "@/lib/actions/checkin";
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,6 +174,17 @@ export default function MeditationPage() {
       setTimeRemaining(selectedDuration);
     }
   }, [selectedDuration, sessionState]);
+
+  // ── Sync meditation streak when session completes ────────────────────────────
+  useEffect(() => {
+    if (sessionState !== "complete") return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    const minutes = Math.round(selectedDuration / 60);
+    upsertCheckin(today, { meditation: true, meditationMinutes: minutes })
+      .then(() => toast.success("Meditation streak updated! 🧘"))
+      .catch(() => {/* silently ignore if DB not set up */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionState]);
 
   // Cleanup on unmount
   useEffect(() => () => clearTimer(), [clearTimer]);

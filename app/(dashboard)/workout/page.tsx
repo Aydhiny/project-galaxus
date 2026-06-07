@@ -2,15 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Dumbbell,
-  Play,
-  Pause,
-  RotateCcw,
-  CheckCircle2,
-  Timer,
-  ChevronRight,
-  Flame,
+  Dumbbell, Play, Pause, RotateCcw, CheckCircle2, Timer, ChevronRight, Flame,
 } from "lucide-react";
+import { upsertCheckin } from "@/lib/actions/checkin";
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -135,6 +131,18 @@ export default function WorkoutPage() {
     totalExerciseSteps > 0 ? (completedSteps / totalExerciseSteps) * 100 : 0;
 
   const currentStep = steps[stepIndex];
+
+  // ── Sync training streak when workout completes ──────────────────────────────
+  useEffect(() => {
+    if (phase !== "complete") return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    // Estimate duration: plan A ~20 min, plan B ~25 min
+    const estimatedMinutes = selectedPlanId === "A" ? 20 : 25;
+    upsertCheckin(today, { training: true, trainingMinutes: estimatedMinutes })
+      .then(() => toast.success("Training streak updated! 💪"))
+      .catch(() => {/* silently ignore if DB not set up */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   // Keep a ref in sync so the interval closure can read it without stale capture
   pausedRef.current = paused;
