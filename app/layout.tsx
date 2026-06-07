@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Lora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { Providers } from "@/components/providers";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -11,6 +12,14 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Warm serif for headings — feels like reading by candlelight
+const lora = Lora({
+  variable: "--font-heading",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -24,19 +33,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark h-full`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col antialiased bg-background text-foreground">
-        {children}
-        <Toaster
-          theme="dark"
-          toastOptions={{
-            style: {
-              background: "oklch(0.10 0.018 265)",
-              border: "1px solid oklch(1 0 0 / 8%)",
-              color: "oklch(0.94 0.01 90)",
-            },
-          }}
-        />
+        <Providers>
+          {children}
+          <Toaster richColors theme="system" />
+        </Providers>
       </body>
     </html>
   );
