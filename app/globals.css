@@ -51,6 +51,14 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ─── GitHub chart filter: dark mode inverts the white SVG background ──────── */
+:root {
+  --gh-chart-filter: saturate(1.3);
+}
+.dark {
+  --gh-chart-filter: invert(1) hue-rotate(175deg) saturate(1.4) brightness(0.85);
+}
+
 /* ─── Light Mode — Warm Parchment ──────────────────────────────────────────── */
 :root {
   --background: oklch(0.96 0.018 75);
@@ -195,10 +203,8 @@
     letter-spacing: -0.01em;
   }
 
-  /* ── Card depth ──
-     Cards get a thin inner highlight along the top edge (like light
-     hitting a raised surface) plus a soft drop shadow beneath.          */
-  .card-surface {
+  /* ── Card depth — only in dark mode ── */
+  .dark .card-surface {
     box-shadow:
       inset 0 1px 0 oklch(1 0 0 / 8%),
       0 4px 20px oklch(0 0 0 / 35%),
@@ -254,9 +260,12 @@
     background: linear-gradient(90deg, oklch(0.76 0.17 50), oklch(0.70 0.19 32));
   }
 
-  /* Subtle top-highlight on any bordered card */
+  /* Subtle top-highlight on any bordered card — lighter in light mode */
   .warm-card {
-    border-color: oklch(1 0 0 / 8%);
+    border-color: var(--border);
+    box-shadow: 0 1px 4px oklch(0 0 0 / 12%);
+  }
+  .dark .warm-card {
     box-shadow:
       inset 0 1px 0 oklch(1 0 0 / 7%),
       0 2px 12px oklch(0 0 0 / 30%);

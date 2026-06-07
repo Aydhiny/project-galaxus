@@ -308,48 +308,86 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {/* Active exercise card */}
+      {/* Active exercise / rest card */}
       {(phase === "exercise" || phase === "resting") && currentStep?.kind === "exercise" && (
-        <div className="rounded-2xl border border-[var(--gold)]/30 bg-card p-8 text-center space-y-6">
+        <div className={`rounded-2xl border p-8 text-center space-y-4 ${
+          phase === "resting"
+            ? "border-[var(--emerald)]/30 bg-card"
+            : "border-[var(--gold)]/30 bg-card"
+        }`}>
+
           {phase === "exercise" ? (
             <>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              {/* Step badge */}
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 Step {stepIndex + 1} of {totalExerciseSteps}
               </p>
-              <h2 className="text-4xl font-bold text-[var(--gold)]">{currentStep.label}</h2>
-              <p className="text-2xl font-semibold">{currentStep.reps}</p>
+
+              {/* Exercise name — big and bold */}
+              <h2
+                className="text-5xl font-bold"
+                style={{ color: "var(--gold)", fontFamily: "var(--font-heading)" }}
+              >
+                {currentStep.label}
+              </h2>
+
+              {/* Reps — very prominent */}
+              <p className="text-6xl font-black tabular-nums text-foreground">
+                {currentStep.reps}
+              </p>
+
+              {/* Elapsed stopwatch */}
+              <ElapsedTimer running={!paused} />
+
               {paused && (
-                <p className="text-sm text-muted-foreground italic">Paused</p>
+                <p className="text-sm text-muted-foreground italic animate-pulse">⏸ Paused</p>
               )}
+
               <button
                 onClick={handleExerciseDone}
                 disabled={paused}
-                className="mt-2 rounded-xl bg-[var(--gold)] px-8 py-3 text-[oklch(0.08_0.01_85)] font-bold text-base flex items-center gap-2 mx-auto hover:opacity-90 transition-opacity disabled:opacity-40"
+                className="mt-2 rounded-2xl bg-[var(--gold)] px-10 py-4 text-[oklch(0.08_0.01_85)] font-bold text-lg flex items-center gap-3 mx-auto hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
               >
-                <CheckCircle2 className="w-5 h-5" />
+                <CheckCircle2 className="w-6 h-6" />
                 Done — Start Rest
               </button>
             </>
           ) : (
             <>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                Next: Step {stepIndex + 2} of {totalExerciseSteps}
+              {/* REST PHASE — giant countdown */}
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Rest · Next up: Step {stepIndex + 2} of {totalExerciseSteps}
               </p>
-              <p className="text-sm font-medium text-muted-foreground">REST</p>
+
+              <p className="text-sm font-semibold uppercase tracking-widest text-[var(--emerald)]">
+                🧘 Rest & Recover
+              </p>
+
+              {/* Giant timer — impossible to miss */}
               <div
-                className="text-7xl font-bold tabular-nums"
-                style={{ color: countdown <= 3 ? "var(--gold)" : undefined }}
+                className="text-[6rem] leading-none font-black tabular-nums transition-colors duration-300"
+                style={{
+                  color: countdown <= 5 ? "var(--gold)" : "var(--foreground)",
+                  textShadow: countdown <= 5 ? "0 0 40px var(--gold)" : "none",
+                }}
               >
                 {formatTime(countdown)}
               </div>
+
+              {/* Progress arc */}
+              <RestProgressBar countdown={countdown} total={currentStep.restSeconds} />
+
               {paused && (
-                <p className="text-sm text-muted-foreground italic">Paused</p>
+                <p className="text-sm text-muted-foreground italic animate-pulse">⏸ Paused</p>
               )}
-              {!paused && steps[stepIndex + 1]?.kind === "exercise" && (
-                <p className="text-sm text-muted-foreground">
-                  Up next:{" "}
-                  <span className="font-semibold text-foreground">
+
+              {steps[stepIndex + 1]?.kind === "exercise" && (
+                <p className="text-base text-muted-foreground">
+                  Coming up:{" "}
+                  <span className="font-bold text-foreground">
                     {(steps[stepIndex + 1] as Extract<WorkoutStep, { kind: "exercise" }>).label}
+                    {" · "}
+                    {(steps[stepIndex + 1] as Extract<WorkoutStep, { kind: "exercise" }>).reps}
                   </span>
                 </p>
               )}
@@ -489,6 +527,57 @@ export default function WorkoutPage() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Elapsed stopwatch shown during exercise ──────────────────────────────────
+function ElapsedTimer({ running }: { running: boolean }) {
+  const [elapsed, setElapsed] = useState(0);
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setElapsed(0);
+    ref.current = setInterval(() => {
+      if (running) setElapsed((e) => e + 1);
+    }, 1000);
+    return () => { if (ref.current) clearInterval(ref.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount once per exercise step
+
+  useEffect(() => {
+    // Just track running state changes
+    if (!running && ref.current) clearInterval(ref.current);
+    if (running && !ref.current) {
+      ref.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    }
+  }, [running]);
+
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+
+  return (
+    <div className="text-center py-2">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Time on set</p>
+      <p className="text-5xl font-black tabular-nums text-foreground/60">
+        {m}:{String(s).padStart(2, "0")}
+      </p>
+    </div>
+  );
+}
+
+// ─── Thin bar showing rest consumed ──────────────────────────────────────────
+function RestProgressBar({ countdown, total }: { countdown: number; total: number }) {
+  const pct = total > 0 ? ((total - countdown) / total) * 100 : 0;
+  return (
+    <div className="w-full max-w-xs mx-auto h-2 rounded-full bg-border overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-1000"
+        style={{
+          width: `${pct}%`,
+          background: "linear-gradient(90deg, var(--emerald), var(--gold))",
+        }}
+      />
     </div>
   );
 }

@@ -158,9 +158,14 @@ export function FeedClient({
             <div>
               <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
               <div className="rounded-2xl border border-border bg-card p-4 warm-card overflow-hidden">
+                {/* Light mode: normal. Dark mode: invert so the white bg becomes dark */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://ghchart.rshah.org/C9A84C/Aydhiny" alt="GitHub contributions"
-                  className="w-full h-auto" style={{ filter: "saturate(1.3)" }} />
+                <img
+                  src="https://ghchart.rshah.org/C9A84C/Aydhiny"
+                  alt="GitHub contributions"
+                  className="w-full h-auto rounded-lg"
+                  style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }}
+                />
                 <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
               </div>
             </div>

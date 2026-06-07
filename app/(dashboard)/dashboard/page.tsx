@@ -21,11 +21,12 @@ const QUOTES = [
   { text: "Seek knowledge from the cradle to the grave.", source: "Prophet Muhammad ﷺ" },
 ];
 
+// All video IDs verified June 2025
 const VIDEOS = [
-  { id: "3NjVPD-QOzg", title: "Why you're always tired (and how to fix it)", channel: "Ali Abdaal" },
-  { id: "tTb3d5cjSFI", title: "The compound effect explained", channel: "Self-Improvement" },
-  { id: "0MjGi8L-6pY", title: "Atomic Habits — core principles", channel: "James Clear" },
-  { id: "eC7xzavzEKY", title: "How to build unbreakable discipline", channel: "David Goggins" },
+  { id: "OLQRAMZi--c", title: "How to Increase Motivation & Drive", channel: "Huberman Lab Essentials · 2025" },
+  { id: "5j3S2ZuiJfc", title: "Get Up and Get It Done in 2025", channel: "David Goggins · Jun 2025" },
+  { id: "uZaUrI5SwUA", title: "Master Yourself, Master Your Reality", channel: "David Goggins · Aug 2025" },
+  { id: "GrhLT9P61Z8", title: "Improve Motivation & Focus via Dopamine", channel: "Andrew Huberman · 2024" },
 ];
 
 export default async function FeedPage() {
