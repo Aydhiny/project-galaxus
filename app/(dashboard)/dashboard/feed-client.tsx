@@ -104,9 +104,10 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             <p className="text-xs text-white/40 uppercase tracking-[0.2em]">{dateStr}</p>
             <p className="text-xs text-white/30">{hijri.short}{hijri.isFriday ? " · Jumu'ah" : ""}{hijri.isRamadan ? " · Ramadan" : ""}</p>
           </div>
-          <GradientText as="h1" from="#60a5fa" via="#818cf8" to="#c4b5fd" className="text-3xl font-bold mb-1" style={{ fontFamily: "var(--font-heading)", minHeight: "2.5rem" } as React.CSSProperties}>
-            {typed}<span className="text-[#173eff] animate-pulse" style={{ WebkitTextFillColor: "initial" }}>|</span>
-          </GradientText>
+          <h1 className="text-3xl font-bold mb-1 flex items-baseline gap-0" style={{ fontFamily: "var(--font-heading)", minHeight: "2.5rem" }}>
+            <span className="heading-gradient">{typed}</span>
+            <span className="text-[#3b82f6] animate-pulse" style={{ WebkitTextFillColor: "#3b82f6" }}>|</span>
+          </h1>
           <p className="text-white/40 text-sm mb-4">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم — In the name of Allah, the Most Gracious.</p>
           <div className="mb-4">
             <PrayerCountdown compact />

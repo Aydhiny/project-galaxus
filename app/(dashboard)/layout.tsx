@@ -55,12 +55,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Desktop sidebar */}
       {!sidebarHidden && (
-        <aside className={cn(
-          "hidden md:flex flex-col border-r border-sidebar-border shrink-0 relative z-10 overflow-hidden",
-          "bg-sidebar/88 backdrop-blur-md",
-          "transition-[width] duration-300 ease-in-out",
-          sidebarCollapsed ? "w-[56px]" : "w-60"
-        )}>
+        <aside
+          suppressHydrationWarning
+          className={cn(
+            "hidden md:flex flex-col border-r border-sidebar-border shrink-0 relative z-10 overflow-hidden",
+            "bg-sidebar/88 backdrop-blur-md",
+            "transition-[width] duration-300 ease-in-out",
+            sidebarCollapsed ? "w-[56px]" : "w-60"
+          )}
+        >
           <Sidebar />
         </aside>
       )}
@@ -91,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Top gradient accent line */}
-        <div className="top-accent h-px w-full shrink-0" />
+        <div className="top-accent w-full shrink-0" suppressHydrationWarning />
 
         <ErrorBoundary label="Page error">
           <div className="flex-1 overflow-y-auto bg-background/88 backdrop-blur-[2px]">

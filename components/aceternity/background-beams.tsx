@@ -15,17 +15,10 @@ const PATHS = [
   "M-180 -391C-180 -391 -112 14 352 141C816 268 884 673 884 673",
 ];
 
+// Note: @keyframes beam-travel is defined in globals.css — no <style> tag here.
 export function BackgroundBeams({ className }: { className?: string }) {
   return (
     <div className={cn("pointer-events-none absolute inset-0 overflow-hidden opacity-40", className)}>
-      <style>{`
-        @keyframes beam-travel {
-          0%   { stroke-dashoffset: 2000; opacity: 0; }
-          5%   { opacity: 1; }
-          90%  { opacity: 0.6; }
-          100% { stroke-dashoffset: 0; opacity: 0; }
-        }
-      `}</style>
       <svg
         className="absolute h-full w-full"
         width="100%" height="100%"

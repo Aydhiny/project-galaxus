@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
@@ -69,7 +70,11 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, toggleHidden } = useUIStore();
   const { openPalette } = useCommandStore();
-  const collapsed = mobile ? false : sidebarCollapsed;
+  // Use mounted guard so SSR and first client render always agree (collapsed=false).
+  // After mount, localStorage value is applied. Prevents hydration mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const collapsed = mounted ? (mobile ? false : sidebarCollapsed) : false;
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard" || pathname === "/";
@@ -78,7 +83,9 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
 
   return (
     <TooltipProvider delay={0}>
-      <div className={cn(
+      {/* suppressHydrationWarning: sidebar reads sidebarCollapsed from localStorage
+          which differs between SSR (default) and first client render */}
+      <div suppressHydrationWarning className={cn(
         "flex flex-col h-full",
         "dark:bg-[rgba(5,8,20,0.97)] dark:backdrop-blur-xl dark:border-r dark:border-white/[0.06]",
         "bg-[#ebeeff] border-r border-black/[0.07]"

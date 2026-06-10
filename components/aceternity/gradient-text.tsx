@@ -1,55 +1,41 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-// Two-color gradients only. No rainbow. Professional.
-// Dark mode defaults: blue-400 → indigo-400
-// Light mode: slightly darker to stay readable on white
+// Uses a CSS class (not inline style) to avoid React SSR hex→rgb hydration mismatch.
+// The .heading-gradient class is defined in globals.css.
 
 interface GradientTextProps {
   children: React.ReactNode;
   className?: string;
-  from?: string;
-  via?: string;  // kept for backward compat — ignored, gradient uses from→to only
-  to?: string;
+  from?: string;  // kept for API compat — ignored, color comes from CSS class
+  via?: string;   // kept for API compat — ignored
+  to?: string;    // kept for API compat — ignored
   as?: keyof React.JSX.IntrinsicElements;
   style?: React.CSSProperties;
 }
 
 export function GradientText({
-  children, className, as: Tag = "span",
-  from = "#60a5fa",  // blue-400
-  to   = "#818cf8",  // indigo-400 — just 2 stops, clean
+  children, className, as: Tag = "span", style,
 }: GradientTextProps) {
   return (
-    <Tag
-      className={cn("bg-clip-text text-transparent", className)}
-      style={{ backgroundImage: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }}
-    >
+    <Tag className={cn("heading-gradient", className)} style={style}>
       {children}
     </Tag>
   );
 }
 
-export function PageTitle({ children, className }: { children: React.ReactNode; className?: string }) {
+export function PageTitle({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <GradientText
-      as="h1"
-      from="#60a5fa"
-      to="#818cf8"
-      className={cn("text-2xl font-bold tracking-tight", className)}
-    >
+    <h1 className={cn("heading-gradient text-2xl font-bold tracking-tight", className)} style={style}>
       {children}
-    </GradientText>
+    </h1>
   );
 }
 
+// SectionLabel: uses .section-label CSS class to avoid SSR dark-mode mismatch
 export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={cn(
-      "text-[10px] font-semibold uppercase tracking-[0.18em]",
-      "text-black/35 dark:text-white/35",
-      className
-    )}>
+    <p className={cn("section-label", className)}>
       {children}
     </p>
   );
