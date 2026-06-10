@@ -8,8 +8,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Fonts
   "font-src 'self' https://fonts.gstatic.com",
-  // Images: self, data URIs, YouTube thumbnails, GitHub chart
-  "img-src 'self' data: https://img.youtube.com https://ghchart.rshah.org https://i.ytimg.com",
+  // Images: allow any HTTPS source (personal app — YouTube, GitHub chart, future embeds)
+  "img-src 'self' data: blob: https:",
   // Frames: YouTube no-cookie only
   "frame-src https://www.youtube-nocookie.com",
   // Connections: self, prayer times API, Aladhan, NeonDB goes through server actions so just self
