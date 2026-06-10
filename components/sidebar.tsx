@@ -143,9 +143,13 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                         "w-4 h-4 shrink-0 transition-colors",
                         active ? "text-blue-400" : "text-muted-foreground group-hover:text-foreground"
                       )} />
-                      {!collapsed && <span className="flex-1 truncate">{label}</span>}
+                      {/* Label fades in/out on collapse */}
+                      <span className={cn(
+                        "flex-1 truncate transition-[opacity,max-width] duration-300 ease-in-out whitespace-nowrap",
+                        collapsed ? "opacity-0 max-w-0 overflow-hidden" : "opacity-100 max-w-[200px]"
+                      )}>{label}</span>
                       {active && !collapsed && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#173eff] shrink-0 animate-[pulse-glow_2s_ease-in-out_infinite]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#173eff] shrink-0 animate-[pulse-glow_2s_ease-in-out_infinite] transition-opacity duration-300" />
                       )}
                     </Link>
                   );

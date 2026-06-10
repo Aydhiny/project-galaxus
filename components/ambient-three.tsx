@@ -23,7 +23,8 @@ export function AmbientThree() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!mounted) return;
+    // Skip Three.js entirely when no ambient sound is active — saves significant GPU
+    if (!mounted || (rainVol === 0 && fireVol === 0)) return;
     let animId = 0;
     let disposed = false;
     let cleanup: (() => void) | undefined;

@@ -11,26 +11,35 @@ interface MovingBorderBtnProps extends React.ButtonHTMLAttributes<HTMLButtonElem
 
 export function MovingBorderBtn({
   children, className, containerClassName, innerClassName,
-  duration = 4, ...props
+  duration = 5, ...props
 }: MovingBorderBtnProps) {
   return (
     <button
-      className={cn("relative inline-flex h-10 overflow-hidden rounded-xl p-[1px] focus:outline-none focus:ring-2 focus:ring-[#173eff]/50", containerClassName, className)}
+      className={cn(
+        "relative inline-flex overflow-hidden rounded-xl p-[1.5px]",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#173eff]/50",
+        "disabled:opacity-50 disabled:cursor-not-allowed",
+        "active:scale-95 transition-transform",
+        containerClassName, className
+      )}
       {...props}
     >
-      {/* Rotating conic border */}
+      {/* Blue-indigo only — no rainbow */}
       <motion.span
-        className="absolute inset-[-1000%]"
-        style={{ background: "conic-gradient(from 0deg, transparent 0%, #173eff 20%, #7c3aed 40%, #06b6d4 60%, #173eff 80%, transparent 100%)" }}
+        className="absolute inset-[-1000%] opacity-85"
+        style={{
+          background:
+            "conic-gradient(from 0deg, transparent 0deg, #173eff 60deg, #4f46e5 120deg, #818cf8 180deg, #4f46e5 240deg, #173eff 300deg, transparent 360deg)",
+        }}
         animate={{ rotate: [0, 360] }}
         transition={{ duration, repeat: Infinity, ease: "linear" }}
       />
-      {/* Inner content */}
       <span className={cn(
-        "inline-flex h-full w-full cursor-pointer items-center justify-center rounded-[10px] px-5 text-sm font-semibold text-white gap-2",
-        "bg-[#070b18]",
-        "hover:bg-[#0d1228]",
-        "transition-colors",
+        "relative z-10 inline-flex h-full w-full items-center justify-center gap-2",
+        "rounded-[10px] px-5 py-2.5",
+        "bg-[#070b18] hover:bg-[#0d1330]",
+        "text-sm font-semibold text-white leading-none",
+        "transition-colors duration-200",
         innerClassName
       )}>
         {children}

@@ -452,7 +452,8 @@ export function RoomBackdrop() {
       </div>
 
       {/* ── FG layer: decorations float IN FRONT of content (z=28) ── */}
-      <div style={{ position:"fixed", inset:0, zIndex:28, pointerEvents:"none", overflow:"hidden" }}>
+      {/* opacity:0.45 so artwork never obscures the dashboard content */}
+      <div style={{ position:"fixed", inset:0, zIndex:28, pointerEvents:"none", overflow:"hidden", opacity:0.45 }}>
         {layers.fg}
       </div>
 

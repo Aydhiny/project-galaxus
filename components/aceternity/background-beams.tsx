@@ -1,53 +1,64 @@
 "use client";
 import React from "react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+
+// CSS-only animation — no framer-motion on this component.
+// The previous version used motion.linearGradient animating SVG attributes via JS
+// which ran on the main thread every frame. This version uses CSS @keyframes
+// which runs on the compositor thread (GPU), dramatically lighter.
 
 const PATHS = [
   "M-380 -189C-380 -189 -312 216 152 343C616 470 684 875 684 875",
-  "M-373 -197C-373 -197 -305 208 159 335C623 462 691 867 691 867",
-  "M-360 -210C-360 -210 -292 195 172 322C636 449 704 854 704 854",
-  "M-347 -223C-347 -223 -279 182 185 309C649 436 717 841 717 841",
-  "M-334 -236C-334 -236 -266 169 198 296C662 423 730 828 730 828",
-  "M-310 -262C-310 -262 -242 143 224 270C688 397 756 802 756 802",
-  "M-286 -288C-286 -288 -218 117 250 244C714 371 782 776 782 776",
-  "M-250 -324C-250 -324 -182 81 286 208C750 335 818 740 818 740",
-  "M-200 -374C-200 -374 -132 31 336 158C800 285 868 690 868 690",
-  "M-150 -424C-150 -424 -82 -19 386 108C850 235 918 640 918 640",
+  "M-356 -215C-356 -215 -288 190 176 317C640 444 708 849 708 849",
+  "M-310 -261C-310 -261 -242 144 222 271C686 398 754 803 754 803",
+  "M-250 -321C-250 -321 -182 84 282 211C746 338 814 743 814 743",
+  "M-180 -391C-180 -391 -112 14 352 141C816 268 884 673 884 673",
 ];
 
 export function BackgroundBeams({ className }: { className?: string }) {
   return (
-    <div className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)}>
+    <div className={cn("pointer-events-none absolute inset-0 overflow-hidden opacity-40", className)}>
+      <style>{`
+        @keyframes beam-travel {
+          0%   { stroke-dashoffset: 2000; opacity: 0; }
+          5%   { opacity: 1; }
+          90%  { opacity: 0.6; }
+          100% { stroke-dashoffset: 0; opacity: 0; }
+        }
+      `}</style>
       <svg
         className="absolute h-full w-full"
         width="100%" height="100%"
-        viewBox="0 0 696 316" fill="none" preserveAspectRatio="xMidYMid slice"
+        viewBox="0 0 696 316" fill="none"
+        preserveAspectRatio="xMidYMid slice"
         xmlns="http://www.w3.org/2000/svg"
       >
+        <defs>
+          <linearGradient id="beam-g1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#173eff" stopOpacity="0" />
+            <stop offset="40%" stopColor="#173eff" stopOpacity="0.9" />
+            <stop offset="70%" stopColor="#4f46e5" stopOpacity="0.7" />
+            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="beam-g2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0" />
+            <stop offset="40%" stopColor="#4f46e5" stopOpacity="0.8" />
+            <stop offset="70%" stopColor="#173eff" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#173eff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
         {PATHS.map((path, i) => (
-          <motion.path
-            key={i} d={path}
-            stroke={`url(#beam-grad-${i})`}
-            strokeOpacity="0.5" strokeWidth="0.5"
+          <path
+            key={i}
+            d={path}
+            stroke={`url(#beam-g${(i % 2) + 1})`}
+            strokeWidth="0.6"
+            strokeDasharray="2000"
+            style={{
+              animation: `beam-travel ${10 + i * 2}s linear ${i * 1.8}s infinite`,
+            }}
           />
         ))}
-        <defs>
-          {PATHS.map((_, i) => (
-            <motion.linearGradient
-              id={`beam-grad-${i}`}
-              key={`g-${i}`}
-              x1="0%" x2="100%" y1="0%" y2="100%"
-              animate={{ x1: ["0%","100%"], x2: ["0%","95%"], y1: ["0%","100%"], y2: ["0%","93%"] }}
-              transition={{ duration: 8 + i * 0.4, ease: "easeInOut", repeat: Infinity, delay: i * 0.3 }}
-            >
-              <stop stopColor="#18CCFC" stopOpacity="0" />
-              <stop stopColor="#18CCFC" offset="30%" />
-              <stop stopColor="#6344F5" offset="60%" />
-              <stop stopColor="#AE48FF" stopOpacity="0" offset="100%" />
-            </motion.linearGradient>
-          ))}
-        </defs>
       </svg>
     </div>
   );

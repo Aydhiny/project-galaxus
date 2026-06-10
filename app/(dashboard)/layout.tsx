@@ -56,8 +56,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Desktop sidebar */}
       {!sidebarHidden && (
         <aside className={cn(
-          "hidden md:flex flex-col border-r border-sidebar-border shrink-0 transition-all duration-200 relative z-10",
+          "hidden md:flex flex-col border-r border-sidebar-border shrink-0 relative z-10 overflow-hidden",
           "bg-sidebar/88 backdrop-blur-md",
+          "transition-[width] duration-300 ease-in-out",
           sidebarCollapsed ? "w-[56px]" : "w-60"
         )}>
           <Sidebar />

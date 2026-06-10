@@ -327,8 +327,8 @@ html.dark[data-room="mountain"] body {
   .dark body::after {
     content: ""; position: fixed; bottom: 0; left: 0; right: 0; height: 1px;
     pointer-events: none; z-index: 9998;
-    background: linear-gradient(90deg, transparent, #173eff 20%, #7c3aed 50%, #06b6d4 80%, transparent);
-    opacity: 0.5;
+    background: linear-gradient(90deg, transparent, #173eff 30%, #4f46e5 70%, transparent);
+    opacity: 0.45;
   }
 
   h1, h2, h3 { font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif; }
@@ -543,20 +543,21 @@ html.dark[data-room="mountain"] body {
   }
 
   /* PROGRESS BAR */
+  /* Progress bar — blue → indigo, 2 colors, animated left to right */
   .progress-bar {
-    background: linear-gradient(90deg, #173eff, #7c3aed, #06b6d4);
+    background: linear-gradient(90deg, #173eff, #4f46e5, #173eff);
     background-size: 200% 100%;
-    animation: gradient-x 3s ease infinite;
+    animation: gradient-x 4s ease infinite;
   }
 
   /* TOP ACCENT LINE */
   .top-accent {
     height: 1px;
-    background: linear-gradient(90deg, transparent, #173eff 25%, #7c3aed 50%, #06b6d4 75%, transparent);
+    background: linear-gradient(90deg, transparent, #173eff 30%, #4f46e5 70%, transparent);
   }
 
   /* Legacy aliases */
-  .lw-top-accent { height: 1px; background: linear-gradient(90deg, transparent, #173eff 20%, #a78bfa 50%, #06b6d4 80%, transparent); }
+  .lw-top-accent { height: 1px; background: linear-gradient(90deg, transparent, #173eff 30%, #4f46e5 70%, transparent); }
   .heading-gradient {
     background: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%);
     -webkit-background-clip: text;
