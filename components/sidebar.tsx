@@ -8,6 +8,7 @@ import {
   Home, CheckSquare, BookOpen, GraduationCap, Dumbbell, Moon,
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, ChevronLeft, ChevronRight, LayoutDashboard, PanelLeftClose, Sunrise, Command,
+  Disc3, Trophy, Download,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -24,6 +25,7 @@ const NAV_GROUPS = [
       { href: "/daily",     icon: CheckSquare,  label: "Daily Check-in" },
       { href: "/goals",     icon: Target,       label: "Goals"          },
       { href: "/review",    icon: BarChart3,    label: "Weekly Review"  },
+      { href: "/yearly",    icon: Trophy,       label: "Year in Review" },
     ],
   },
   {
@@ -50,6 +52,7 @@ const NAV_GROUPS = [
       { href: "/spiritual", icon: Moon,       label: "Spiritual"   },
       { href: "/duas",      icon: BookMarked, label: "Duas & Dhikr"},
       { href: "/creative",  icon: Music2,     label: "Creative"    },
+      { href: "/beats",     icon: Disc3,      label: "Beat Catalog"},
       { href: "/journal",   icon: NotebookPen,label: "Journal"     },
     ],
   },
@@ -168,6 +171,32 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
 
           {/* Room theme picker — expanded only */}
           {!collapsed && !mobile && <RoomCustomizer />}
+
+          {/* Export localStorage data */}
+          {!collapsed && (
+            <button
+              onClick={() => {
+                const data: Record<string, unknown> = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                  const k = localStorage.key(i)!;
+                  if (k.startsWith("galaxus-")) {
+                    try { data[k] = JSON.parse(localStorage.getItem(k)!); }
+                    catch { data[k] = localStorage.getItem(k); }
+                  }
+                }
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = `galaxus-backup-${new Date().toISOString().slice(0,10)}.json`;
+                a.click(); URL.revokeObjectURL(url);
+              }}
+              className="w-full flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-colors text-sm px-3 py-2"
+              title="Download a JSON backup of all local data (moods, metrics, notes)"
+            >
+              <Download className="w-4 h-4 shrink-0" />
+              Export local data
+            </button>
+          )}
 
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}

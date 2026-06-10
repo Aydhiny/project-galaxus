@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { StreakRing } from "@/components/streak-ring";
+import { PrayerCountdown } from "@/components/prayer-countdown";
 import Link from "next/link";
 import {
   BookOpen, Dumbbell, Moon, CheckCircle2,
@@ -10,14 +11,10 @@ import {
 } from "lucide-react";
 import { VIDEO_POOL, pickRandomVideos, type FeedVideo } from "@/lib/constants/videos";
 import { useFeedVideoStore } from "@/lib/store/feed-video";
+import { moodColor, MOOD_LABELS, loadMoods, saveMood, type MoodEntry } from "@/lib/utils/mood";
+import { toHijri } from "@/lib/hijri";
 import { cn } from "@/lib/utils";
 
-/* ─── Mood helpers ─────────────────────────────────────────────────────────── */
-const MOOD_LABELS = ["","Awful","Very Bad","Bad","Meh","Okay","Alright","Good","Great","Amazing","Perfect"];
-function moodColor(n: number) {
-  const hue = Math.round(2 + n * 5.2);
-  return `oklch(0.66 0.22 ${hue})`;
-}
 function MoodIcon({ mood }: { mood: number }) {
   if (mood === 0) return <Meh className="w-4 h-4 text-muted-foreground" />;
   if (mood <= 3) return <Frown className="w-4 h-4" style={{ color: moodColor(mood) }} />;
@@ -26,21 +23,12 @@ function MoodIcon({ mood }: { mood: number }) {
   if (mood <= 9) return <Heart className="w-4 h-4" style={{ color: moodColor(mood) }} />;
   return <Star className="w-4 h-4" style={{ color: moodColor(mood) }} />;
 }
-const MOOD_KEY = "galaxus-moods";
 
 function loadTodayMood(today: string): number {
-  try {
-    const arr = JSON.parse(localStorage.getItem(MOOD_KEY) ?? "[]");
-    return arr.find((e: any) => e.date === today)?.mood ?? 0;
-  } catch { return 0; }
+  return loadMoods().find((e: MoodEntry) => e.date === today)?.mood ?? 0;
 }
 function saveTodayMood(today: string, mood: number) {
-  try {
-    const arr = JSON.parse(localStorage.getItem(MOOD_KEY) ?? "[]");
-    const i = arr.findIndex((e: any) => e.date === today);
-    if (i >= 0) arr[i].mood = mood; else arr.push({ date: today, mood });
-    localStorage.setItem(MOOD_KEY, JSON.stringify(arr));
-  } catch { /* ignore */ }
+  saveMood(today, mood);
 }
 
 interface Props {
@@ -63,6 +51,7 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
   const { pinned } = useFeedVideoStore();
   const today = new Date().toISOString().slice(0, 10);
   const greeting = "As-salamu alaykum, Ajdin.";
+  const hijri = toHijri(new Date());
 
   useEffect(() => { setTodayMood(loadTodayMood(today)); }, [today]);
 
@@ -106,11 +95,17 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
           <div className="absolute bottom-0 left-1/3 w-72 h-36 rounded-full blur-3xl opacity-10" style={{ background: "oklch(0.70 0.15 155)" }} />
         </div>
         <div className="relative max-w-5xl mx-auto">
-          <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-2">{dateStr}</p>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <p className="text-xs text-muted-foreground uppercase tracking-[0.2em]">{dateStr}</p>
+            <p className="text-xs text-muted-foreground/70">{hijri.short}{hijri.isFriday ? " · Jumu'ah" : ""}{hijri.isRamadan ? " · Ramadan" : ""}</p>
+          </div>
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: "var(--font-heading)", minHeight: "2.5rem" }}>
             {typed}<span className="animate-pulse text-[var(--gold)]">|</span>
           </h1>
-          <p className="text-muted-foreground text-sm mb-6">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم — In the name of Allah, the Most Gracious.</p>
+          <p className="text-muted-foreground text-sm mb-4">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم — In the name of Allah, the Most Gracious.</p>
+          <div className="mb-4">
+            <PrayerCountdown compact />
+          </div>
           <div className="flex flex-wrap gap-2">
             <StatPill icon={<Moon className="w-3 h-3" />} label={`${prayersDone}/5 prayers`} color="var(--emerald)" active={prayersDone > 0} />
             <StatPill icon={<CheckCircle2 className="w-3 h-3" />} label={`${completedGoals}/${totalGoals} goals`} color="var(--gold)" active={completedGoals > 0} />

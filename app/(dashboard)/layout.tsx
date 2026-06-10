@@ -9,6 +9,9 @@ import { AmbientThree } from "@/components/ambient-three";
 import { CommandPalette } from "@/components/command-palette";
 import { QuickCapture, QuickCaptureButton } from "@/components/quick-capture";
 import { Screensaver } from "@/components/screensaver";
+import { FloatingPomodoro } from "@/components/pomodoro-float";
+import { ShortcutCheatsheet } from "@/components/shortcut-cheatsheet";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Menu, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -47,6 +50,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Screensaver — z=300 */}
       <Screensaver />
 
+      {/* Keyboard shortcut cheatsheet — z=200 */}
+      <ShortcutCheatsheet />
+
       {/* Desktop sidebar */}
       {!sidebarHidden && (
         <aside className={cn(
@@ -83,14 +89,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <p className="font-semibold text-sm" style={{ fontFamily: "var(--font-heading)" }}>Galaxus</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-background/92 backdrop-blur-[2px]">
-          {children}
-        </div>
+        <ErrorBoundary label="Page error">
+          <div className="flex-1 overflow-y-auto bg-background/92 backdrop-blur-[2px]">
+            {children}
+          </div>
+        </ErrorBoundary>
 
         <MusicPlayer />
       </main>
 
-      {/* Floating quick-capture button */}
+      {/* Floating widgets */}
+      <FloatingPomodoro />
       <QuickCaptureButton />
     </div>
   );

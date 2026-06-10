@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Lora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 
 const geistSans = Geist({ variable: "--font-sans", subsets: ["latin"] });
@@ -41,6 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <Toaster richColors theme="system" />
         </Providers>
+        <Analytics />
+        <SpeedInsights />
         {/* Register service worker */}
         <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {

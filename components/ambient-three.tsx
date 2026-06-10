@@ -16,7 +16,8 @@ export function AmbientThree() {
   const fireVolRef = useRef(0);
   const [mounted, setMounted] = useState(false);
 
-  const { rainVol, fireVol } = useAmbientStore();
+  const rainVol = useAmbientStore(s => s.rainVol);
+  const fireVol = useAmbientStore(s => s.fireVol);
   useEffect(() => { rainVolRef.current = rainVol / 100; }, [rainVol]);
   useEffect(() => { fireVolRef.current = fireVol / 100; }, [fireVol]);
   useEffect(() => setMounted(true), []);

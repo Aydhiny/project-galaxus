@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 */
 
 export function AmbientOverlay() {
-  const { rainVol, fireVol } = useAmbientStore();
+  const rainVol = useAmbientStore(s => s.rainVol);
+  const fireVol = useAmbientStore(s => s.fireVol);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;

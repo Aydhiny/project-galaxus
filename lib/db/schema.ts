@@ -122,6 +122,21 @@ export const journalEntries = pgTable("journal_entries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const beats = pgTable("beats", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  bpm: integer("bpm"),
+  key: varchar("key", { length: 10 }),
+  mood: varchar("mood", { length: 50 }),        // dark / melodic / trap / afro / drill / chill
+  genre: varchar("genre", { length: 50 }),
+  status: varchar("status", { length: 20 }).default("idea"), // idea / draft / finished / released / sold
+  client: varchar("client", { length: 255 }),
+  notes: text("notes"),
+  producedAt: date("produced_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Course = typeof courses.$inferSelect;
@@ -130,3 +145,4 @@ export type TrainingExercise = typeof trainingExercises.$inferSelect;
 export type DailyGoal = typeof dailyGoals.$inferSelect;
 export type GoalCompletion = typeof goalCompletions.$inferSelect;
 export type JournalEntry = typeof journalEntries.$inferSelect;
+export type Beat = typeof beats.$inferSelect;
