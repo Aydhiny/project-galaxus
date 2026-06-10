@@ -66,19 +66,19 @@ export default function ReadingPage() {
   const monthPct = Math.min((stats.completedThisMonth / MONTHLY_GOAL) * 100, 100);
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Pomodoro timer */}
       <PomodoroTimer />
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">Reading</p>
-          <h1 className="text-xl font-bold mt-0.5">Your Library</h1>
+          <p className="section-label mb-1">Reading</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Your Library</h1>
         </div>
         <Button
           onClick={() => setShowAdd(!showAdd)}
-          className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2"
+          className="] font-semibold rounded-xl gap-2"
         >
           <Plus className="w-4 h-4" />
           Add Book
@@ -86,10 +86,10 @@ export default function ReadingPage() {
       </div>
 
       {/* Monthly goal */}
-      <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-5">
+      <div className="glass p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest">Monthly Goal</p>
+            <p className="section-label mb-1">Monthly Goal</p>
             <p className="text-sm font-semibold mt-0.5">
               {stats.completedThisMonth} / {MONTHLY_GOAL} books this month
             </p>
@@ -114,12 +114,12 @@ export default function ReadingPage() {
 
       {/* Add book form */}
       {showAdd && (
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6">
+        <div className="glass p-6">
           <h2 className="font-semibold mb-4">Add New Book</h2>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Title *</Label>
+                <Label className="section-label mb-1">Title *</Label>
                 <Input
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -129,7 +129,7 @@ export default function ReadingPage() {
                 />
               </div>
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Author</Label>
+                <Label className="section-label mb-1">Author</Label>
                 <Input
                   value={form.author}
                   onChange={(e) => setForm((f) => ({ ...f, author: e.target.value }))}
@@ -138,7 +138,7 @@ export default function ReadingPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Pages</Label>
+                <Label className="section-label mb-1">Pages</Label>
                 <Input
                   type="number"
                   value={form.pagesTotal}
@@ -148,7 +148,7 @@ export default function ReadingPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Status</Label>
+                <Label className="section-label mb-1">Status</Label>
                 <select
                   value={form.status}
                   onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
@@ -162,7 +162,7 @@ export default function ReadingPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-widest">Cover Color</Label>
+              <Label className="section-label mb-1">Cover Color</Label>
               <div className="flex gap-2">
                 {COVER_COLORS.map((c) => (
                   <button
@@ -182,7 +182,7 @@ export default function ReadingPage() {
               <Button
                 type="submit"
                 disabled={pending}
-                className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl"
+                className="] font-semibold rounded-xl"
               >
                 {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Book"}
               </Button>

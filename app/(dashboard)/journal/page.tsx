@@ -59,16 +59,16 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-3xl mx-auto">
+    <div className="page max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">Journal</p>
-          <h1 className="text-xl font-bold mt-0.5">Your Inner World</h1>
+          <p className="section-label mb-1">Journal</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Your Inner World</h1>
         </div>
         <Button
           onClick={() => setShowForm(!showForm)}
-          className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2"
+          className="] font-semibold rounded-xl gap-2"
         >
           <Plus className="w-4 h-4" /> New Entry
         </Button>
@@ -82,7 +82,7 @@ export default function JournalPage() {
             onClick={() => setTab(t)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === t
-                ? "bg-[var(--gold)] text-[oklch(0.08_0.01_85)]"
+                ? "]"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -107,7 +107,7 @@ export default function JournalPage() {
 
       {/* New entry form */}
       {showForm && (
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6">
+        <div className="glass p-6">
           <h2 className="font-semibold mb-4">
             {tab === "gratitude" ? "What are you grateful for today?" : "Write freely..."}
           </h2>
@@ -127,7 +127,7 @@ export default function JournalPage() {
 
             {tab === "gratitude" && (
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">Today&apos;s Mood</p>
+                <p className="section-label mb-1">Today&apos;s Mood</p>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map((m) => {
                     const Icon = MOOD_ICONS[m]!;
@@ -150,7 +150,7 @@ export default function JournalPage() {
               <Button
                 type="submit"
                 disabled={pending}
-                className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl"
+                className="] font-semibold rounded-xl"
               >
                 {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Entry"}
               </Button>

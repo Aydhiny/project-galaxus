@@ -127,18 +127,18 @@ export default async function ReviewPage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Header */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">Reflect</p>
-        <h1 className="text-xl font-bold mt-0.5">Weekly Review</h1>
+        <p className="section-label mb-1">Reflect</p>
+        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Weekly Review</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {format(thisWeek.start, "MMM d")} – {format(thisWeek.end, "MMM d, yyyy")}
         </p>
       </div>
 
       {/* Weekly habit grid */}
-      <div className="rounded-2xl border border-white/6 bg-card p-5 space-y-4">
+      <div className="glass p-5 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Calendar className="w-4 h-4 text-[var(--gold)]" />
           <h2 className="text-sm font-semibold">Week at a Glance</h2>
@@ -193,7 +193,7 @@ export default async function ReviewPage() {
           { label: "Journal Entries", icon: <BarChart3 className="w-4 h-4" />, value: `${journalThisWeek}`, prev: null, curr: null, color: "#f97316" },
           { label: "Books Finished", icon: <Trophy className="w-4 h-4" />, value: `${booksThisWeek}`, prev: null, curr: null, color: "var(--gold)" },
         ].map((card, i) => (
-          <div key={i} className="rounded-2xl border border-white/6 bg-card p-4 space-y-2">
+          <div key={i} className="glass p-4 space-y-2">
             <div className="flex items-center gap-1.5" style={{ color: card.color }}>
               {card.icon}
               <span className="text-xs text-muted-foreground">{card.label}</span>
@@ -209,7 +209,7 @@ export default async function ReviewPage() {
       </div>
 
       {/* Weekly wins */}
-      <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-5 space-y-3">
+      <div className="glass p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Trophy className="w-4 h-4 text-[var(--gold)]" />
           <h2 className="text-sm font-semibold">Weekly Wins</h2>
@@ -225,7 +225,7 @@ export default async function ReviewPage() {
       </div>
 
       {/* Per-day prayer breakdown */}
-      <div className="rounded-2xl border border-white/6 bg-card p-5 space-y-3">
+      <div className="glass p-5 space-y-3">
         <h2 className="text-sm font-semibold flex items-center gap-2">
           <Star className="w-4 h-4 text-[var(--emerald)]" /> Daily Prayers Breakdown
         </h2>
@@ -260,7 +260,7 @@ export default async function ReviewPage() {
       </div>
 
       {/* Motivational quote */}
-      <div className="rounded-2xl border border-white/6 bg-card p-5 text-center space-y-2">
+      <div className="glass p-5 text-center space-y-2">
         <p className="text-sm text-foreground/70 italic leading-relaxed">"{quote}"</p>
       </div>
     </div>

@@ -220,11 +220,11 @@ export default function DuasPage() {
   const active = categories.find((c) => c.id === activeTab) ?? categories[0];
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Header */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">Dhikr & Supplication</p>
-        <h1 className="text-xl font-bold mt-0.5">Duas & Dhikr</h1>
+        <p className="section-label mb-1">Dhikr & Supplication</p>
+        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Duas & Dhikr</h1>
         <p className="text-2xl font-light text-[var(--emerald)] mt-1" dir="rtl" style={{ fontFamily: "serif" }}>
           أذكار
         </p>

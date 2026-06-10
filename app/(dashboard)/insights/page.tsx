@@ -95,7 +95,7 @@ function CorrelationCard({ c }: { c: Correlation }) {
   const neutral = Math.abs(c.delta) < 0.3;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+    <div className="glass p-5 space-y-4">
       <div className="flex items-center gap-2">
         <span style={{ color: c.color }}>{c.icon}</span>
         <p className="font-semibold text-sm">{c.label}</p>
@@ -149,7 +149,7 @@ function CrossHabitCard({ c, condLabel }: { c: CrossHabit; condLabel: string }) 
   const diff = c.withPct - c.withoutPct;
   const positive = diff > 5;
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+    <div className="glass p-5 space-y-3">
       <div className="flex items-center gap-2">
         <span style={{ color: c.color }}>{c.icon}</span>
         <p className="font-semibold text-sm leading-tight">{c.label}</p>
@@ -181,7 +181,7 @@ function CrossHabitCard({ c, condLabel }: { c: CrossHabit; condLabel: string }) 
 function SleepBinCard({ bins }: { bins: { label: string; avg: number; count: number }[] }) {
   const max = Math.max(...bins.map(b => b.avg), 1);
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+    <div className="glass p-5 space-y-4">
       <div className="flex items-center gap-2">
         <BedDouble className="w-4 h-4 text-[var(--emerald)]" />
         <p className="font-semibold text-sm">Sleep Duration → Mood</p>
@@ -215,7 +215,7 @@ function DayOfWeekCard({ data }: { data: { day: string; avg: number; count: numb
   const best = valid.length ? [...valid].sort((a, b) => b.avg - a.avg)[0] : null;
   const max = Math.max(...data.map(d => d.avg), 1);
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+    <div className="glass p-5 space-y-4">
       <div className="flex items-center gap-2">
         <BarChart3 className="w-4 h-4 text-[var(--gold)]" />
         <p className="font-semibold text-sm">Mood by Day of Week</p>
@@ -330,9 +330,9 @@ export default function InsightsPage() {
 
   return (
     <ErrorBoundary label="Insights">
-      <div className="p-6 space-y-8 max-w-5xl mx-auto">
+      <div className="page">
         {/* Hero */}
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6 relative overflow-hidden">
+        <div className="glass p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-10"
             style={{ background: "var(--gold)", transform: "translate(30%,-30%)" }} />
           <div className="relative flex items-start gap-4">

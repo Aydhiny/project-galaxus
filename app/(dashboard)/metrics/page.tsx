@@ -209,19 +209,19 @@ export default function MetricsPage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Header */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">Body</p>
-        <h1 className="text-xl font-bold mt-0.5">Body Metrics</h1>
+        <p className="section-label mb-1">Body</p>
+        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Body Metrics</h1>
         <p className="text-sm text-muted-foreground mt-1">Track weight, sleep, water & energy</p>
       </div>
 
       {/* Mood section */}
-      <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-5 space-y-4">
+      <div className="glass p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest">Today&apos;s Mood</p>
+            <p className="section-label mb-1">Today&apos;s Mood</p>
             <div className="flex items-center gap-2 mt-1">
               <MoodIcon mood={todayMood} />
               <div>
@@ -263,7 +263,7 @@ export default function MetricsPage() {
           return (
             <div
               key={m.key}
-              className="rounded-2xl border border-white/6 bg-card p-4 space-y-2"
+              className="glass p-4 space-y-2"
             >
               <div className="flex items-center justify-between">
                 <div style={{ color: m.color }}>{m.icon}</div>
@@ -280,7 +280,7 @@ export default function MetricsPage() {
       </div>
 
       {/* Today's input */}
-      <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-5 space-y-4">
+      <div className="glass p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Log Today</h2>
           <span className="text-xs text-muted-foreground">{format(new Date(), "EEEE, MMM d")}</span>
@@ -313,7 +313,7 @@ export default function MetricsPage() {
             "rounded-xl font-semibold text-sm",
             saved
               ? "bg-[var(--emerald)]/20 text-[var(--emerald)] border border-[var(--emerald)]/30"
-              : "bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)]"
+              : "]"
           )}
         >
           {saved ? "Saved!" : "Save Today's Metrics"}
@@ -325,7 +325,7 @@ export default function MetricsPage() {
         {METRICS.map((m) => {
           const hasData = chartData.some((d) => d[m.key] != null);
           return (
-            <div key={m.key} className="rounded-2xl border border-white/6 bg-card p-5 space-y-3">
+            <div key={m.key} className="glass p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <span style={{ color: m.color }}>{m.icon}</span>
                 <h3 className="text-sm font-semibold">{m.label}</h3>

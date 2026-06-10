@@ -192,14 +192,11 @@ export default function MeditationPage() {
   const isActive = sessionState === "running" || sessionState === "paused";
 
   return (
-    <div className="p-6 space-y-8 max-w-xl mx-auto">
+    <div className="page max-w-xl">
       {/* Header */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">Meditation</p>
-        <h1 className="text-xl font-bold mt-0.5 flex items-center gap-2">
-          <Wind className="w-5 h-5 text-[var(--emerald)]" />
-          Box Breathing
-        </h1>
+        <p className="section-label mb-1">Meditation</p>
+        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Box Breathing</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Find a comfortable position. Close your eyes. Breathe.
         </p>
@@ -217,7 +214,7 @@ export default function MeditationPage() {
 
       {/* Duration selector — only when idle */}
       {sessionState === "idle" && (
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="glass p-6">
           <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
             Session Duration
           </p>
@@ -354,17 +351,17 @@ export default function MeditationPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-border bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-2xl font-bold text-[var(--emerald)]">
             {formatTime(timeRemaining)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Remaining</p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-2xl font-bold">{breathCycles}</p>
           <p className="text-xs text-muted-foreground mt-1">Cycles</p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-2xl font-bold">
             {PHASE_DURATION}s
           </p>

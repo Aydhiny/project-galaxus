@@ -175,11 +175,11 @@ export default function SpiritualPage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Header */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">Spiritual</p>
-        <h1 className="text-xl font-bold mt-0.5">
+        <p className="section-label mb-1">Spiritual</p>
+        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>
           بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
@@ -189,22 +189,22 @@ export default function SpiritualPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-[var(--emerald)]/20 bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-3xl font-bold text-[var(--emerald)]">{prayerStreak}</p>
           <p className="text-xs text-muted-foreground mt-1">Full-prayer streak (days)</p>
         </div>
-        <div className="rounded-2xl border border-white/6 bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-3xl font-bold text-[var(--gold)]">{prayerRate}%</p>
           <p className="text-xs text-muted-foreground mt-1">Prayer consistency</p>
         </div>
-        <div className="rounded-2xl border border-white/6 bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-3xl font-bold">{totalQuranPages}</p>
           <p className="text-xs text-muted-foreground mt-1">Quran pages read</p>
         </div>
       </div>
 
       {/* Today's prayers */}
-      <div className="rounded-2xl border border-[var(--emerald)]/20 bg-card p-6">
+      <div className="glass p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-semibold flex items-center gap-2">
             <span className="text-lg">🕌</span> Today&apos;s Prayers
@@ -248,7 +248,7 @@ export default function SpiritualPage() {
       </div>
 
       {/* 30-day prayer grid */}
-      <div className="rounded-2xl border border-white/6 bg-card p-6">
+      <div className="glass p-6">
         <h2 className="font-semibold mb-4">30-Day Prayer History</h2>
         <div className="grid grid-cols-10 gap-1.5">
           {last30Days.map((day) => {
@@ -288,7 +288,7 @@ export default function SpiritualPage() {
       </div>
 
       {/* Quran tracker */}
-      <div className="rounded-2xl border border-white/6 bg-card p-6">
+      <div className="glass p-6">
         <h2 className="font-semibold mb-4">📖 Quran Reading</h2>
         <div className="space-y-2">
           {last30Days.slice(-14).map((day) => {
@@ -323,7 +323,7 @@ export default function SpiritualPage() {
       </div>
 
       {/* ── Tasbih counter ─────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-[var(--emerald)]/20 bg-card p-6 space-y-4">
+      <div className="glass p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold flex items-center gap-2">
             <span className="text-lg">📿</span> Tasbih
@@ -370,7 +370,7 @@ export default function SpiritualPage() {
 
       {/* ── Ramadan mode (auto-shows when Hijri month = Ramadan) ─────────── */}
       {isRamadan && (
-        <div className="rounded-2xl border border-[var(--emerald)]/30 bg-card p-6 space-y-5">
+        <div className="glass p-6 space-y-5">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-semibold flex items-center gap-2 text-[var(--emerald)]">
               <span className="text-lg">🌙</span> Ramadan {hijri.year}
@@ -426,7 +426,7 @@ export default function SpiritualPage() {
       )}
 
       {/* Dua */}
-      <div className="rounded-2xl border border-[var(--gold)]/15 bg-[var(--gold-muted)] p-5 text-center space-y-2">
+      <div className="glass p-5 text-center space-y-2">
         <p className="text-[var(--gold)] font-arabic text-lg">
           رَبِّ زِدۡنِي عِلۡمٗا
         </p>

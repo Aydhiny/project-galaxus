@@ -243,15 +243,12 @@ export default function WorkoutPage() {
   const showPauseIcon = isRunning && !paused;
 
   return (
-    <div className="p-6 space-y-8 max-w-2xl mx-auto">
+    <div className="page max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">Workout</p>
-          <h1 className="text-xl font-bold mt-0.5 flex items-center gap-2">
-            <Flame className="w-5 h-5 text-[var(--gold)]" />
-            Home Workout Timer
-          </h1>
+          <p className="section-label mb-1">Workout</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Home Workout Timer</h1>
         </div>
         {phase !== "idle" && (
           <div className="text-right">
@@ -288,7 +285,7 @@ export default function WorkoutPage() {
 
       {/* Plan steps overview — only when idle */}
       {phase === "idle" && (
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="glass p-6">
           <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
             <Timer className="w-4 h-4 text-[var(--gold)]" />
             {plan.name} — Steps
@@ -497,7 +494,7 @@ export default function WorkoutPage() {
 
       {/* Step list with done indicators — visible during workout */}
       {(phase === "exercise" || phase === "resting" || phase === "complete") && (
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-2">
+        <div className="glass p-6 space-y-2">
           <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Steps</h3>
           {exerciseSteps.map((step, i) => {
             const isDone = i < completedSteps;

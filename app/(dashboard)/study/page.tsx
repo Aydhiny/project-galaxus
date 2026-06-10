@@ -56,29 +56,29 @@ export default function StudyPage() {
   const completed = courses.filter((c) => c.status === "completed");
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Pomodoro Timer */}
       <PomodoroTimer />
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">Study</p>
-          <h1 className="text-xl font-bold mt-0.5">Courses & Learning</h1>
+          <p className="section-label mb-1">Study</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Courses & Learning</h1>
         </div>
         <Button
           onClick={() => setShowAdd(!showAdd)}
-          className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2"
+          className="] font-semibold rounded-xl gap-2"
         >
           <Plus className="w-4 h-4" /> Add Course
         </Button>
       </div>
 
       {/* Monthly goal */}
-      <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-5">
+      <div className="glass p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest">Monthly Goal</p>
+            <p className="section-label mb-1">Monthly Goal</p>
             <p className="text-sm font-semibold mt-0.5">
               {completedThisMonth} / {MONTH_GOAL} course this month
             </p>
@@ -98,29 +98,29 @@ export default function StudyPage() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6">
+        <div className="glass p-6">
           <h2 className="font-semibold mb-4">Add Course</h2>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Course Title *</Label>
+                <Label className="section-label mb-1">Course Title *</Label>
                 <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Course title" required className="bg-white/5 border-white/10" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Platform</Label>
+                <Label className="section-label mb-1">Platform</Label>
                 <Input value={form.platform} onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))} placeholder="e.g. Udemy, YouTube, Coursera" className="bg-white/5 border-white/10" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Instructor</Label>
+                <Label className="section-label mb-1">Instructor</Label>
                 <Input value={form.instructor} onChange={(e) => setForm((f) => ({ ...f, instructor: e.target.value }))} placeholder="Instructor name" className="bg-white/5 border-white/10" />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">URL</Label>
+                <Label className="section-label mb-1">URL</Label>
                 <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="Course URL (optional)" className="bg-white/5 border-white/10" />
               </div>
             </div>
             <div className="flex gap-3">
-              <Button type="submit" disabled={pending} className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl">
+              <Button type="submit" disabled={pending} className="] font-semibold rounded-xl">
                 {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Course"}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>

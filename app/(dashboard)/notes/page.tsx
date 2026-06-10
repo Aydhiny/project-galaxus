@@ -130,8 +130,8 @@ export default function NotesPage() {
         <div className="p-4 border-b border-white/6 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-widest">Brain Dump</p>
-              <h1 className="text-sm font-bold mt-0.5">Notes</h1>
+              <p className="section-label mb-0.5">Brain Dump</p>
+              <h1 className="text-sm font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Notes</h1>
             </div>
             <Button
               onClick={createNote}

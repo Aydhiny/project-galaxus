@@ -98,16 +98,16 @@ export default function GoalsPage() {
   );
 
   return (
-    <div className="p-6 space-y-8 max-w-3xl mx-auto">
+    <div className="page max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">Goals</p>
-          <h1 className="text-xl font-bold mt-0.5">Daily Goals</h1>
+          <p className="section-label mb-1">Goals</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Daily Goals</h1>
         </div>
         <Button
           onClick={() => setShowAdd(!showAdd)}
-          className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2"
+          className="gap-2"
         >
           <Plus className="w-4 h-4" /> Add Goal
         </Button>
@@ -115,7 +115,7 @@ export default function GoalsPage() {
 
       {/* Today's progress */}
       {goals.length > 0 && (
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-5">
+        <div className="glass p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="font-semibold">Today&apos;s Progress</p>
             <p className="text-2xl font-bold text-[var(--gold)]">
@@ -134,7 +134,7 @@ export default function GoalsPage() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6">
+        <div className="glass p-6">
           <h2 className="font-semibold mb-4">New Goal</h2>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="space-y-1.5">
@@ -162,7 +162,7 @@ export default function GoalsPage() {
             </div>
 
             <div className="flex gap-3">
-              <Button type="submit" disabled={pending} className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl">
+              <Button type="submit" disabled={pending} className="font-semibold rounded-xl">
                 {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Goal"}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>

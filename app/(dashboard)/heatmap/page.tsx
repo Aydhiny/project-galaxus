@@ -137,11 +137,11 @@ export default function HeatmapPage() {
   });
 
   return (
-    <div className="p-6 space-y-8 max-w-5xl mx-auto">
+    <div className="page">
       {/* Header */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">Progress</p>
-        <h1 className="text-xl font-bold mt-0.5">Habit Heatmap</h1>
+        <p className="section-label mb-1">Progress</p>
+        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Habit Heatmap</h1>
         <p className="text-sm text-muted-foreground mt-1">{year} — last 365 days</p>
       </div>
 
@@ -156,7 +156,7 @@ export default function HeatmapPage() {
             const total = calcTotal(grid, habit.getValue);
 
             return (
-              <div key={habit.key} className="rounded-2xl border border-white/6 bg-card p-5 space-y-3">
+              <div key={habit.key} className="glass p-5 space-y-3">
                 {/* Habit header */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">

@@ -148,7 +148,7 @@ function BeatRow({
   const status = (beat.status ?? "idea") as BeatStatus;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-2 group relative hover:border-[var(--gold)]/25 transition-colors">
+    <div className="glass p-4 space-y-2 group relative hover:border-[var(--gold)]/25 transition-colors">
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-sm truncate flex-1">{beat.name}</p>
         <span className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
@@ -265,7 +265,7 @@ function IncomeTab({ beats }: { beats: Beat[] }) {
           { label: "This month",       value: `$${(thisMonthCents / 100).toFixed(2)}`, icon: <Calendar className="w-4 h-4"/>,   color: "var(--emerald)" },
           { label: "Sales recorded",   value: String(sales.length),                     icon: <TrendingUp className="w-4 h-4"/>, color: "oklch(0.65 0.20 290)" },
         ].map(c => (
-          <div key={c.label} className="rounded-2xl border border-border bg-card p-4 space-y-2">
+          <div key={c.label} className="glass p-4 space-y-2">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${c.color}18`, color: c.color }}>
               {c.icon}
             </div>
@@ -276,7 +276,7 @@ function IncomeTab({ beats }: { beats: Beat[] }) {
       </div>
 
       {/* Chart */}
-      <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="glass p-5">
         <p className="text-xs text-muted-foreground mb-4">Monthly revenue — last 6 months</p>
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={chartData} barSize={24}>
@@ -439,12 +439,12 @@ export default function BeatsPage() {
 
   return (
     <ErrorBoundary label="Beat Catalog">
-      <div className="p-6 space-y-6 max-w-5xl mx-auto">
+      <div className="page">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2.5">
             <Disc3 className="w-5 h-5 text-[var(--gold)]" />
-            <h1 className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>Beats</h1>
+            <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Beats</h1>
           </div>
           {/* Tabs */}
           <div className="flex gap-1 p-1 rounded-xl border border-border bg-muted/30">

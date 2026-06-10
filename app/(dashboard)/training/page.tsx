@@ -89,16 +89,16 @@ export default function TrainingPage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">Training</p>
-          <h1 className="text-xl font-bold mt-0.5">Fitness Tracker</h1>
+          <p className="section-label mb-1">Training</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Fitness Tracker</h1>
         </div>
         <Button
           onClick={() => setShowAdd(!showAdd)}
-          className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2"
+          className="] font-semibold rounded-xl gap-2"
         >
           <Plus className="w-4 h-4" /> New Plan
         </Button>
@@ -106,18 +106,18 @@ export default function TrainingPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
             <Flame className="w-4 h-4 text-[var(--gold)]" />
           </div>
           <p className="text-3xl font-bold text-[var(--gold)]">{streak}</p>
           <p className="text-xs text-muted-foreground mt-1">Day streak</p>
         </div>
-        <div className="rounded-2xl border border-white/6 bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-3xl font-bold">{totalSessions}</p>
           <p className="text-xs text-muted-foreground mt-1">Sessions (30d)</p>
         </div>
-        <div className="rounded-2xl border border-white/6 bg-card p-4 text-center">
+        <div className="glass p-4 text-center">
           <p className="text-3xl font-bold text-[var(--emerald)]">
             {totalSessions > 0 ? Math.round((totalSessions / 30) * 100) : 0}%
           </p>
@@ -127,7 +127,7 @@ export default function TrainingPage() {
 
       {/* Today's workout */}
       {activePlan && (
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6">
+        <div className="glass p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold flex items-center gap-2">
               <Dumbbell className="w-4 h-4 text-[var(--gold)]" />
@@ -163,7 +163,7 @@ export default function TrainingPage() {
       )}
 
       {/* 30-day training calendar */}
-      <div className="rounded-2xl border border-white/6 bg-card p-6">
+      <div className="glass p-6">
         <h2 className="font-semibold mb-4">30-Day Training History</h2>
         <div className="grid grid-cols-10 gap-1.5">
           {last30.map((day) => {
@@ -194,23 +194,23 @@ export default function TrainingPage() {
 
       {/* Add plan form */}
       {showAdd && (
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6">
+        <div className="glass p-6">
           <h2 className="font-semibold mb-5">Create Training Plan</h2>
           <form onSubmit={handleAdd} className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Plan Name *</Label>
+                <Label className="section-label mb-1">Plan Name *</Label>
                 <Input value={planName} onChange={(e) => setPlanName(e.target.value)} placeholder="e.g. Push/Pull/Legs" required className="bg-white/5 border-white/10" />
               </div>
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Description</Label>
+                <Label className="section-label mb-1">Description</Label>
                 <Input value={planDesc} onChange={(e) => setPlanDesc(e.target.value)} placeholder="Optional description" className="bg-white/5 border-white/10" />
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Exercises</Label>
+                <Label className="section-label mb-1">Exercises</Label>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setExercises((e) => [...e, { name: "", sets: "", reps: "", day: "Monday", weight: "" }])} className="text-xs gap-1">
                   <Plus className="w-3 h-3" /> Add
                 </Button>
@@ -257,7 +257,7 @@ export default function TrainingPage() {
             </div>
 
             <div className="flex gap-3">
-              <Button type="submit" disabled={pending} className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl">
+              <Button type="submit" disabled={pending} className="] font-semibold rounded-xl">
                 {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Plan"}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
@@ -275,7 +275,7 @@ export default function TrainingPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-sm">{plan.name}</p>
-                  {plan.isActive && <Badge className="bg-[var(--gold)] text-[oklch(0.08_0.01_85)] text-[10px]">Active</Badge>}
+                  {plan.isActive && <Badge className="] text-[10px]">Active</Badge>}
                 </div>
                 {plan.description && <p className="text-xs text-muted-foreground mt-0.5">{plan.description}</p>}
               </div>

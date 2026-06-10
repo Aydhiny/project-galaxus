@@ -75,7 +75,7 @@ function StatCard({ icon, label, value, sub, color }: {
     : "";
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-3 lw-card-glow">
+    <div className="glass p-5 space-y-3 lw-card-glow">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${color}18`, color }}>
         {icon}
       </div>
@@ -228,13 +228,13 @@ export default function YearlyPage() {
 
   return (
     <ErrorBoundary label="Yearly Review">
-      <div className="p-6 space-y-10 max-w-5xl mx-auto">
+      <div className="page">
         {/* Hero */}
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-8 relative overflow-hidden">
+        <div className="glass p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl opacity-10" style={{ background: "var(--gold)", transform: "translate(30%, -30%)" }} />
           <div className="relative">
-            <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-2">{YEAR} — Year in Review</p>
-            <h1 className="text-4xl font-bold text-[var(--gold)]" style={{ fontFamily: "var(--font-heading)" }}>
+            <p className="section-label mb-2">{YEAR} — Year in Review</p>
+            <h1 className="text-4xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>
               Your {YEAR}.
             </h1>
             <p className="text-muted-foreground mt-2 text-sm max-w-md">

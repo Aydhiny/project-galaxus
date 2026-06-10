@@ -154,12 +154,12 @@ export default function DailyPage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-2xl mx-auto page-fade-in">
+    <div className="page max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">Daily Check-in</p>
-          <h1 className="text-2xl font-bold mt-0.5 lw-gradient-text">{todayDisplay}</h1>
+          <p className="section-label mb-1">Daily Check-in</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>{todayDisplay}</h1>
         </div>
         <ShineButton
           onClick={save}

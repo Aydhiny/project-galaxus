@@ -90,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Top gradient accent line */}
-        <div className="h-px w-full shrink-0 bg-gradient-to-r from-transparent via-[#173eff]/50 to-transparent" />
+        <div className="top-accent w-full shrink-0" />
 
         <ErrorBoundary label="Page error">
           <div className="flex-1 overflow-y-auto bg-background/88 backdrop-blur-[2px]">

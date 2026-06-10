@@ -135,7 +135,7 @@ function SessionLogger() {
         </div>
         {!running ? (
           <Button onClick={startSession}
-            className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2">
+            className="] font-semibold rounded-xl gap-2">
             <Play className="w-4 h-4" /> Start Session
           </Button>
         ) : (
@@ -240,11 +240,11 @@ export default function CreativePage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
+    <div className="page max-w-4xl">
       {/* Header */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">Creative</p>
-        <h1 className="text-xl font-bold mt-0.5">Creative Studio</h1>
+        <p className="section-label mb-1">Creative</p>
+        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Creative Studio</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Music · Design · YouTube — your art, tracked.
         </p>
@@ -310,7 +310,7 @@ export default function CreativePage() {
       </div>
 
       {/* Design section */}
-      <div className="rounded-2xl border border-[var(--gold)]/20 bg-card p-6 space-y-4">
+      <div className="glass p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Palette className="w-4 h-4 text-[var(--gold)]" />
