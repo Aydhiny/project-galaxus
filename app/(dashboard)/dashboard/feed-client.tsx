@@ -89,18 +89,18 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
   return (
     <div className="min-h-full">
       {/* Hero */}
-      <div className="relative overflow-hidden bg-card border-b border-border px-6 pt-10 pb-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-[oklch(0.095_0.022_258)] to-[oklch(0.065_0.020_258)] border-b border-[oklch(1_0_0/8%)] px-6 pt-10 pb-8">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-6 right-16 w-48 h-48 rounded-full blur-3xl opacity-15" style={{ background: "var(--gold)" }} />
-          <div className="absolute bottom-0 left-1/3 w-72 h-36 rounded-full blur-3xl opacity-10" style={{ background: "oklch(0.70 0.15 155)" }} />
+          <div className="absolute top-6 right-16 w-48 h-48 rounded-full blur-3xl opacity-20" style={{ background: "oklch(0.58 0.28 258)" }} />
+          <div className="absolute bottom-0 left-1/3 w-72 h-36 rounded-full blur-3xl opacity-10" style={{ background: "oklch(0.62 0.26 290)" }} />
         </div>
         <div className="relative max-w-5xl mx-auto">
           <div className="flex items-center justify-between gap-4 mb-2">
             <p className="text-xs text-muted-foreground uppercase tracking-[0.2em]">{dateStr}</p>
             <p className="text-xs text-muted-foreground/70">{hijri.short}{hijri.isFriday ? " · Jumu'ah" : ""}{hijri.isRamadan ? " · Ramadan" : ""}</p>
           </div>
-          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: "var(--font-heading)", minHeight: "2.5rem" }}>
-            {typed}<span className="animate-pulse text-[var(--gold)]">|</span>
+          <h1 className="text-3xl font-bold mb-1 lw-gradient-text" style={{ fontFamily: "var(--font-heading)", minHeight: "2.5rem" }}>
+            {typed}<span className="animate-pulse text-[#173eff]" style={{ WebkitTextFillColor: "initial" }}>|</span>
           </h1>
           <p className="text-muted-foreground text-sm mb-4">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم — In the name of Allah, the Most Gracious.</p>
           <div className="mb-4">
@@ -245,8 +245,15 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
 
 function StatPill({ icon, label, color, active }: { icon: React.ReactNode; label: string; color: string; active: boolean }) {
   return (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${active ? "border-transparent text-background" : "border-border text-muted-foreground"}`}
-      style={active ? { background: color } : {}}>{icon}{label}</div>
+    <div
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${active ? "border-transparent text-white" : "border-border text-muted-foreground"}`}
+      style={active ? {
+        backgroundImage: "linear-gradient(135deg, #173eff 0%, #3758f9 50%, #6366f1 100%)",
+        boxShadow: "0 2px 12px rgba(23,62,255,0.35)",
+      } : {}}
+    >
+      {icon}{label}
+    </div>
   );
 }
 function SectionHeader({ title, icon }: { title: string; icon: React.ReactNode }) {
@@ -275,7 +282,7 @@ function InlineVideoCard({ id, title, channel }: FeedVideo) {
   );
 
   return (
-    <button onClick={handlePlay} className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[var(--gold)]/40 transition-all text-left w-full">
+    <button onClick={handlePlay} className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[#173eff]/40 transition-all text-left w-full">
       <div className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={`https://img.youtube.com/vi/${id}/mqdefault.jpg`} alt={title}
@@ -283,13 +290,13 @@ function InlineVideoCard({ id, title, channel }: FeedVideo) {
         <div className="absolute inset-0 flex items-center justify-center">
           <div className={cn(
             "w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-colors",
-            isThisPinned ? "bg-[var(--gold)]" : "bg-black/60 group-hover:bg-[var(--gold)]"
+            isThisPinned ? "bg-[#173eff]" : "bg-black/60 group-hover:bg-[#173eff]"
           )}>
             <Play className="w-4 h-4 text-white ml-0.5" />
           </div>
         </div>
         {isThisPinned && (
-          <div className="absolute top-2 left-2 bg-[var(--gold)] text-[oklch(0.08_0.01_85)] text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+          <div className="absolute top-2 left-2 bg-[#173eff] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
             PLAYING
           </div>
         )}

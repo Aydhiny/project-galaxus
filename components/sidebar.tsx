@@ -78,33 +78,42 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
   return (
     <TooltipProvider delay={0}>
       <div className="flex flex-col h-full">
-        {/* Logo */}
-        <div className={cn("px-3 py-4 border-b border-border flex items-center", collapsed ? "justify-center" : "justify-between gap-2")}>
+
+        {/* ── Logo ─────────────────────────────────────────────────────── */}
+        <div className={cn(
+          "px-3 py-4 border-b border-sidebar-border flex items-center",
+          collapsed ? "justify-center" : "justify-between gap-2"
+        )}>
           {!collapsed && (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-[var(--gold-muted)] border border-[var(--gold)]/30 flex items-center justify-center shrink-0">
-                <LayoutDashboard className="w-3.5 h-3.5 text-[var(--gold)]" />
+              <div className="w-7 h-7 rounded-lg bg-[#173eff]/15 border border-[#173eff]/30 flex items-center justify-center shrink-0">
+                <LayoutDashboard className="w-3.5 h-3.5 text-[#3758f9]" />
               </div>
               <div className="min-w-0">
-                <p className="font-bold text-sm tracking-wide truncate" style={{ fontFamily: "var(--font-heading)" }}>Galaxus</p>
-                <p className="text-[9px] text-muted-foreground tracking-widest uppercase">Your Universe</p>
+                <p
+                  className="font-bold text-sm tracking-wide truncate lw-gradient-text"
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  GALAXUS
+                </p>
+                <p className="text-[9px] text-muted-foreground/60 tracking-[0.2em] uppercase">Your Universe</p>
               </div>
             </div>
           )}
           {collapsed && (
-            <div className="w-7 h-7 rounded-lg bg-[var(--gold-muted)] border border-[var(--gold)]/30 flex items-center justify-center">
-              <LayoutDashboard className="w-3.5 h-3.5 text-[var(--gold)]" />
+            <div className="w-7 h-7 rounded-lg bg-[#173eff]/15 border border-[#173eff]/30 flex items-center justify-center">
+              <LayoutDashboard className="w-3.5 h-3.5 text-[#3758f9]" />
             </div>
           )}
           {!collapsed && <ThemeToggle />}
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-4">
+        {/* ── Nav ──────────────────────────────────────────────────────── */}
+        <nav className="flex-1 px-2 py-3 overflow-y-auto scrollbar-hide space-y-4">
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
               {!collapsed && (
-                <p className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground px-2 mb-1.5 font-semibold">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground/50 px-2 mb-1.5 font-semibold">
                   {group.label}
                 </p>
               )}
@@ -116,15 +125,21 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                       href={href}
                       onClick={onClose}
                       className={cn(
-                        "flex items-center rounded-xl text-sm font-medium transition-all duration-150 group",
-                        collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2.5",
+                        "flex items-center rounded-lg text-sm font-medium transition-all duration-150 group relative",
+                        collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2",
                         active
-                          ? "bg-[var(--gold-muted)] text-[var(--gold)] border border-[var(--gold)]/25"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                          ? "bg-[#173eff]/10 text-[#3758f9] border-l-2 border-[#173eff]"
+                          : "text-muted-foreground hover:text-foreground hover:bg-[oklch(1_0_0/5%)] border-l-2 border-transparent"
                       )}
                     >
-                      <Icon className={cn("w-4 h-4 shrink-0", active ? "text-[var(--gold)]" : "text-muted-foreground group-hover:text-foreground")} />
+                      <Icon className={cn(
+                        "w-4 h-4 shrink-0 transition-colors",
+                        active ? "text-[#3758f9]" : "text-muted-foreground group-hover:text-foreground"
+                      )} />
                       {!collapsed && <span className="flex-1 truncate">{label}</span>}
+                      {active && !collapsed && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#173eff] shrink-0" />
+                      )}
                     </Link>
                   );
 
@@ -143,29 +158,41 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Bottom */}
-        <div className={cn("px-2 py-3 border-t border-border space-y-1", collapsed && "flex flex-col items-center")}>
+        {/* ── Bottom ───────────────────────────────────────────────────── */}
+        <div className={cn(
+          "px-2 py-3 border-t border-sidebar-border space-y-0.5",
+          collapsed && "flex flex-col items-center"
+        )}>
           {!collapsed && (
-            <div className="px-3 py-1.5 mb-1">
+            <div className="px-3 py-2 mb-1">
               <p className="text-xs font-semibold text-foreground truncate">Ajdin Mehmedović</p>
-              <p className="text-[10px] text-muted-foreground truncate">ajdin@galaxus.me</p>
+              <p className="text-[10px] text-muted-foreground/60 truncate">ajdin@galaxus.me</p>
             </div>
           )}
 
           {collapsed && <ThemeToggle />}
 
-          {/* Command palette trigger */}
+          {/* Command palette */}
           {!collapsed && (
-            <button onClick={openPalette}
-              className="w-full flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-colors text-sm px-3 py-2">
+            <button
+              onClick={openPalette}
+              className="w-full flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-[oklch(1_0_0/5%)] rounded-lg transition-colors text-sm px-3 py-2"
+            >
               <Command className="w-4 h-4 shrink-0" />
-              <span className="flex-1">Command palette</span>
-              <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-border bg-muted">⌘K</kbd>
+              <span className="flex-1 text-xs">Command palette</span>
+              <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-sidebar-border bg-sidebar-accent text-muted-foreground">⌘K</kbd>
             </button>
           )}
           {collapsed && (
             <Tooltip>
-              <TooltipTrigger render={<button onClick={openPalette} className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-colors"><Command className="w-4 h-4" /></button>} />
+              <TooltipTrigger render={
+                <button
+                  onClick={openPalette}
+                  className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[oklch(1_0_0/5%)] rounded-lg transition-colors"
+                >
+                  <Command className="w-4 h-4" />
+                </button>
+              } />
               <TooltipContent side="right" className="text-xs">Command palette (⌘K)</TooltipContent>
             </Tooltip>
           )}
@@ -191,21 +218,23 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                 a.href = url; a.download = `galaxus-backup-${new Date().toISOString().slice(0,10)}.json`;
                 a.click(); URL.revokeObjectURL(url);
               }}
-              className="w-full flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-colors text-sm px-3 py-2"
+              className="w-full flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-[oklch(1_0_0/5%)] rounded-lg transition-colors text-sm px-3 py-2"
               title="Download a JSON backup of all local data (moods, metrics, notes)"
             >
               <Download className="w-4 h-4 shrink-0" />
-              Export local data
+              <span className="text-xs">Export local data</span>
             </button>
           )}
 
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className={cn("flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-colors text-sm",
-              collapsed ? "justify-center w-9 h-9" : "w-full px-3 py-2")}
+            className={cn(
+              "flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-[oklch(1_0_0/5%)] rounded-lg transition-colors text-sm",
+              collapsed ? "justify-center w-9 h-9" : "w-full px-3 py-2"
+            )}
           >
             <LogOut className="w-4 h-4 shrink-0" />
-            {!collapsed && "Sign out"}
+            {!collapsed && <span className="text-xs">Sign out</span>}
           </button>
 
           {/* Collapse toggle — desktop only */}
@@ -213,13 +242,15 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
             <>
               <button
                 onClick={toggleSidebar}
-                className={cn("flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-colors text-sm",
-                  collapsed ? "justify-center w-9 h-9" : "w-full px-3 py-2")}
+                className={cn(
+                  "flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-[oklch(1_0_0/5%)] rounded-lg transition-colors text-sm",
+                  collapsed ? "justify-center w-9 h-9" : "w-full px-3 py-2"
+                )}
                 title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 {collapsed
                   ? <ChevronRight className="w-4 h-4" />
-                  : <><ChevronLeft className="w-4 h-4" /><span>Collapse</span></>
+                  : <><ChevronLeft className="w-4 h-4" /><span className="text-xs">Collapse</span></>
                 }
               </button>
 
@@ -230,10 +261,10 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                     render={
                       <button
                         onClick={toggleHidden}
-                        className="w-full flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-colors text-sm px-3 py-2"
+                        className="w-full flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-[oklch(1_0_0/5%)] rounded-lg transition-colors text-sm px-3 py-2"
                       >
                         <PanelLeftClose className="w-4 h-4 shrink-0" />
-                        <span>Hide sidebar</span>
+                        <span className="text-xs">Hide sidebar</span>
                       </button>
                     }
                   />

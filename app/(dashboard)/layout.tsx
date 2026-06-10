@@ -89,8 +89,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <p className="font-semibold text-sm" style={{ fontFamily: "var(--font-heading)" }}>Galaxus</p>
         </div>
 
+        {/* Top gradient accent line */}
+        <div className="h-px w-full shrink-0 bg-gradient-to-r from-transparent via-[#173eff]/50 to-transparent" />
+
         <ErrorBoundary label="Page error">
-          <div className="flex-1 overflow-y-auto bg-background/92 backdrop-blur-[2px]">
+          <div className="flex-1 overflow-y-auto bg-background/88 backdrop-blur-[2px]">
             {children}
           </div>
         </ErrorBoundary>
