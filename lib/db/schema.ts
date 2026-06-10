@@ -8,6 +8,7 @@ import {
   date,
   timestamp,
   unique,
+  real,
 } from "drizzle-orm/pg-core";
 
 export const dailyCheckins = pgTable(
@@ -31,7 +32,12 @@ export const dailyCheckins = pgTable(
     youtube: boolean("youtube").default(false),
     writing: boolean("writing").default(false),
     gratitude: boolean("gratitude").default(false),
+    gratitudeText: text("gratitude_text"),            // newline-separated 3 bullets
     notes: text("notes"),
+    sleepHours: real("sleep_hours"),                  // e.g. 7.5
+    sleepQuality: integer("sleep_quality"),           // 1–5
+    bedTime: varchar("bed_time", { length: 5 }),      // "22:30"
+    wakeTime: varchar("wake_time", { length: 5 }),    // "06:30"
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -122,6 +128,17 @@ export const journalEntries = pgTable("journal_entries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const beatSales = pgTable("beat_sales", {
+  id: serial("id").primaryKey(),
+  beatId: integer("beat_id").references(() => beats.id, { onDelete: "set null" }),
+  date: date("date").notNull(),
+  amountCents: integer("amount_cents").notNull(),  // stored as cents; divide by 100 for display
+  platform: varchar("platform", { length: 100 }),  // BeatStars / direct / etc.
+  client: varchar("client", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const beats = pgTable("beats", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -146,3 +163,4 @@ export type DailyGoal = typeof dailyGoals.$inferSelect;
 export type GoalCompletion = typeof goalCompletions.$inferSelect;
 export type JournalEntry = typeof journalEntries.$inferSelect;
 export type Beat = typeof beats.$inferSelect;
+export type BeatSale = typeof beatSales.$inferSelect;

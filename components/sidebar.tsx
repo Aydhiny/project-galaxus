@@ -8,7 +8,7 @@ import {
   Home, CheckSquare, BookOpen, GraduationCap, Dumbbell, Moon,
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, ChevronLeft, ChevronRight, LayoutDashboard, PanelLeftClose, Sunrise, Command,
-  Disc3, Trophy, Download,
+  Disc3, Trophy, Download, Lightbulb,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -26,6 +26,7 @@ const NAV_GROUPS = [
       { href: "/goals",     icon: Target,       label: "Goals"          },
       { href: "/review",    icon: BarChart3,    label: "Weekly Review"  },
       { href: "/yearly",    icon: Trophy,       label: "Year in Review" },
+      { href: "/insights",  icon: Lightbulb,    label: "Insights"       },
     ],
   },
   {

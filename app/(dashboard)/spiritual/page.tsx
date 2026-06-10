@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { getRecentCheckins, upsertCheckin } from "@/lib/actions/checkin";
 import type { DailyCheckin } from "@/lib/db/schema";
 import { format, subDays, eachDayOfInterval } from "date-fns";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCcw, Star } from "lucide-react";
+import { toHijri, HIJRI_MONTHS } from "@/lib/hijri";
+import { fetchPrayerTimes, getUserLocation, getNextPrayer, formatCountdown, type PrayerTimes } from "@/lib/prayer-times";
 
 const PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 const PRAYER_LABELS: Record<string, string> = {
@@ -20,9 +22,116 @@ function getPrayerCount(checkin: DailyCheckin) {
   return PRAYERS.filter((p) => checkin[p]).length;
 }
 
+// ── Tasbih ─────────────────────────────────────────────────────────────────
+const DHIKR = [
+  { key: "subhanallah",  arabic: "سُبْحَانَ اللَّهِ",  latin: "SubhanAllah",   meaning: "Glory be to Allah",       target: 33 },
+  { key: "alhamdulillah",arabic: "الْحَمْدُ لِلَّهِ", latin: "Alhamdulillah",  meaning: "All praise to Allah",     target: 33 },
+  { key: "allahuakbar",  arabic: "اللَّهُ أَكْبَرُ",  latin: "Allahu Akbar",   meaning: "Allah is the Greatest",   target: 34 },
+] as const;
+type DhikrKey = typeof DHIKR[number]["key"];
+type TasbihState = Record<DhikrKey, number>;
+
+function loadTasbih(date: string): TasbihState {
+  try {
+    return JSON.parse(localStorage.getItem(`galaxus-tasbih-${date}`) ?? "{}");
+  } catch { return {} as TasbihState; }
+}
+function saveTasbih(date: string, state: TasbihState) {
+  try { localStorage.setItem(`galaxus-tasbih-${date}`, JSON.stringify(state)); } catch { /* ignore */ }
+}
+
+// ── Ramadan fasting grid ───────────────────────────────────────────────────
+const QADR_NIGHTS = new Set([21, 23, 25, 27, 29]);
+function loadRamadanFasts(year: number): boolean[] {
+  try {
+    return JSON.parse(localStorage.getItem(`galaxus-ramadan-${year}`) ?? "[]");
+  } catch { return []; }
+}
+function saveRamadanFasts(year: number, fasts: boolean[]) {
+  try { localStorage.setItem(`galaxus-ramadan-${year}`, JSON.stringify(fasts)); } catch { /* ignore */ }
+}
+
 export default function SpiritualPage() {
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
   const [pending, startTransition] = useTransition();
+
+  // Tasbih state
+  const today = format(new Date(), "yyyy-MM-dd");
+  const [tasbih, setTasbih] = useState<TasbihState>({} as TasbihState);
+  useEffect(() => { setTasbih(loadTasbih(today)); }, [today]);
+
+  function incrementDhikr(key: DhikrKey) {
+    const dhikr = DHIKR.find(d => d.key === key)!;
+    const current = tasbih[key] ?? 0;
+    if (current >= dhikr.target) return;
+    const next = { ...tasbih, [key]: current + 1 };
+    setTasbih(next);
+    saveTasbih(today, next);
+    if (current + 1 === dhikr.target) {
+      toast.success(`${dhikr.latin} complete — ${dhikr.target}/${dhikr.target} ✓`, { duration: 2000 });
+    }
+  }
+
+  function resetTasbih() {
+    const empty = {} as TasbihState;
+    setTasbih(empty);
+    saveTasbih(today, empty);
+  }
+
+  const tasbihComplete = DHIKR.every(d => (tasbih[d.key] ?? 0) >= d.target);
+
+  // Ramadan state
+  const hijri = toHijri(new Date());
+  const isRamadan = hijri.isRamadan;
+  const [ramadanFasts, setRamadanFasts] = useState<boolean[]>([]);
+  const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
+  const [countdown, setCountdown] = useState<string>("");
+  const [countdownLabel, setCountdownLabel] = useState<string>("");
+
+  useEffect(() => {
+    if (!isRamadan) return;
+    setRamadanFasts(loadRamadanFasts(new Date().getFullYear()));
+    getUserLocation().then(async coords => {
+      if (!coords) return;
+      try {
+        const t = await fetchPrayerTimes(coords.latitude, coords.longitude);
+        setPrayerTimes(t);
+      } catch { /* ignore */ }
+    });
+  }, [isRamadan]);
+
+  useEffect(() => {
+    if (!prayerTimes) return;
+    const tick = () => {
+      const next = getNextPrayer(prayerTimes);
+      if (!next) return;
+      if (next.name === "Maghrib") {
+        setCountdownLabel("Iftar in");
+        setCountdown(formatCountdown(next.msLeft));
+      } else if (next.name === "Fajr") {
+        setCountdownLabel("Suhoor ends in");
+        setCountdown(formatCountdown(next.msLeft));
+      } else {
+        const maghribTime = prayerTimes.Maghrib;
+        const [h, m] = maghribTime.split(":").map(Number);
+        const maghribDate = new Date(); maghribDate.setHours(h, m, 0, 0);
+        const msLeft = maghribDate.getTime() - Date.now();
+        if (msLeft > 0) {
+          setCountdownLabel("Iftar in"); setCountdown(formatCountdown(msLeft));
+        }
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [prayerTimes]);
+
+  function toggleRamadanFast(day: number) {
+    const fasts = [...ramadanFasts];
+    fasts[day] = !fasts[day];
+    setRamadanFasts(fasts);
+    saveRamadanFasts(new Date().getFullYear(), fasts);
+  }
 
   function reload() {
     startTransition(async () => {
@@ -33,7 +142,6 @@ export default function SpiritualPage() {
 
   useEffect(() => { reload(); }, []);
 
-  const today = format(new Date(), "yyyy-MM-dd");
   const todayCheckin = checkins.find((c) => c.date === today);
 
   const last30Days = eachDayOfInterval({
@@ -213,6 +321,109 @@ export default function SpiritualPage() {
           Total: <span className="text-foreground font-medium">{totalQuranPages} pages</span> in the last 30 days
         </p>
       </div>
+
+      {/* ── Tasbih counter ─────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-[var(--emerald)]/20 bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold flex items-center gap-2">
+            <span className="text-lg">📿</span> Tasbih
+          </h2>
+          <div className="flex items-center gap-2">
+            {tasbihComplete && (
+              <span className="text-xs text-[var(--emerald)] font-semibold animate-pulse">MashaAllah! ✓</span>
+            )}
+            <button onClick={resetTasbih} title="Reset"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {DHIKR.map((d) => {
+            const count = tasbih[d.key] ?? 0;
+            const done = count >= d.target;
+            const pct = Math.min(count / d.target, 1);
+            return (
+              <button key={d.key} onClick={() => incrementDhikr(d.key)}
+                disabled={done}
+                className="flex flex-col items-center gap-2 p-5 rounded-2xl border transition-all active:scale-95"
+                style={done
+                  ? { borderColor: "var(--emerald)", background: "oklch(0.70 0.17 162 / 12%)" }
+                  : { borderColor: "oklch(1 0 0 / 8%)", background: "oklch(1 0 0 / 3%)" }}>
+                <p className="font-arabic text-xl leading-relaxed" style={{ color: done ? "var(--emerald)" : "var(--gold)" }}>
+                  {d.arabic}
+                </p>
+                <p className="text-xs text-muted-foreground">{d.latin}</p>
+                <div className="w-full h-1.5 rounded-full bg-white/8 overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-200"
+                    style={{ width: `${pct * 100}%`, background: done ? "var(--emerald)" : "var(--gold)" }} />
+                </div>
+                <p className="text-sm font-bold tabular-nums" style={{ color: done ? "var(--emerald)" : "inherit" }}>
+                  {count}/{d.target}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-muted-foreground text-center">Tap to count · resets at midnight</p>
+      </div>
+
+      {/* ── Ramadan mode (auto-shows when Hijri month = Ramadan) ─────────── */}
+      {isRamadan && (
+        <div className="rounded-2xl border border-[var(--emerald)]/30 bg-card p-6 space-y-5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-semibold flex items-center gap-2 text-[var(--emerald)]">
+              <span className="text-lg">🌙</span> Ramadan {hijri.year}
+            </h2>
+            {countdown && (
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{countdownLabel}</p>
+                <p className="text-xl font-bold text-[var(--emerald)] tabular-nums">{countdown}</p>
+              </div>
+            )}
+          </div>
+
+          {/* 30-day fasting grid */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-3">Fasting tracker — tap a day to mark it</p>
+            <div className="grid grid-cols-10 gap-1.5">
+              {Array.from({ length: 30 }, (_, i) => {
+                const day = i + 1;
+                const fasted = ramadanFasts[i] ?? false;
+                const isQadr = QADR_NIGHTS.has(day);
+                const isCurrent = day === hijri.day;
+                return (
+                  <button key={day} onClick={() => toggleRamadanFast(i)}
+                    title={`Day ${day}${isQadr ? " — Laylat al-Qadr candidate" : ""}`}
+                    className="relative aspect-square rounded-lg border flex items-center justify-center text-[10px] font-semibold transition-all hover:scale-110"
+                    style={{
+                      borderColor: isCurrent ? "var(--gold)" : isQadr ? "oklch(0.70 0.17 162 / 50%)" : "oklch(1 0 0 / 10%)",
+                      background: fasted
+                        ? "oklch(0.70 0.17 162 / 30%)"
+                        : isQadr ? "oklch(0.70 0.17 162 / 8%)" : "transparent",
+                      color: fasted ? "var(--emerald)" : "oklch(1 0 0 / 40%)",
+                    }}>
+                    {day}
+                    {isQadr && (
+                      <Star className="absolute -top-1 -right-1 w-2.5 h-2.5 text-[var(--gold)]" fill="currentColor" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground">
+              <span>⭐ = Odd nights (Laylat al-Qadr candidates)</span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: "oklch(0.70 0.17 162 / 30%)" }} />
+                Fasted
+              </span>
+              <span className="ml-auto text-[var(--emerald)] font-semibold">
+                {ramadanFasts.filter(Boolean).length}/30 days
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dua */}
       <div className="rounded-2xl border border-[var(--gold)]/15 bg-[var(--gold-muted)] p-5 text-center space-y-2">

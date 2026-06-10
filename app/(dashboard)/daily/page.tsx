@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { upsertCheckin, getTodayCheckin } from "@/lib/actions/checkin";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Loader2, Save, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check } from "lucide-react";
+import { Loader2, Save, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check, BedDouble, Star, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const PRAYERS = [
@@ -44,7 +44,6 @@ const HABIT_SECTIONS = [
     Icon: NotebookPen,
     items: [
       { key: "writing", label: "Writing", subKey: null, subLabel: null },
-      { key: "gratitude", label: "Gratitude", subKey: null, subLabel: null },
     ],
   },
 ] as const;
@@ -55,8 +54,11 @@ type CheckinState = {
   training: boolean; trainingMinutes: number;
   meditation: boolean; meditationMinutes: number;
   music: boolean; musicMinutes: number;
-  design: boolean; youtube: boolean; writing: boolean; gratitude: boolean;
+  design: boolean; youtube: boolean; writing: boolean;
+  gratitude: boolean; gratitudeText: string;
   notes: string;
+  sleepHours: number | null; sleepQuality: number | null;
+  bedTime: string; wakeTime: string;
 };
 
 const defaultState: CheckinState = {
@@ -65,8 +67,11 @@ const defaultState: CheckinState = {
   training: false, trainingMinutes: 0,
   meditation: false, meditationMinutes: 0,
   music: false, musicMinutes: 0,
-  design: false, youtube: false, writing: false, gratitude: false,
+  design: false, youtube: false, writing: false,
+  gratitude: false, gratitudeText: "",
   notes: "",
+  sleepHours: null, sleepQuality: null,
+  bedTime: "", wakeTime: "",
 };
 
 export default function DailyPage() {
@@ -97,7 +102,12 @@ export default function DailyPage() {
           youtube: checkin.youtube ?? false,
           writing: checkin.writing ?? false,
           gratitude: checkin.gratitude ?? false,
+          gratitudeText: checkin.gratitudeText ?? "",
           notes: checkin.notes ?? "",
+          sleepHours: checkin.sleepHours ?? null,
+          sleepQuality: checkin.sleepQuality ?? null,
+          bedTime: checkin.bedTime ?? "",
+          wakeTime: checkin.wakeTime ?? "",
         });
       }
       setLoaded(true);
@@ -114,7 +124,17 @@ export default function DailyPage() {
 
   function save() {
     startTransition(async () => {
-      await upsertCheckin(today, state);
+      // Auto-derive gratitude boolean from text; auto-compute sleep hours from times
+      const gratitude = state.gratitude || state.gratitudeText.trim().length > 0;
+      let sleepHours = state.sleepHours;
+      if (!sleepHours && state.bedTime && state.wakeTime) {
+        const [bh, bm] = state.bedTime.split(":").map(Number);
+        const [wh, wm] = state.wakeTime.split(":").map(Number);
+        let mins = (wh * 60 + wm) - (bh * 60 + bm);
+        if (mins < 0) mins += 24 * 60; // crossed midnight
+        sleepHours = parseFloat((mins / 60).toFixed(1));
+      }
+      await upsertCheckin(today, { ...state, gratitude, sleepHours });
       toast.success("Check-in saved");
     });
   }
@@ -279,6 +299,74 @@ export default function DailyPage() {
           </div>
         </div>
       ))}
+
+      {/* Gratitude — expanded text */}
+      <div className="rounded-2xl border border-white/6 bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Heart className="w-5 h-5 text-rose-400" />
+          <h2 className="font-semibold">Gratitude</h2>
+          <span className="text-xs text-muted-foreground ml-auto">3 things you&apos;re grateful for</span>
+        </div>
+        {["1.", "2.", "3."].map((n, i) => {
+          const lines = state.gratitudeText.split("\n");
+          return (
+            <div key={n} className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground w-4 shrink-0">{n}</span>
+              <input
+                value={lines[i] ?? ""}
+                onChange={e => {
+                  const arr = [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
+                  arr[i] = e.target.value;
+                  setState(s => ({ ...s, gratitudeText: arr.join("\n"), gratitude: arr.some(l => l.trim().length > 0) }));
+                }}
+                placeholder={["People, moments, or blessings…", "Something small you noticed today…", "Something you&apos;re proud of…"][i]}
+                className="flex-1 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[var(--gold)]/40"
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Sleep */}
+      <div className="rounded-2xl border border-white/6 bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <BedDouble className="w-5 h-5 text-[var(--emerald)]" />
+          <h2 className="font-semibold">Sleep</h2>
+          {state.sleepHours && (
+            <span className="text-sm text-[var(--emerald)] font-semibold ml-auto">{state.sleepHours}h</span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground uppercase tracking-widest">Bed time</label>
+            <input type="time" value={state.bedTime}
+              onChange={e => setState(s => ({ ...s, bedTime: e.target.value }))}
+              className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-[var(--emerald)]/40" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground uppercase tracking-widest">Wake time</label>
+            <input type="time" value={state.wakeTime}
+              onChange={e => setState(s => ({ ...s, wakeTime: e.target.value }))}
+              className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-[var(--emerald)]/40" />
+          </div>
+        </div>
+        {/* Sleep quality 1-5 stars */}
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground uppercase tracking-widest">Quality</label>
+          <div className="flex gap-2">
+            {[1,2,3,4,5].map(n => (
+              <button key={n} type="button"
+                onClick={() => setState(s => ({ ...s, sleepQuality: s.sleepQuality === n ? null : n }))}
+                className="w-10 h-10 rounded-xl border transition-all"
+                style={state.sleepQuality && state.sleepQuality >= n
+                  ? { background: "var(--emerald)", borderColor: "var(--emerald)", color: "white" }
+                  : { borderColor: "oklch(1 0 0 / 8%)", color: "oklch(1 0 0 / 40%)" }}>
+                <Star className="w-4 h-4 mx-auto" fill={state.sleepQuality && state.sleepQuality >= n ? "currentColor" : "none"} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Notes */}
       <div className="rounded-2xl border border-white/6 bg-card p-6 space-y-3">
