@@ -4,21 +4,23 @@ import { useState, useTransition, useEffect } from "react";
 import { upsertCheckin, getTodayCheckin } from "@/lib/actions/checkin";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Loader2, Save, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check, BedDouble, Star, Heart } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check, BedDouble, Star, Heart } from "lucide-react";
+import { ShineButton } from "@/components/lw/shine-button";
+import { InteractiveGradientCard } from "@/components/lw/interactive-gradient";
 
 const PRAYERS = [
-  { key: "fajr",    label: "Fajr",    time: "Dawn",      Icon: Moon },
-  { key: "dhuhr",   label: "Dhuhr",   time: "Midday",    Icon: Sun },
-  { key: "asr",     label: "Asr",     time: "Afternoon", Icon: Sun },
-  { key: "maghrib", label: "Maghrib", time: "Sunset",    Icon: Sunrise },
-  { key: "isha",    label: "Isha",    time: "Night",     Icon: Moon },
+  { key: "fajr",    label: "Fajr",    arabic: "الفجر",  time: "Dawn",      Icon: Moon },
+  { key: "dhuhr",   label: "Dhuhr",   arabic: "الظهر",  time: "Midday",    Icon: Sun },
+  { key: "asr",     label: "Asr",     arabic: "العصر",  time: "Afternoon", Icon: Sun },
+  { key: "maghrib", label: "Maghrib", arabic: "المغرب", time: "Sunset",    Icon: Sunrise },
+  { key: "isha",    label: "Isha",    arabic: "العشاء",  time: "Night",     Icon: Moon },
 ] as const;
 
 const HABIT_SECTIONS = [
   {
     title: "Physical",
     Icon: Dumbbell,
+    color: "oklch(0.70 0.19 32)",
     items: [
       { key: "training", label: "Training", subKey: "trainingMinutes", subLabel: "Minutes trained" },
     ],
@@ -26,6 +28,7 @@ const HABIT_SECTIONS = [
   {
     title: "Mental",
     Icon: Sparkles,
+    color: "oklch(0.65 0.20 290)",
     items: [
       { key: "meditation", label: "Meditation", subKey: "meditationMinutes", subLabel: "Minutes meditated" },
     ],
@@ -33,6 +36,7 @@ const HABIT_SECTIONS = [
   {
     title: "Creative",
     Icon: Music2,
+    color: "var(--gold)",
     items: [
       { key: "music", label: "Music / Production", subKey: "musicMinutes", subLabel: "Minutes in music" },
       { key: "design", label: "Design", subKey: null, subLabel: null },
@@ -42,6 +46,7 @@ const HABIT_SECTIONS = [
   {
     title: "Personal",
     Icon: NotebookPen,
+    color: "#06b6d4",
     items: [
       { key: "writing", label: "Writing", subKey: null, subLabel: null },
     ],
@@ -124,14 +129,13 @@ export default function DailyPage() {
 
   function save() {
     startTransition(async () => {
-      // Auto-derive gratitude boolean from text; auto-compute sleep hours from times
       const gratitude = state.gratitude || state.gratitudeText.trim().length > 0;
       let sleepHours = state.sleepHours;
       if (!sleepHours && state.bedTime && state.wakeTime) {
         const [bh, bm] = state.bedTime.split(":").map(Number);
         const [wh, wm] = state.wakeTime.split(":").map(Number);
         let mins = (wh * 60 + wm) - (bh * 60 + bm);
-        if (mins < 0) mins += 24 * 60; // crossed midnight
+        if (mins < 0) mins += 24 * 60;
         sleepHours = parseFloat((mins / 60).toFixed(1));
       }
       await upsertCheckin(today, { ...state, gratitude, sleepHours });
@@ -150,253 +154,267 @@ export default function DailyPage() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-2xl mx-auto">
+    <div className="p-6 space-y-8 max-w-2xl mx-auto page-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest">
-            Daily Check-in
-          </p>
-          <h1 className="text-xl font-bold mt-0.5">{todayDisplay}</h1>
+          <p className="text-xs text-muted-foreground uppercase tracking-widest">Daily Check-in</p>
+          <h1 className="text-2xl font-bold mt-0.5 lw-gradient-text">{todayDisplay}</h1>
         </div>
-        <Button
+        <ShineButton
           onClick={save}
           disabled={pending}
-          className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2"
+          size="md"
+          className="gap-2 disabled:opacity-60"
         >
-          {pending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-          Save
-        </Button>
+          {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          {pending ? "Saving…" : "Save"}
+        </ShineButton>
       </div>
 
       {/* Prayers */}
-      <div className="rounded-2xl border border-[var(--emerald)]/20 bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Moon className="w-4 h-4 text-[var(--emerald)]" />
-            <h2 className="font-semibold">Prayers (Salah)</h2>
-          </div>
-          <span className="text-sm text-[var(--emerald)] font-medium">
-            {prayersDone}/5
-          </span>
-        </div>
-        <div className="grid grid-cols-5 gap-2">
-          {PRAYERS.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => toggle(p.key)}
-              className={`flex flex-col items-center gap-1.5 py-4 px-2 rounded-xl border transition-all ${
-                state[p.key]
-                  ? "prayer-done"
-                  : "prayer-undone hover:border-[var(--emerald)]/30"
-              }`}
-            >
-              <p.Icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{p.label}</span>
-              <span className="text-[10px] text-muted-foreground">{p.time}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Quran pages */}
-        <div className="pt-2 border-t border-white/6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> Quran Pages</span>
-            <span className="text-lg font-bold text-[var(--emerald)]">
-              {state.quranPages}
+      <InteractiveGradientCard glowColor="#173eff18" borderColor="#173eff" className="bg-card">
+        <div className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Moon className="w-4 h-4 text-[#3758f9]" />
+              <h2 className="font-semibold">Prayers (Salah)</h2>
+            </div>
+            <span className="text-sm font-bold px-3 py-1 rounded-full bg-[#173eff15] text-[#3758f9] border border-[#173eff30]">
+              {prayersDone}/5
             </span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={50}
-            value={state.quranPages}
-            onChange={(e) => setNum("quranPages", Number(e.target.value))}
-            className="w-full accent-[var(--emerald)] h-2"
-          />
-          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-            <span>0</span>
-            <span>50 pages</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Habit sections */}
-      {HABIT_SECTIONS.map((section) => (
-        <div
-          key={section.title}
-          className="rounded-2xl border border-white/6 bg-card p-6 space-y-4"
-        >
-          <div className="flex items-center gap-2">
-            <section.Icon className="w-5 h-5 text-[var(--gold)]" />
-            <h2 className="font-semibold">{section.title}</h2>
-          </div>
-
-          <div className="space-y-4">
-            {section.items.map((item) => (
-              <div key={item.key} className="space-y-3">
-                <button
-                  onClick={() => toggle(item.key as keyof CheckinState)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                    state[item.key as keyof CheckinState]
-                      ? "streak-active"
-                      : "streak-inactive hover:border-white/12"
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      state[item.key as keyof CheckinState]
-                        ? "border-[var(--gold)] bg-[var(--gold)]"
-                        : "border-white/20"
-                    }`}
-                  >
-                    {state[item.key as keyof CheckinState] && (
-                      <Check className="w-3 h-3 text-[var(--primary-foreground)]" />
-                    )}
-                  </div>
-                  <span
-                    className={`text-sm font-medium ${
-                      state[item.key as keyof CheckinState]
-                        ? "text-[var(--gold)]"
-                        : "text-foreground"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </button>
-
-                {item.subKey && state[item.key as keyof CheckinState] && (
-                  <div className="pl-4 space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">{item.subLabel}</span>
-                      <span className="text-[var(--gold)] font-medium">
-                        {state[item.subKey as keyof CheckinState]}m
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={240}
-                      step={5}
-                      value={Number(state[item.subKey as keyof CheckinState])}
-                      onChange={(e) =>
-                        setNum(item.subKey as keyof CheckinState, Number(e.target.value))
-                      }
-                      className="w-full accent-[var(--gold)] h-2"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>0m</span>
-                      <span>240m</span>
-                    </div>
+          <div className="grid grid-cols-5 gap-2">
+            {PRAYERS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => toggle(p.key)}
+                className={`flex flex-col items-center gap-2 py-5 px-2 rounded-xl border transition-all duration-300 min-h-[90px] ${
+                  state[p.key] ? "prayer-done" : "prayer-undone"
+                }`}
+              >
+                <p.Icon className="w-5 h-5" />
+                <span className="text-sm font-bold">{p.label}</span>
+                <span className="text-[11px] font-medium opacity-70" style={{ fontFamily: "serif" }}>{p.arabic}</span>
+                {state[p.key] && (
+                  <div className="w-5 h-5 rounded-full bg-[#173eff] flex items-center justify-center shadow-[0_0_8px_#173eff80]">
+                    <Check className="w-3 h-3 text-white" />
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* Gratitude — expanded text */}
-      <div className="rounded-2xl border border-white/6 bg-card p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Heart className="w-5 h-5 text-rose-400" />
-          <h2 className="font-semibold">Gratitude</h2>
-          <span className="text-xs text-muted-foreground ml-auto">3 things you&apos;re grateful for</span>
-        </div>
-        {["1.", "2.", "3."].map((n, i) => {
-          const lines = state.gratitudeText.split("\n");
-          return (
-            <div key={n} className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-4 shrink-0">{n}</span>
-              <input
-                value={lines[i] ?? ""}
-                onChange={e => {
-                  const arr = [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
-                  arr[i] = e.target.value;
-                  setState(s => ({ ...s, gratitudeText: arr.join("\n"), gratitude: arr.some(l => l.trim().length > 0) }));
-                }}
-                placeholder={["People, moments, or blessings…", "Something small you noticed today…", "Something you&apos;re proud of…"][i]}
-                className="flex-1 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[var(--gold)]/40"
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Sleep */}
-      <div className="rounded-2xl border border-white/6 bg-card p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <BedDouble className="w-5 h-5 text-[var(--emerald)]" />
-          <h2 className="font-semibold">Sleep</h2>
-          {state.sleepHours && (
-            <span className="text-sm text-[var(--emerald)] font-semibold ml-auto">{state.sleepHours}h</span>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground uppercase tracking-widest">Bed time</label>
-            <input type="time" value={state.bedTime}
-              onChange={e => setState(s => ({ ...s, bedTime: e.target.value }))}
-              className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-[var(--emerald)]/40" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground uppercase tracking-widest">Wake time</label>
-            <input type="time" value={state.wakeTime}
-              onChange={e => setState(s => ({ ...s, wakeTime: e.target.value }))}
-              className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-[var(--emerald)]/40" />
-          </div>
-        </div>
-        {/* Sleep quality 1-5 stars */}
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground uppercase tracking-widest">Quality</label>
-          <div className="flex gap-2">
-            {[1,2,3,4,5].map(n => (
-              <button key={n} type="button"
-                onClick={() => setState(s => ({ ...s, sleepQuality: s.sleepQuality === n ? null : n }))}
-                className="w-10 h-10 rounded-xl border transition-all"
-                style={state.sleepQuality && state.sleepQuality >= n
-                  ? { background: "var(--emerald)", borderColor: "var(--emerald)", color: "white" }
-                  : { borderColor: "oklch(1 0 0 / 8%)", color: "oklch(1 0 0 / 40%)" }}>
-                <Star className="w-4 h-4 mx-auto" fill={state.sleepQuality && state.sleepQuality >= n ? "currentColor" : "none"} />
               </button>
             ))}
           </div>
+
+          {/* Quran pages */}
+          <div className="pt-2 border-t border-white/6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-[#3758f9]" /> Quran Pages
+              </span>
+              <span className="text-lg font-bold text-[#3758f9]">{state.quranPages}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={50}
+              value={state.quranPages}
+              onChange={(e) => setNum("quranPages", Number(e.target.value))}
+              className="w-full accent-[#173eff] h-2"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>0</span>
+              <span>50 pages</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </InteractiveGradientCard>
+
+      {/* Habit sections */}
+      {HABIT_SECTIONS.map((section) => (
+        <InteractiveGradientCard
+          key={section.title}
+          glowColor="#173eff12"
+          borderColor="#173eff"
+          className="bg-card"
+        >
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <section.Icon className="w-5 h-5" style={{ color: section.color }} />
+              <h2 className="font-semibold">{section.title}</h2>
+            </div>
+
+            <div className="space-y-4">
+              {section.items.map((item) => {
+                const isActive = !!state[item.key as keyof CheckinState];
+                return (
+                  <div key={item.key} className="space-y-3">
+                    <button
+                      onClick={() => toggle(item.key as keyof CheckinState)}
+                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 ${
+                        isActive ? "streak-active" : "streak-inactive hover:border-white/12"
+                      }`}
+                      style={isActive ? {
+                        borderLeftWidth: "3px",
+                        borderLeftColor: "#173eff",
+                      } : {}}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                          isActive
+                            ? "border-[#173eff] bg-[#173eff] shadow-[0_0_10px_#173eff60]"
+                            : "border-white/20"
+                        }`}
+                      >
+                        {isActive && (
+                          <Check className="w-3 h-3 text-white" />
+                        )}
+                      </div>
+                      <span
+                        className={`text-sm font-medium transition-colors ${
+                          isActive ? "text-[#3758f9]" : "text-foreground"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                      {isActive && (
+                        <div className="ml-auto w-2 h-2 rounded-full bg-[#173eff] animate-pulse" />
+                      )}
+                    </button>
+
+                    {item.subKey && isActive && (
+                      <div className="pl-4 space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">{item.subLabel}</span>
+                          <span className="text-[#3758f9] font-medium">
+                            {state[item.subKey as keyof CheckinState]}m
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={240}
+                          step={5}
+                          value={Number(state[item.subKey as keyof CheckinState])}
+                          onChange={(e) => setNum(item.subKey as keyof CheckinState, Number(e.target.value))}
+                          className="w-full accent-[#173eff] h-2"
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>0m</span>
+                          <span>240m</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </InteractiveGradientCard>
+      ))}
+
+      {/* Gratitude */}
+      <InteractiveGradientCard glowColor="#ff174420" borderColor="#f43f5e" className="bg-card">
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Heart className="w-5 h-5 text-rose-400" />
+            <h2 className="font-semibold">Gratitude</h2>
+            <span className="text-xs text-muted-foreground ml-auto">3 things you&apos;re grateful for</span>
+          </div>
+          {["1.", "2.", "3."].map((n, i) => {
+            const lines = state.gratitudeText.split("\n");
+            return (
+              <div key={n} className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground w-4 shrink-0">{n}</span>
+                <input
+                  value={lines[i] ?? ""}
+                  onChange={e => {
+                    const arr = [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
+                    arr[i] = e.target.value;
+                    setState(s => ({ ...s, gratitudeText: arr.join("\n"), gratitude: arr.some(l => l.trim().length > 0) }));
+                  }}
+                  placeholder={["People, moments, or blessings…", "Something small you noticed today…", "Something you're proud of…"][i]}
+                  className="flex-1 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                />
+              </div>
+            );
+          })}
+        </div>
+      </InteractiveGradientCard>
+
+      {/* Sleep */}
+      <InteractiveGradientCard glowColor="#06b6d420" borderColor="#06b6d4" className="bg-card">
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <BedDouble className="w-5 h-5 text-[var(--emerald)]" />
+            <h2 className="font-semibold">Sleep</h2>
+            {state.sleepHours && (
+              <span className="text-sm text-[var(--emerald)] font-semibold ml-auto">{state.sleepHours}h</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-widest">Bed time</label>
+              <input type="time" value={state.bedTime}
+                onChange={e => setState(s => ({ ...s, bedTime: e.target.value }))}
+                className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-widest">Wake time</label>
+              <input type="time" value={state.wakeTime}
+                onChange={e => setState(s => ({ ...s, wakeTime: e.target.value }))}
+                className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground uppercase tracking-widest">Quality</label>
+            <div className="flex gap-2">
+              {[1,2,3,4,5].map(n => (
+                <button key={n} type="button"
+                  onClick={() => setState(s => ({ ...s, sleepQuality: s.sleepQuality === n ? null : n }))}
+                  className="w-10 h-10 rounded-xl border transition-all"
+                  style={state.sleepQuality && state.sleepQuality >= n
+                    ? { background: "var(--emerald)", borderColor: "var(--emerald)", color: "white" }
+                    : { borderColor: "oklch(1 0 0 / 8%)", color: "oklch(1 0 0 / 40%)" }}>
+                  <Star className="w-4 h-4 mx-auto" fill={state.sleepQuality && state.sleepQuality >= n ? "currentColor" : "none"} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </InteractiveGradientCard>
 
       {/* Notes */}
-      <div className="rounded-2xl border border-white/6 bg-card p-6 space-y-3">
-        <div className="flex items-center gap-2">
-          <NotebookPen className="w-4 h-4 text-muted-foreground" />
-          <h2 className="font-semibold">Daily Notes</h2>
+      <InteractiveGradientCard glowColor="#173eff10" borderColor="#173eff" className="bg-card">
+        <div className="p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <NotebookPen className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-semibold">Daily Notes</h2>
+          </div>
+          <textarea
+            value={state.notes}
+            onChange={(e) => setState((s) => ({ ...s, notes: e.target.value }))}
+            placeholder="How was your day? Any reflections..."
+            rows={4}
+            className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
+          />
         </div>
-        <textarea
-          value={state.notes}
-          onChange={(e) => setState((s) => ({ ...s, notes: e.target.value }))}
-          placeholder="How was your day? Any reflections..."
-          rows={4}
-          className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-[var(--gold)]/40"
-        />
-      </div>
+      </InteractiveGradientCard>
 
-      <Button
+      <ShineButton
         onClick={save}
         disabled={pending}
-        className="w-full h-12 bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2 text-base"
+        size="lg"
+        className="w-full !rounded-xl disabled:opacity-60"
       >
         {pending ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="flex items-center gap-2 justify-center">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Saving…
+          </span>
         ) : (
-          <>
-            <Save className="w-5 h-5" />
-            Save Today&apos;s Check-in
-          </>
+          "Save Today's Check-in"
         )}
-      </Button>
+      </ShineButton>
     </div>
   );
 }

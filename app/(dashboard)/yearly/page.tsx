@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { CountUp } from "@/components/lw/count-up";
 
 interface YearStats {
   // Prayers
@@ -65,13 +66,28 @@ const YEAR = new Date().getFullYear();
 function StatCard({ icon, label, value, sub, color }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string;
 }) {
+  // Parse numeric value from strings like "42d" or "7.5/10"
+  const numericValue = typeof value === "number"
+    ? value
+    : parseFloat(String(value).replace(/[^0-9.]/g, "")) || 0;
+  const suffix = typeof value === "string"
+    ? String(value).replace(/^[0-9.]+/, "")
+    : "";
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-3 lw-card-glow">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${color}18`, color }}>
         {icon}
       </div>
       <div>
-        <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+        <div className="text-2xl font-bold" style={{ color }}>
+          <CountUp
+            value={numericValue}
+            suffix={suffix}
+            decimals={suffix.includes(".") || (typeof value === "number" && value % 1 !== 0) ? 1 : 0}
+            className="text-2xl"
+          />
+        </div>
         <p className="text-xs font-semibold text-foreground mt-0.5">{label}</p>
         {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
       </div>

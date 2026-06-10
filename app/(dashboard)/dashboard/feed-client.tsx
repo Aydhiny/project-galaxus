@@ -14,6 +14,10 @@ import { useFeedVideoStore } from "@/lib/store/feed-video";
 import { moodColor, MOOD_LABELS, loadMoods, saveMood, type MoodEntry } from "@/lib/utils/mood";
 import { toHijri } from "@/lib/hijri";
 import { cn } from "@/lib/utils";
+import { GlowingCards, GlowingCard } from "@/components/lw/glowing-cards";
+import { ShineButton } from "@/components/lw/shine-button";
+import { BorderBeam } from "@/components/lw/border-beam";
+import { InteractiveGradientCard } from "@/components/lw/interactive-gradient";
 
 function MoodIcon({ mood }: { mood: number }) {
   if (mood === 0) return <Meh className="w-4 h-4 text-muted-foreground" />;
@@ -87,12 +91,19 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
   const goalPct = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
 
   return (
-    <div className="min-h-full">
+    <div className="min-h-full page-fade-in">
       {/* Hero */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[oklch(0.095_0.022_258)] to-[oklch(0.065_0.020_258)] border-b border-[oklch(1_0_0/8%)] px-6 pt-10 pb-8">
+        {/* Top accent line */}
+        <div className="absolute top-0 left-0 right-0 lw-top-accent" />
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-6 right-16 w-48 h-48 rounded-full blur-3xl opacity-20" style={{ background: "oklch(0.58 0.28 258)" }} />
-          <div className="absolute bottom-0 left-1/3 w-72 h-36 rounded-full blur-3xl opacity-10" style={{ background: "oklch(0.62 0.26 290)" }} />
+          <div className="absolute top-6 right-16 w-56 h-56 rounded-full blur-3xl opacity-25" style={{ background: "oklch(0.58 0.28 258)" }} />
+          <div className="absolute bottom-0 left-1/3 w-80 h-40 rounded-full blur-3xl opacity-15" style={{ background: "oklch(0.62 0.26 290)" }} />
+          <div className="absolute top-4 left-8 w-32 h-32 rounded-full blur-2xl opacity-10" style={{ background: "#06b6d4" }} />
+        </div>
+        {/* BorderBeam on a decorative inner frame */}
+        <div className="absolute inset-0 rounded-none overflow-hidden pointer-events-none">
+          <BorderBeam size={80} duration={8} colorFrom="#173eff" colorTo="#a78bfa" opacity={0.3} />
         </div>
         <div className="relative max-w-5xl mx-auto">
           <div className="flex items-center justify-between gap-4 mb-2">
@@ -152,41 +163,57 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 p-5 rounded-2xl border border-border bg-card">
-            <StreakRing value={streaks.prayers}    label="Prayers"    color="var(--emerald)" />
-            <StreakRing value={streaks.training}   label="Training"   color="var(--gold)" />
-            <StreakRing value={streaks.meditation} label="Meditation" color="oklch(0.65 0.20 290)" />
-            <StreakRing value={streaks.music}      label="Music"      color="oklch(0.70 0.19 32)" />
-            <StreakRing value={streaks.gratitude}  label="Gratitude"  color="oklch(0.65 0.18 200)" />
-            <StreakRing value={streaks.writing}    label="Writing"    color="oklch(0.62 0.18 25)" />
-          </div>
+          {/* Glowing streak cards */}
+          <GlowingCards gap="0.75rem" glowRadius={20}>
+            <GlowingCard glowColor="#173eff" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
+              <StreakRing value={streaks.prayers} label="Prayers" color="var(--emerald)" />
+            </GlowingCard>
+            <GlowingCard glowColor="#c9a84c" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
+              <StreakRing value={streaks.training} label="Training" color="var(--gold)" />
+            </GlowingCard>
+            <GlowingCard glowColor="#a78bfa" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
+              <StreakRing value={streaks.meditation} label="Meditation" color="oklch(0.65 0.20 290)" />
+            </GlowingCard>
+            <GlowingCard glowColor="#f97316" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
+              <StreakRing value={streaks.music} label="Music" color="oklch(0.70 0.19 32)" />
+            </GlowingCard>
+            <GlowingCard glowColor="#06b6d4" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
+              <StreakRing value={streaks.gratitude} label="Gratitude" color="oklch(0.65 0.18 200)" />
+            </GlowingCard>
+            <GlowingCard glowColor="#ef4444" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
+              <StreakRing value={streaks.writing} label="Writing" color="oklch(0.62 0.18 25)" />
+            </GlowingCard>
+          </GlowingCards>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left */}
           <div className="lg:col-span-2 space-y-5">
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Today&apos;s Progress</h3>
-                <span className="text-2xl font-bold text-[var(--gold)]">{goalPct}%</span>
+            {/* Progress card with InteractiveGradientCard */}
+            <InteractiveGradientCard glowColor="#173eff20" borderColor="#173eff" className="bg-card">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">Today&apos;s Progress</h3>
+                  <span className="text-2xl font-bold lw-gradient-text">{goalPct}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
+                  <div className="h-full rounded-full progress-bar transition-all duration-700" style={{ width: `${goalPct}%` }} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Prayers",  val: `${prayersDone}/5`,                     href: "/daily" },
+                    { label: "Training", val: streaks.training > 0 ? "Active" : "—",  href: "/training" },
+                    { label: "Reading",  val: `${readingStats.currentlyReading} books`, href: "/reading" },
+                    { label: "Goals",    val: `${completedGoals}/${totalGoals}`,        href: "/goals" },
+                  ].map(s => (
+                    <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors hover:border-[#173eff]/30">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                      <p className="font-semibold text-sm mt-0.5">{s.val}</p>
+                    </Link>
+                  ))}
+                </div>
               </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
-                <div className="h-full rounded-full progress-bar transition-all duration-700" style={{ width: `${goalPct}%` }} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: "Prayers",  val: `${prayersDone}/5`,                     href: "/daily" },
-                  { label: "Training", val: streaks.training > 0 ? "Active" : "—",  href: "/training" },
-                  { label: "Reading",  val: `${readingStats.currentlyReading} books`, href: "/reading" },
-                  { label: "Goals",    val: `${completedGoals}/${totalGoals}`,        href: "/goals" },
-                ].map(s => (
-                  <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
-                    <p className="font-semibold text-sm mt-0.5">{s.val}</p>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            </InteractiveGradientCard>
 
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -195,7 +222,7 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
                 { label: "Meditate",       href: "/meditation", icon: <Sparkles className="w-4 h-4" />,     color: "oklch(0.65 0.20 290)" },
                 { label: "Spiritual",      href: "/spiritual",  icon: <Moon className="w-4 h-4" />,         color: "var(--emerald)" },
               ].map(c => (
-                <Link key={c.href} href={c.href} className="rounded-xl border border-border bg-card p-3 flex items-center gap-2 hover:bg-accent transition-colors group">
+                <Link key={c.href} href={c.href} className="rounded-xl border border-border bg-card p-3 flex items-center gap-2 hover:bg-accent transition-colors group hover:border-[#173eff]/30 lw-card-glow">
                   <span style={{ color: c.color }}>{c.icon}</span>
                   <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{c.label}</span>
                   <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />
@@ -210,10 +237,14 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             <div>
               <div className="flex items-center justify-between mb-3">
                 <SectionHeader title="Watch Today" icon={<Play className="w-4 h-4" />} />
-                <button onClick={refreshVideos} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  <RefreshCw className="w-3 h-3" />
+                <ShineButton
+                  size="sm"
+                  onClick={refreshVideos}
+                  className="flex items-center gap-1.5 !rounded-lg"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
                   New picks
-                </button>
+                </ShineButton>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {videos.map(v => <InlineVideoCard key={v.id} {...v} />)}
@@ -228,13 +259,15 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             {/* GitHub */}
             <div>
               <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
-              <div className="rounded-2xl border border-border bg-card p-4 overflow-hidden mt-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://ghchart.rshah.org/C9A84C/Aydhiny" alt="GitHub contributions"
-                  className="w-full h-auto rounded-lg"
-                  style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }} />
-                <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
-              </div>
+              <InteractiveGradientCard glowColor="#173eff15" borderColor="#173eff" className="bg-card mt-3 overflow-hidden">
+                <div className="p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="https://ghchart.rshah.org/C9A84C/Aydhiny" alt="GitHub contributions"
+                    className="w-full h-auto rounded-lg"
+                    style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }} />
+                  <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
+                </div>
+              </InteractiveGradientCard>
             </div>
           </div>
         </div>
@@ -249,7 +282,7 @@ function StatPill({ icon, label, color, active }: { icon: React.ReactNode; label
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${active ? "border-transparent text-white" : "border-border text-muted-foreground"}`}
       style={active ? {
         backgroundImage: "linear-gradient(135deg, #173eff 0%, #3758f9 50%, #6366f1 100%)",
-        boxShadow: "0 2px 12px rgba(23,62,255,0.35)",
+        boxShadow: "0 2px 12px rgba(23,62,255,0.35), inset 0 1px 0 rgba(255,255,255,0.15)",
       } : {}}
     >
       {icon}{label}
@@ -257,14 +290,19 @@ function StatPill({ icon, label, color, active }: { icon: React.ReactNode; label
   );
 }
 function SectionHeader({ title, icon }: { title: string; icon: React.ReactNode }) {
-  return <div className="flex items-center gap-2"><span className="text-muted-foreground">{icon}</span><h2 className="text-sm font-semibold">{title}</h2></div>;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-muted-foreground">{icon}</span>
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <div className="flex-1 h-px bg-gradient-to-r from-[#173eff]/20 to-transparent ml-2" />
+    </div>
+  );
 }
 
 function InlineVideoCard({ id, title, channel }: FeedVideo) {
   const { pinned, setPinned } = useFeedVideoStore();
   const isThisPinned = pinned?.id === id;
 
-  // Playing inline OR is pinned to bottom bar
   const [playingInline, setPlayingInline] = useState(false);
 
   function handlePlay() {
@@ -282,21 +320,21 @@ function InlineVideoCard({ id, title, channel }: FeedVideo) {
   );
 
   return (
-    <button onClick={handlePlay} className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[#173eff]/40 transition-all text-left w-full">
+    <button onClick={handlePlay} className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[#173eff]/50 transition-all text-left w-full hover:shadow-[0_0_20px_#173eff20] hover:-translate-y-0.5">
       <div className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={`https://img.youtube.com/vi/${id}/mqdefault.jpg`} alt={title}
           className="w-full aspect-video object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className={cn(
-            "w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-colors",
-            isThisPinned ? "bg-[#173eff]" : "bg-black/60 group-hover:bg-[#173eff]"
+            "w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-all duration-300",
+            isThisPinned ? "bg-[#173eff] shadow-[0_0_20px_#173eff60]" : "bg-black/60 group-hover:bg-[#173eff] group-hover:shadow-[0_0_16px_#173eff60]"
           )}>
             <Play className="w-4 h-4 text-white ml-0.5" />
           </div>
         </div>
         {isThisPinned && (
-          <div className="absolute top-2 left-2 bg-[#173eff] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+          <div className="absolute top-2 left-2 bg-[#173eff] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_0_8px_#173eff80]">
             PLAYING
           </div>
         )}

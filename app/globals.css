@@ -344,19 +344,19 @@ html[data-grain="false"] body::after { opacity: 0; }
     background-attachment: fixed;
   }
 
-  /* Dark mode electric navy aurora background */
+  /* Dark mode electric navy aurora background — more aggressive */
   .dark body {
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.35 0.18 258 / 30%) 0%, transparent 65%),
-      radial-gradient(ellipse 40% 30% at 90% 90%, oklch(0.40 0.20 290 / 15%) 0%, transparent 55%),
-      radial-gradient(ellipse 30% 25% at 5% 80%, oklch(0.30 0.15 220 / 12%) 0%, transparent 50%);
+      radial-gradient(ellipse 100% 60% at 50% -5%, oklch(0.40 0.22 258 / 35%) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 35% at 95% 100%, oklch(0.45 0.24 290 / 18%) 0%, transparent 55%),
+      radial-gradient(ellipse 35% 30% at 2% 85%, oklch(0.35 0.18 220 / 14%) 0%, transparent 50%);
   }
 
   /* Light mode subtle blue tint */
   :root body, body {
     background-image:
-      radial-gradient(ellipse 70% 40% at 50% -5%, oklch(0.45 0.28 258 / 6%) 0%, transparent 60%),
-      radial-gradient(ellipse 30% 20% at 95% 95%, oklch(0.62 0.26 290 / 5%) 0%, transparent 50%);
+      radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.45 0.28 258 / 8%) 0%, transparent 60%),
+      radial-gradient(ellipse 35% 25% at 100% 100%, oklch(0.62 0.26 290 / 6%) 0%, transparent 50%);
   }
 
   /* Film-grain texture overlay */
@@ -514,9 +514,9 @@ html[data-grain="false"] body::after { opacity: 0; }
 
   /* Streak tile */
   .streak-active {
-    background: linear-gradient(135deg, oklch(0.58 0.28 258 / 18%), oklch(0.58 0.28 258 / 6%));
-    border-color: oklch(0.58 0.28 258 / 35%);
-    box-shadow: inset 0 1px 0 oklch(0.58 0.28 258 / 15%);
+    background: linear-gradient(135deg, #173eff20 0%, #173eff06 100%);
+    border-color: #173eff45;
+    box-shadow: 0 0 12px #173eff18, inset 0 1px 0 #173eff25;
   }
   .streak-inactive {
     background: oklch(1 0 0 / 3%);
@@ -525,15 +525,19 @@ html[data-grain="false"] body::after { opacity: 0; }
 
   /* Prayer tiles */
   .prayer-done {
-    background: linear-gradient(135deg, oklch(0.70 0.17 155 / 22%), oklch(0.70 0.17 155 / 5%));
-    border-color: oklch(0.70 0.17 155 / 50%);
-    color: oklch(0.70 0.17 155);
-    box-shadow: inset 0 1px 0 oklch(0.70 0.17 155 / 15%);
+    background: linear-gradient(135deg, #173eff22 0%, #173eff08 100%) !important;
+    border-color: #173eff60 !important;
+    color: #3758f9 !important;
+    box-shadow: 0 0 20px #173eff25, inset 0 1px 0 #173eff30 !important;
   }
   .prayer-undone {
     background: oklch(1 0 0 / 3%);
     border-color: oklch(1 0 0 / 8%);
-    color: oklch(0.56 0.050 258);
+    color: oklch(0.56 0.04 258);
+  }
+  .prayer-undone:hover {
+    background: oklch(0.58 0.28 258 / 8%);
+    border-color: oklch(0.58 0.28 258 / 30%);
   }
 
   /* Hover lift */
@@ -547,12 +551,34 @@ html[data-grain="false"] body::after { opacity: 0; }
     box-shadow: inset 0 1px 0 oklch(1 0 0 / 8%), 0 6px 24px oklch(0 0 0 / 42%);
   }
 
-  /* Progress bar — electric blue to violet */
+  /* Progress bar — electric blue to violet animated */
   .progress-bar {
-    background: linear-gradient(90deg, #173eff, #a78bfa);
+    background: linear-gradient(90deg, #173eff, #7c3aed, #06b6d4);
+    background-size: 200% 100%;
+    animation: gradient-shift 3s ease infinite;
   }
   .dark .progress-bar {
-    background: linear-gradient(90deg, #173eff, #a78bfa);
+    background: linear-gradient(90deg, #173eff, #7c3aed, #06b6d4);
+    background-size: 200% 100%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  /* Page content fade in */
+  .page-fade-in {
+    animation: fade-slide-up 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  /* Top accent line */
+  .lw-top-accent {
+    background: linear-gradient(90deg, transparent, #173eff 20%, #a78bfa 50%, #06b6d4 80%, transparent);
+    height: 1px;
+  }
+
+  /* Section dividers */
+  .lw-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 12%) 30%, oklch(1 0 0 / 12%) 70%, transparent);
+    margin: 1.5rem 0;
   }
 
   /* Warm card shadow */
@@ -588,14 +614,14 @@ html[data-grain="false"] body::after { opacity: 0; }
 }
 
 /* ─── Scrollbar — electric blue ───────────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.58 0.28 258 / 20%);
+  background: #173eff35;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.58 0.28 258 / 35%);
+  background: #173eff60;
 }
 
 /* Range inputs */
@@ -622,9 +648,20 @@ select option {
 
 /* Cards get a top-edge light catch in dark mode */
 .dark .bg-card {
+  background: oklch(0.095 0.025 258 / 82%) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  border-color: oklch(1 0 0 / 7%) !important;
   box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 7%),
-    0 2px 16px oklch(0 0 0 / 35%);
+    inset 0 1px 0 oklch(1 0 0 / 10%),
+    inset 0 -1px 0 oklch(0 0 0 / 18%),
+    0 8px 32px oklch(0 0 0 / 50%),
+    0 2px 8px oklch(0 0 0 / 35%);
+}
+
+/* Light mode cards — clean with depth */
+.bg-card {
+  background: white;
+  box-shadow: 0 1px 4px oklch(0 0 0 / 7%), 0 4px 16px oklch(0 0 0 / 5%);
 }
 
 /* ─── Bottom accent line — electric blue ─────────────────────────────────── */
@@ -641,9 +678,16 @@ html.dark body::before {
 
 /* ─── Focused inputs — blue glow ──────────────────────────────────────────── */
 .dark input:focus,
-.dark textarea:focus {
-  border-color: oklch(0.58 0.28 258 / 50%);
-  box-shadow: 0 0 0 2px oklch(0.58 0.28 258 / 12%);
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #173eff80 !important;
+  box-shadow: 0 0 0 3px #173eff18 !important;
+  outline: none;
+}
+input:focus, textarea:focus {
+  border-color: #173eff80 !important;
+  box-shadow: 0 0 0 3px #173eff12 !important;
+  outline: none;
 }
 
 /* ─── Better input styles ──────────────────────────────────────────────────── */
@@ -659,9 +703,13 @@ html.dark body::before {
 .dark input:focus,
 .dark textarea:focus {
   background: oklch(1 0 0 / 7%);
-  border-color: oklch(0.58 0.28 258 / 45%);
-  box-shadow: 0 0 0 3px oklch(0.58 0.28 258 / 10%);
+  border-color: #173eff80;
+  box-shadow: 0 0 0 3px #173eff18;
 }
+
+/* Button active press feedback */
+button:active:not(:disabled) { transform: scale(0.96); }
+a:active { opacity: 0.8; }
 
 /* ─── Production-grade global transitions ─────────────────────────────────── */
 button, a, input, textarea, select {

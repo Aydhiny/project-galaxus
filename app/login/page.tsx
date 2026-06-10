@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { ShineButton } from "@/components/lw/shine-button";
+import { BorderBeam } from "@/components/lw/border-beam";
 
 // Static stars — fixed positions so SSR and client always match
 const STARS = [
@@ -72,9 +74,9 @@ export default function LoginPage() {
       className="min-h-screen flex items-center justify-center relative overflow-hidden"
       style={{
         background: `
-          radial-gradient(ellipse 80% 60% at 50% -20%, oklch(0.35 0.22 258 / 40%) 0%, transparent 65%),
-          radial-gradient(ellipse 40% 40% at 80% 80%, oklch(0.40 0.22 290 / 25%) 0%, transparent 55%),
-          oklch(0.065 0.020 258)
+          radial-gradient(ellipse 80% 60% at 50% -20%, oklch(0.35 0.22 258 / 45%) 0%, transparent 65%),
+          radial-gradient(ellipse 40% 40% at 80% 80%, oklch(0.40 0.22 290 / 28%) 0%, transparent 55%),
+          oklch(0.058 0.022 258)
         `,
       }}
     >
@@ -83,7 +85,7 @@ export default function LoginPage() {
         {STARS.map((s, i) => (
           <div
             key={i}
-            className="absolute rounded-full bg-white/20"
+            className="absolute rounded-full bg-white/30"
             style={{
               width: s.w + "px",
               height: s.h + "px",
@@ -95,34 +97,45 @@ export default function LoginPage() {
         ))}
       </div>
 
-      {/* Floating orbs */}
+      {/* Aurora animated orbs */}
       <div
-        className="absolute w-[500px] h-[500px] rounded-full pointer-events-none animate-glow-pulse"
+        className="absolute w-[600px] h-[600px] rounded-full pointer-events-none animate-glow-pulse"
         style={{
-          top: "-15%",
-          left: "20%",
-          background: "radial-gradient(circle, oklch(0.45 0.28 258 / 18%) 0%, transparent 70%)",
+          top: "-20%",
+          left: "15%",
+          background: "radial-gradient(circle, oklch(0.45 0.28 258 / 22%) 0%, transparent 70%)",
+          filter: "blur(70px)",
+        }}
+      />
+      <div
+        className="absolute w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{
+          bottom: "-15%",
+          right: "10%",
+          background: "radial-gradient(circle, oklch(0.62 0.26 290 / 16%) 0%, transparent 70%)",
+          filter: "blur(90px)",
+          animation: "glow-pulse 3.5s ease-in-out infinite 1.2s",
+        }}
+      />
+      <div
+        className="absolute w-[380px] h-[380px] rounded-full pointer-events-none"
+        style={{
+          top: "55%",
+          left: "3%",
+          background: "radial-gradient(circle, oklch(0.50 0.24 220 / 13%) 0%, transparent 70%)",
           filter: "blur(60px)",
+          animation: "glow-pulse 4.5s ease-in-out infinite 0.7s",
         }}
       />
+      {/* Third orb — cyan accent */}
       <div
-        className="absolute w-[400px] h-[400px] rounded-full pointer-events-none"
+        className="absolute w-[280px] h-[280px] rounded-full pointer-events-none"
         style={{
-          bottom: "-10%",
-          right: "15%",
-          background: "radial-gradient(circle, oklch(0.62 0.26 290 / 12%) 0%, transparent 70%)",
-          filter: "blur(80px)",
-          animation: "glow-pulse 3s ease-in-out infinite 1s",
-        }}
-      />
-      <div
-        className="absolute w-[300px] h-[300px] rounded-full pointer-events-none"
-        style={{
-          top: "60%",
-          left: "5%",
-          background: "radial-gradient(circle, oklch(0.50 0.24 220 / 10%) 0%, transparent 70%)",
+          top: "20%",
+          right: "25%",
+          background: "radial-gradient(circle, oklch(0.62 0.22 210 / 10%) 0%, transparent 70%)",
           filter: "blur(50px)",
-          animation: "glow-pulse 4s ease-in-out infinite 0.5s",
+          animation: "float-up 6s ease-in-out infinite",
         }}
       />
 
@@ -131,37 +144,43 @@ export default function LoginPage() {
         {/* Logo area */}
         <div className="text-center mb-8">
           <div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-5 relative"
             style={{
               background: "oklch(1 0 0 / 5%)",
               border: "1px solid oklch(1 0 0 / 15%)",
-              boxShadow: "0 0 30px oklch(0.58 0.28 258 / 20%)",
             }}
           >
-            <span className="text-2xl" style={{ filter: "drop-shadow(0 0 8px #173eff)" }}>✦</span>
+            {/* Pulsing glow rings */}
+            <div className="absolute inset-[-4px] rounded-2xl animate-glow-pulse"
+              style={{ background: "radial-gradient(circle, #173eff25 0%, transparent 70%)" }} />
+            <span
+              className="text-3xl relative z-10 animate-glow-pulse"
+              style={{ filter: "drop-shadow(0 0 12px #173eff) drop-shadow(0 0 24px #173eff80)" }}
+            >✦</span>
           </div>
           <h1
-            className="text-3xl font-bold tracking-tight lw-gradient-text"
+            className="text-4xl font-bold tracking-tight lw-gradient-text"
             style={{ fontFamily: "var(--font-heading)" }}
           >
             GALAXUS
           </h1>
-          <p className="text-[oklch(0.94_0.015_258/60%)] mt-1 text-sm">
+          <p className="text-[oklch(0.94_0.015_258/55%)] mt-1.5 text-sm">
             Your personal universe
           </p>
         </div>
 
-        {/* Glass card */}
+        {/* Glass card with BorderBeam */}
         <div
-          className="rounded-2xl p-8 shadow-2xl"
+          className="rounded-2xl p-8 relative overflow-hidden"
           style={{
             background: "oklch(1 0 0 / 5%)",
-            backdropFilter: "blur(20px) saturate(180%)",
+            backdropFilter: "blur(24px) saturate(180%)",
             border: "1px solid oklch(1 0 0 / 10%)",
-            boxShadow: "0 8px 40px oklch(0 0 0 / 40%), inset 0 1px 0 oklch(1 0 0 / 10%)",
+            boxShadow: "0 32px 80px rgba(0,0,0,0.5), inset 0 1px 0 oklch(1 0 0 / 12%), inset 0 -1px 0 oklch(0 0 0 / 20%)",
           }}
         >
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <BorderBeam size={80} duration={5} colorFrom="#173eff" colorTo="#a78bfa" opacity={0.5} />
+          <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
             <div className="space-y-2">
               <Label
                 htmlFor="username"
@@ -174,10 +193,10 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="ajdin"
-                className="h-11"
+                className="h-12 rounded-xl"
                 style={{
-                  background: "oklch(1 0 0 / 6%)",
-                  border: "1px solid oklch(1 0 0 / 12%)",
+                  background: "oklch(1 0 0 / 7%)",
+                  border: "1px solid oklch(1 0 0 / 14%)",
                   color: "oklch(0.94 0.015 258)",
                 }}
                 required
@@ -196,10 +215,10 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="h-11"
+                className="h-12 rounded-xl"
                 style={{
-                  background: "oklch(1 0 0 / 6%)",
-                  border: "1px solid oklch(1 0 0 / 12%)",
+                  background: "oklch(1 0 0 / 7%)",
+                  border: "1px solid oklch(1 0 0 / 14%)",
                   color: "oklch(0.94 0.015 258)",
                 }}
                 required
@@ -207,33 +226,21 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-400 text-center">{error}</p>
+              <p className="text-sm text-red-400 text-center bg-red-400/10 border border-red-400/20 rounded-xl py-2 px-3">{error}</p>
             )}
 
-            {/* Gradient submit button */}
-            <button
+            <ShineButton
               type="submit"
+              size="lg"
               disabled={loading}
-              className="relative w-full h-11 overflow-hidden font-semibold text-white rounded-xl transition-all duration-300 hover:brightness-110 hover:-translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{
-                backgroundImage: "linear-gradient(135deg, #173eff 0%, #3758f9 50%, #6366f1 100%)",
-                backgroundSize: "200% auto",
-                boxShadow: "0 4px 24px rgba(23,62,255,0.45), 0 0 0 1px rgba(23,62,255,0.2)",
-              }}
-              onMouseEnter={e => !loading && (e.currentTarget.style.backgroundPosition = "right top")}
-              onMouseLeave={e => (e.currentTarget.style.backgroundPosition = "0% 50%")}
+              className="w-full !rounded-xl disabled:opacity-60"
             >
-              {/* Shine sweep */}
-              <span
-                className="pointer-events-none absolute inset-0 -translate-x-full skew-x-[-20deg] bg-white/20"
-                style={{ animation: "shine-sweep 2.5s ease infinite" }}
-              />
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin mx-auto" />
               ) : (
                 "Enter your universe"
               )}
-            </button>
+            </ShineButton>
           </form>
         </div>
 
