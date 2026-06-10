@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { BackgroundBeams } from "@/components/aceternity/background-beams";
+import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
+import { GradientText } from "@/components/aceternity/gradient-text";
 import { Loader2 } from "lucide-react";
-import { ShineButton } from "@/components/lw/shine-button";
-import { BorderBeam } from "@/components/lw/border-beam";
 
 // Static stars — fixed positions so SSR and client always match
 const STARS = [
@@ -52,201 +51,75 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const res = await signIn("credentials", {
-      username,
-      password,
-      redirect: false,
-    });
-
-    if (res?.ok) {
-      router.push("/dashboard");
-    } else {
-      setError("Invalid credentials. Try again.");
-    }
+    setLoading(true); setError("");
+    const res = await signIn("credentials", { username, password, redirect: false });
+    if (res?.ok) router.push("/dashboard");
+    else setError("Invalid credentials. Try again.");
     setLoading(false);
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{
-        background: `
-          radial-gradient(ellipse 80% 60% at 50% -20%, oklch(0.35 0.22 258 / 45%) 0%, transparent 65%),
-          radial-gradient(ellipse 40% 40% at 80% 80%, oklch(0.40 0.22 290 / 28%) 0%, transparent 55%),
-          oklch(0.058 0.022 258)
-        `,
-      }}
-    >
+    <div className="min-h-screen flex items-center justify-center bg-[#070b18] relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-[120px] opacity-25 bg-[#173eff]" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] rounded-full blur-[100px] opacity-15 bg-[#7c3aed]" />
+        <div className="absolute top-1/3 left-0 w-[300px] h-[300px] rounded-full blur-[80px] opacity-10 bg-[#06b6d4]" />
+      </div>
+      <BackgroundBeams />
+
       {/* Stars */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {STARS.map((s, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white/30"
-            style={{
-              width: s.w + "px",
-              height: s.h + "px",
-              top: s.top + "%",
-              left: s.left + "%",
-              opacity: s.op,
-            }}
-          />
+          <div key={i} className="absolute rounded-full bg-white/15"
+            style={{ width: s.w+"px", height: s.h+"px", top: s.top+"%", left: s.left+"%", opacity: s.op }} />
         ))}
       </div>
 
-      {/* Aurora animated orbs */}
-      <div
-        className="absolute w-[600px] h-[600px] rounded-full pointer-events-none animate-glow-pulse"
-        style={{
-          top: "-20%",
-          left: "15%",
-          background: "radial-gradient(circle, oklch(0.45 0.28 258 / 22%) 0%, transparent 70%)",
-          filter: "blur(70px)",
-        }}
-      />
-      <div
-        className="absolute w-[500px] h-[500px] rounded-full pointer-events-none"
-        style={{
-          bottom: "-15%",
-          right: "10%",
-          background: "radial-gradient(circle, oklch(0.62 0.26 290 / 16%) 0%, transparent 70%)",
-          filter: "blur(90px)",
-          animation: "glow-pulse 3.5s ease-in-out infinite 1.2s",
-        }}
-      />
-      <div
-        className="absolute w-[380px] h-[380px] rounded-full pointer-events-none"
-        style={{
-          top: "55%",
-          left: "3%",
-          background: "radial-gradient(circle, oklch(0.50 0.24 220 / 13%) 0%, transparent 70%)",
-          filter: "blur(60px)",
-          animation: "glow-pulse 4.5s ease-in-out infinite 0.7s",
-        }}
-      />
-      {/* Third orb — cyan accent */}
-      <div
-        className="absolute w-[280px] h-[280px] rounded-full pointer-events-none"
-        style={{
-          top: "20%",
-          right: "25%",
-          background: "radial-gradient(circle, oklch(0.62 0.22 210 / 10%) 0%, transparent 70%)",
-          filter: "blur(50px)",
-          animation: "float-up 6s ease-in-out infinite",
-        }}
-      />
-
       {/* Card */}
       <div className="relative z-10 w-full max-w-sm mx-4">
-        {/* Logo area */}
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div
-            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-5 relative"
-            style={{
-              background: "oklch(1 0 0 / 5%)",
-              border: "1px solid oklch(1 0 0 / 15%)",
-            }}
-          >
-            {/* Pulsing glow rings */}
-            <div className="absolute inset-[-4px] rounded-2xl animate-glow-pulse"
-              style={{ background: "radial-gradient(circle, #173eff25 0%, transparent 70%)" }} />
-            <span
-              className="text-3xl relative z-10 animate-glow-pulse"
-              style={{ filter: "drop-shadow(0 0 12px #173eff) drop-shadow(0 0 24px #173eff80)" }}
-            >✦</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+            style={{ background: "linear-gradient(135deg,rgba(23,62,255,0.2),rgba(124,58,237,0.2))", border:"1px solid rgba(23,62,255,0.3)", boxShadow:"0 0 40px rgba(23,62,255,0.25)" }}>
+            <span className="text-2xl" style={{ filter:"drop-shadow(0 0 8px rgba(23,62,255,0.8))" }}>✦</span>
           </div>
-          <h1
-            className="text-4xl font-bold tracking-tight lw-gradient-text"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            GALAXUS
-          </h1>
-          <p className="text-[oklch(0.94_0.015_258/55%)] mt-1.5 text-sm">
-            Your personal universe
-          </p>
+          <GradientText as="h1" from="#60a5fa" via="#818cf8" to="#a78bfa" className="text-3xl font-bold tracking-tight">
+            Galaxus
+          </GradientText>
+          <p className="text-white/40 text-sm mt-1">Your personal universe</p>
         </div>
 
-        {/* Glass card with BorderBeam */}
-        <div
-          className="rounded-2xl p-8 relative overflow-hidden"
-          style={{
-            background: "oklch(1 0 0 / 5%)",
-            backdropFilter: "blur(24px) saturate(180%)",
-            border: "1px solid oklch(1 0 0 / 10%)",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.5), inset 0 1px 0 oklch(1 0 0 / 12%), inset 0 -1px 0 oklch(0 0 0 / 20%)",
-          }}
-        >
-          <BorderBeam size={80} duration={5} colorFrom="#173eff" colorTo="#a78bfa" opacity={0.5} />
-          <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
-            <div className="space-y-2">
-              <Label
-                htmlFor="username"
-                className="text-[9px] uppercase tracking-[0.2em] text-[oklch(0.94_0.015_258/50%)]"
-              >
-                Username
-              </Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="ajdin"
-                className="h-12 rounded-xl"
-                style={{
-                  background: "oklch(1 0 0 / 7%)",
-                  border: "1px solid oklch(1 0 0 / 14%)",
-                  color: "oklch(0.94 0.015 258)",
-                }}
-                required
-              />
+        {/* Form card */}
+        <div className="rounded-2xl border border-white/[0.08] p-8"
+          style={{ background:"rgba(10,14,28,0.85)", backdropFilter:"blur(32px) saturate(180%)", boxShadow:"inset 0 1px 0 rgba(255,255,255,0.08),0 32px 80px rgba(0,0,0,0.60)" }}>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Username</label>
+              <input value={username} onChange={e => setUsername(e.target.value)}
+                placeholder="ajdin" required
+                className="w-full px-4 py-3 rounded-xl border text-sm"
+                style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
             </div>
-            <div className="space-y-2">
-              <Label
-                htmlFor="password"
-                className="text-[9px] uppercase tracking-[0.2em] text-[oklch(0.94_0.015_258/50%)]"
-              >
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="h-12 rounded-xl"
-                style={{
-                  background: "oklch(1 0 0 / 7%)",
-                  border: "1px solid oklch(1 0 0 / 14%)",
-                  color: "oklch(0.94 0.015 258)",
-                }}
-                required
-              />
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••" required
+                className="w-full px-4 py-3 rounded-xl border text-sm"
+                style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
             </div>
-
             {error && (
-              <p className="text-sm text-red-400 text-center bg-red-400/10 border border-red-400/20 rounded-xl py-2 px-3">{error}</p>
+              <div className="px-4 py-2.5 rounded-xl text-sm text-red-300 text-center"
+                style={{ background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.25)" }}>
+                {error}
+              </div>
             )}
-
-            <ShineButton
-              type="submit"
-              size="lg"
-              disabled={loading}
-              className="w-full !rounded-xl disabled:opacity-60"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-              ) : (
-                "Enter your universe"
-              )}
-            </ShineButton>
+            <MovingBorderBtn type="submit" disabled={loading} containerClassName="w-full" className="w-full h-11" innerClassName="w-full justify-center">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enter your universe"}
+            </MovingBorderBtn>
           </form>
         </div>
-
-        <p className="text-center text-sm text-[oklch(0.94_0.015_258/35%)] mt-6 tracking-wide">
-          بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم
-        </p>
+        <p className="text-center text-xs text-white/25 mt-6">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم</p>
       </div>
     </div>
   );

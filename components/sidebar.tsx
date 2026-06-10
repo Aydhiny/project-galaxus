@@ -15,6 +15,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useUIStore } from "@/lib/store/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RoomCustomizer } from "@/components/room-customizer";
+import { GradientText, SectionLabel } from "@/components/aceternity/gradient-text";
 
 const NAV_GROUPS = [
   {
@@ -77,7 +78,11 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
 
   return (
     <TooltipProvider delay={0}>
-      <div className="flex flex-col h-full dark:bg-[rgba(5,8,20,0.96)] dark:backdrop-blur-xl bg-[#ebeeff]">
+      <div className={cn(
+        "flex flex-col h-full",
+        "dark:bg-[rgba(5,8,20,0.97)] dark:backdrop-blur-xl dark:border-r dark:border-white/[0.06]",
+        "bg-[#ebeeff] border-r border-black/[0.07]"
+      )}>
 
         {/* ── Logo ─────────────────────────────────────────────────────── */}
         <div className={cn(
@@ -90,13 +95,15 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                 <LayoutDashboard className="w-3.5 h-3.5 text-[#3758f9]" />
               </div>
               <div className="min-w-0">
-                <p
-                  className="font-bold text-sm tracking-wide truncate heading-gradient"
-                  style={{ fontFamily: "var(--font-heading)" }}
+                <GradientText
+                  as="p"
+                  from="#60a5fa" via="#818cf8" to="#a78bfa"
+                  className="font-bold text-sm tracking-wide truncate"
+                  style={{ fontFamily: "var(--font-heading)" } as React.CSSProperties}
                 >
                   GALAXUS
-                </p>
-                <p className="section-label tracking-[0.2em] text-[8px]">Your Universe</p>
+                </GradientText>
+                <p className="text-[8px] font-semibold uppercase tracking-[0.2em] opacity-40">Your Universe</p>
               </div>
             </div>
           )}
@@ -113,9 +120,9 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
               {!collapsed && (
-                <p className="section-label px-2 mb-1.5">
+                <SectionLabel className="px-2 mb-1.5">
                   {group.label}
-                </p>
+                </SectionLabel>
               )}
               <div className="space-y-0.5">
                 {group.items.map(({ href, icon: Icon, label }) => {
@@ -126,19 +133,19 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                       onClick={onClose}
                       className={cn(
                         "flex items-center rounded-lg text-sm font-medium transition-all duration-150 group relative",
-                        collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2",
+                        collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 py-2",
                         active
-                          ? "bg-[rgba(23,62,255,0.12)] border-l-2 border-[#173eff] text-[#3b82f6]"
-                          : "dark:text-white/50 dark:hover:text-white/85 dark:hover:bg-white/5 text-black/55 hover:text-black/85 hover:bg-black/5 border-l-2 border-transparent"
+                          ? "bg-[rgba(23,62,255,0.12)] border-l-2 border-[#173eff] text-blue-400 pl-[calc(0.75rem-2px)]"
+                          : "dark:text-white/45 dark:hover:text-white/80 dark:hover:bg-white/[0.05] text-black/55 hover:text-black/85 hover:bg-black/5 border-l-2 border-transparent pl-3"
                       )}
                     >
                       <Icon className={cn(
                         "w-4 h-4 shrink-0 transition-colors",
-                        active ? "text-[#3b82f6]" : "text-muted-foreground group-hover:text-foreground"
+                        active ? "text-blue-400" : "text-muted-foreground group-hover:text-foreground"
                       )} />
                       {!collapsed && <span className="flex-1 truncate">{label}</span>}
                       {active && !collapsed && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#173eff] shrink-0" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#173eff] shrink-0 animate-[pulse-glow_2s_ease-in-out_infinite]" />
                       )}
                     </Link>
                   );
@@ -176,7 +183,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           {!collapsed && (
             <button
               onClick={openPalette}
-              className="w-full flex items-center gap-3 btn-secondary rounded-lg text-sm px-3 py-2"
+              className="w-full flex items-center gap-3 btn-ghost rounded-lg text-sm px-3 py-2"
             >
               <Command className="w-4 h-4 shrink-0" />
               <span className="flex-1 text-xs">Command palette</span>
@@ -188,7 +195,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
               <TooltipTrigger render={
                 <button
                   onClick={openPalette}
-                  className="w-9 h-9 flex items-center justify-center btn-secondary rounded-lg"
+                  className="w-9 h-9 flex items-center justify-center btn-ghost rounded-lg"
                 >
                   <Command className="w-4 h-4" />
                 </button>
@@ -218,7 +225,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                 a.href = url; a.download = `galaxus-backup-${new Date().toISOString().slice(0,10)}.json`;
                 a.click(); URL.revokeObjectURL(url);
               }}
-              className="w-full flex items-center gap-3 btn-secondary rounded-lg text-sm px-3 py-2"
+              className="w-full flex items-center gap-3 btn-ghost rounded-lg text-sm px-3 py-2"
               title="Download a JSON backup of all local data (moods, metrics, notes)"
             >
               <Download className="w-4 h-4 shrink-0" />
@@ -229,7 +236,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className={cn(
-              "flex items-center gap-3 btn-secondary rounded-lg text-sm",
+              "flex items-center gap-3 btn-ghost rounded-lg text-sm",
               collapsed ? "justify-center w-9 h-9" : "w-full px-3 py-2"
             )}
           >
@@ -243,7 +250,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
               <button
                 onClick={toggleSidebar}
                 className={cn(
-                  "flex items-center gap-3 btn-secondary rounded-lg text-sm",
+                  "flex items-center gap-3 btn-ghost rounded-lg text-sm",
                   collapsed ? "justify-center w-9 h-9" : "w-full px-3 py-2"
                 )}
                 title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -261,7 +268,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                     render={
                       <button
                         onClick={toggleHidden}
-                        className="w-full flex items-center gap-3 btn-secondary rounded-lg text-sm px-3 py-2"
+                        className="w-full flex items-center gap-3 btn-ghost rounded-lg text-sm px-3 py-2"
                       >
                         <PanelLeftClose className="w-4 h-4 shrink-0" />
                         <span className="text-xs">Hide sidebar</span>

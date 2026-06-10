@@ -14,10 +14,10 @@ import { useFeedVideoStore } from "@/lib/store/feed-video";
 import { moodColor, MOOD_LABELS, loadMoods, saveMood, type MoodEntry } from "@/lib/utils/mood";
 import { toHijri } from "@/lib/hijri";
 import { cn } from "@/lib/utils";
-import { GlowingCards, GlowingCard } from "@/components/lw/glowing-cards";
-import { ShineButton } from "@/components/lw/shine-button";
-import { BorderBeam } from "@/components/lw/border-beam";
-import { InteractiveGradientCard } from "@/components/lw/interactive-gradient";
+import { SpotlightCard } from "@/components/aceternity/spotlight-card";
+import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
+import { GradientText, SectionLabel } from "@/components/aceternity/gradient-text";
+import { BackgroundBeams } from "@/components/aceternity/background-beams";
 
 function MoodIcon({ mood }: { mood: number }) {
   if (mood === 0) return <Meh className="w-4 h-4 text-muted-foreground" />;
@@ -93,27 +93,21 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
   return (
     <div className="min-h-full page-fade-in">
       {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[oklch(0.095_0.022_258)] to-[oklch(0.065_0.020_258)] border-b border-[oklch(1_0_0/8%)] px-6 pt-10 pb-8">
-        {/* Top accent line */}
+      <div className="relative overflow-hidden bg-[#070b18] border-b border-white/[0.06] px-6 pt-10 pb-8">
+        <BackgroundBeams />
+        {/* glow orbs */}
+        <div className="absolute top-4 right-16 w-64 h-64 rounded-full blur-[80px] opacity-20 bg-[#173eff]" />
+        <div className="absolute bottom-0 left-1/3 w-72 h-40 rounded-full blur-[80px] bg-[#7c3aed]" style={{ opacity: 0.12 }} />
         <div className="absolute top-0 left-0 right-0 lw-top-accent" />
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-6 right-16 w-56 h-56 rounded-full blur-3xl opacity-25" style={{ background: "oklch(0.58 0.28 258)" }} />
-          <div className="absolute bottom-0 left-1/3 w-80 h-40 rounded-full blur-3xl opacity-15" style={{ background: "oklch(0.62 0.26 290)" }} />
-          <div className="absolute top-4 left-8 w-32 h-32 rounded-full blur-2xl opacity-10" style={{ background: "#06b6d4" }} />
-        </div>
-        {/* BorderBeam on a decorative inner frame */}
-        <div className="absolute inset-0 rounded-none overflow-hidden pointer-events-none">
-          <BorderBeam size={80} duration={8} colorFrom="#173eff" colorTo="#a78bfa" opacity={0.3} />
-        </div>
-        <div className="relative max-w-5xl mx-auto">
+        <div className="relative max-w-5xl mx-auto z-10">
           <div className="flex items-center justify-between gap-4 mb-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-[0.2em]">{dateStr}</p>
-            <p className="text-xs text-muted-foreground/70">{hijri.short}{hijri.isFriday ? " · Jumu'ah" : ""}{hijri.isRamadan ? " · Ramadan" : ""}</p>
+            <p className="text-xs text-white/40 uppercase tracking-[0.2em]">{dateStr}</p>
+            <p className="text-xs text-white/30">{hijri.short}{hijri.isFriday ? " · Jumu'ah" : ""}{hijri.isRamadan ? " · Ramadan" : ""}</p>
           </div>
-          <h1 className="text-3xl font-bold mb-1 lw-gradient-text" style={{ fontFamily: "var(--font-heading)", minHeight: "2.5rem" }}>
-            {typed}<span className="animate-pulse text-[#173eff]" style={{ WebkitTextFillColor: "initial" }}>|</span>
-          </h1>
-          <p className="text-muted-foreground text-sm mb-4">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم — In the name of Allah, the Most Gracious.</p>
+          <GradientText as="h1" from="#60a5fa" via="#818cf8" to="#c4b5fd" className="text-3xl font-bold mb-1" style={{ fontFamily: "var(--font-heading)", minHeight: "2.5rem" } as React.CSSProperties}>
+            {typed}<span className="text-[#173eff] animate-pulse" style={{ WebkitTextFillColor: "initial" }}>|</span>
+          </GradientText>
+          <p className="text-white/40 text-sm mb-4">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم — In the name of Allah, the Most Gracious.</p>
           <div className="mb-4">
             <PrayerCountdown compact />
           </div>
@@ -128,11 +122,11 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {/* Quote */}
-        <div className="rounded-2xl border border-[var(--gold)]/20 bg-[var(--gold-muted)] p-6 relative overflow-hidden">
+        <SpotlightCard spotlightColor="rgba(245,158,11,0.10)" className="border-[var(--gold)]/20 bg-[var(--gold-muted)]" padding="p-6">
           <Quote className="absolute top-4 right-4 w-8 h-8 text-[var(--gold)]/15" />
           <p className="text-lg font-medium leading-relaxed" style={{ fontFamily: "var(--font-heading)" }}>&ldquo;{quote.text}&rdquo;</p>
           <p className="text-sm text-muted-foreground mt-3">— {quote.source}</p>
-        </div>
+        </SpotlightCard>
 
         {/* Streaks + Mood */}
         <div>
@@ -163,57 +157,49 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
               )}
             </div>
           </div>
-          {/* Glowing streak cards */}
-          <GlowingCards gap="0.75rem" glowRadius={20}>
-            <GlowingCard glowColor="#173eff" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
-              <StreakRing value={streaks.prayers} label="Prayers" color="var(--emerald)" />
-            </GlowingCard>
-            <GlowingCard glowColor="#c9a84c" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
-              <StreakRing value={streaks.training} label="Training" color="var(--gold)" />
-            </GlowingCard>
-            <GlowingCard glowColor="#a78bfa" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
-              <StreakRing value={streaks.meditation} label="Meditation" color="oklch(0.65 0.20 290)" />
-            </GlowingCard>
-            <GlowingCard glowColor="#f97316" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
-              <StreakRing value={streaks.music} label="Music" color="oklch(0.70 0.19 32)" />
-            </GlowingCard>
-            <GlowingCard glowColor="#06b6d4" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
-              <StreakRing value={streaks.gratitude} label="Gratitude" color="oklch(0.65 0.18 200)" />
-            </GlowingCard>
-            <GlowingCard glowColor="#ef4444" className="flex-1 min-w-[5rem] p-4 flex flex-col items-center">
-              <StreakRing value={streaks.writing} label="Writing" color="oklch(0.62 0.18 25)" />
-            </GlowingCard>
-          </GlowingCards>
+          {/* Spotlight streak cards */}
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            {[
+              { value: streaks.prayers,   label: "Prayers",    color: "#10b981" },
+              { value: streaks.training,  label: "Training",   color: "#f59e0b" },
+              { value: streaks.meditation,label: "Meditation", color: "#a78bfa" },
+              { value: streaks.music,     label: "Music",      color: "#f97316" },
+              { value: streaks.gratitude, label: "Gratitude",  color: "#06b6d4" },
+              { value: streaks.writing,   label: "Writing",    color: "#ef4444" },
+            ].map(s => (
+              <SpotlightCard key={s.label} spotlightColor={`${s.color}20`} padding="p-4" className="flex flex-col items-center">
+                <StreakRing value={s.value} label={s.label} color={s.color} />
+              </SpotlightCard>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Progress card with InteractiveGradientCard */}
-            <InteractiveGradientCard glowColor="#173eff20" borderColor="#173eff" className="bg-card">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold">Today&apos;s Progress</h3>
-                  <span className="text-2xl font-bold lw-gradient-text">{goalPct}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
-                  <div className="h-full rounded-full progress-bar transition-all duration-700" style={{ width: `${goalPct}%` }} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: "Prayers",  val: `${prayersDone}/5`,                     href: "/daily" },
-                    { label: "Training", val: streaks.training > 0 ? "Active" : "—",  href: "/training" },
-                    { label: "Reading",  val: `${readingStats.currentlyReading} books`, href: "/reading" },
-                    { label: "Goals",    val: `${completedGoals}/${totalGoals}`,        href: "/goals" },
-                  ].map(s => (
-                    <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors hover:border-[#173eff]/30">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
-                      <p className="font-semibold text-sm mt-0.5">{s.val}</p>
-                    </Link>
-                  ))}
-                </div>
+            {/* Progress card */}
+            <SpotlightCard elevated spotlightColor="rgba(23,62,255,0.15)" padding="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">Today&apos;s Progress</h3>
+                <GradientText as="span" from="#60a5fa" via="#818cf8" to="#a78bfa" className="text-2xl font-bold">{goalPct}%</GradientText>
               </div>
-            </InteractiveGradientCard>
+              <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
+                <div className="h-full rounded-full progress-bar transition-all duration-700" style={{ width: `${goalPct}%` }} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Prayers",  val: `${prayersDone}/5`,                     href: "/daily" },
+                  { label: "Training", val: streaks.training > 0 ? "Active" : "—",  href: "/training" },
+                  { label: "Reading",  val: `${readingStats.currentlyReading} books`, href: "/reading" },
+                  { label: "Goals",    val: `${completedGoals}/${totalGoals}`,        href: "/goals" },
+                ].map(s => (
+                  <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors hover:border-[#173eff]/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                    <p className="font-semibold text-sm mt-0.5">{s.val}</p>
+                  </Link>
+                ))}
+              </div>
+            </SpotlightCard>
 
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -237,14 +223,15 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             <div>
               <div className="flex items-center justify-between mb-3">
                 <SectionHeader title="Watch Today" icon={<Play className="w-4 h-4" />} />
-                <ShineButton
-                  size="sm"
+                <MovingBorderBtn
                   onClick={refreshVideos}
-                  className="flex items-center gap-1.5 !rounded-lg"
+                  containerClassName="h-8"
+                  className="h-8"
+                  innerClassName="px-3 text-xs gap-1.5"
                 >
-                  <RefreshCw className="w-3 h-3 mr-1" />
+                  <RefreshCw className="w-3 h-3" />
                   New picks
-                </ShineButton>
+                </MovingBorderBtn>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {videos.map(v => <InlineVideoCard key={v.id} {...v} />)}
@@ -259,15 +246,13 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             {/* GitHub */}
             <div>
               <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
-              <InteractiveGradientCard glowColor="#173eff15" borderColor="#173eff" className="bg-card mt-3 overflow-hidden">
-                <div className="p-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="https://ghchart.rshah.org/C9A84C/Aydhiny" alt="GitHub contributions"
-                    className="w-full h-auto rounded-lg"
-                    style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }} />
-                  <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
-                </div>
-              </InteractiveGradientCard>
+              <SpotlightCard elevated spotlightColor="rgba(23,62,255,0.10)" padding="p-4" className="mt-3 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://ghchart.rshah.org/C9A84C/Aydhiny" alt="GitHub contributions"
+                  className="w-full h-auto rounded-lg"
+                  style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }} />
+                <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
+              </SpotlightCard>
             </div>
           </div>
         </div>

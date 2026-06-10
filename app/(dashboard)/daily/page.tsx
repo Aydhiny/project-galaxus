@@ -5,8 +5,9 @@ import { upsertCheckin, getTodayCheckin } from "@/lib/actions/checkin";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Loader2, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check, BedDouble, Star, Heart } from "lucide-react";
-import { ShineButton } from "@/components/lw/shine-button";
-import { InteractiveGradientCard } from "@/components/lw/interactive-gradient";
+import { SpotlightCard } from "@/components/aceternity/spotlight-card";
+import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
+import { GradientText, SectionLabel } from "@/components/aceternity/gradient-text";
 
 const PRAYERS = [
   { key: "fajr",    label: "Fajr",    arabic: "الفجر",  time: "Dawn",      Icon: Moon },
@@ -158,23 +159,26 @@ export default function DailyPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="section-label mb-1">Daily Check-in</p>
-          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>{todayDisplay}</h1>
+          <SectionLabel className="mb-1">Daily Check-in</SectionLabel>
+          <GradientText as="h1" from="#60a5fa" via="#818cf8" to="#a78bfa" className="text-2xl font-bold" style={{ fontFamily: "var(--font-heading)" } as React.CSSProperties}>
+            {todayDisplay}
+          </GradientText>
         </div>
-        <ShineButton
+        <MovingBorderBtn
           onClick={save}
           disabled={pending}
-          size="md"
-          className="gap-2 disabled:opacity-60"
+          containerClassName="h-10"
+          className="h-10"
+          innerClassName="gap-2 px-5"
         >
           {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
           {pending ? "Saving…" : "Save"}
-        </ShineButton>
+        </MovingBorderBtn>
       </div>
 
       {/* Prayers */}
-      <InteractiveGradientCard glowColor="#173eff18" borderColor="#173eff" className="bg-card">
-        <div className="p-6 space-y-4">
+      <SpotlightCard elevated spotlightColor="rgba(23,62,255,0.12)" padding="p-6">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Moon className="w-4 h-4 text-[#3758f9]" />
@@ -189,13 +193,13 @@ export default function DailyPage() {
               <button
                 key={p.key}
                 onClick={() => toggle(p.key)}
-                className={`flex flex-col items-center gap-2 py-5 px-2 rounded-xl border transition-all duration-300 min-h-[90px] ${
+                className={`flex flex-col items-center gap-2 py-5 px-2 rounded-xl border transition-all duration-300 min-h-[100px] ${
                   state[p.key] ? "prayer-done" : "prayer-undone"
                 }`}
               >
                 <p.Icon className="w-5 h-5" />
                 <span className="text-sm font-bold">{p.label}</span>
-                <span className="text-[11px] font-medium opacity-70" style={{ fontFamily: "serif" }}>{p.arabic}</span>
+                <span className="text-base font-semibold opacity-80" style={{ fontFamily: "serif" }}>{p.arabic}</span>
                 {state[p.key] && (
                   <div className="w-5 h-5 rounded-full bg-[#173eff] flex items-center justify-center shadow-[0_0_8px_#173eff80]">
                     <Check className="w-3 h-3 text-white" />
@@ -206,7 +210,7 @@ export default function DailyPage() {
           </div>
 
           {/* Quran pages */}
-          <div className="pt-2 border-t border-white/6">
+          <div className="pt-2 border-t border-white/[0.06]">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-[#3758f9]" /> Quran Pages
@@ -227,17 +231,17 @@ export default function DailyPage() {
             </div>
           </div>
         </div>
-      </InteractiveGradientCard>
+      </SpotlightCard>
 
       {/* Habit sections */}
       {HABIT_SECTIONS.map((section) => (
-        <InteractiveGradientCard
+        <SpotlightCard
           key={section.title}
-          glowColor="#173eff12"
-          borderColor="#173eff"
-          className="bg-card"
+          elevated
+          spotlightColor="rgba(23,62,255,0.10)"
+          padding="p-6"
         >
-          <div className="p-6 space-y-4">
+          <div className="space-y-4">
             <div className="flex items-center gap-2">
               <section.Icon className="w-5 h-5" style={{ color: section.color }} />
               <h2 className="font-semibold">{section.title}</h2>
@@ -309,12 +313,12 @@ export default function DailyPage() {
               })}
             </div>
           </div>
-        </InteractiveGradientCard>
+        </SpotlightCard>
       ))}
 
       {/* Gratitude */}
-      <InteractiveGradientCard glowColor="#ff174420" borderColor="#f43f5e" className="bg-card">
-        <div className="p-6 space-y-4">
+      <SpotlightCard spotlightColor="rgba(244,63,94,0.10)" padding="p-6">
+        <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-rose-400" />
             <h2 className="font-semibold">Gratitude</h2>
@@ -333,17 +337,17 @@ export default function DailyPage() {
                     setState(s => ({ ...s, gratitudeText: arr.join("\n"), gratitude: arr.some(l => l.trim().length > 0) }));
                   }}
                   placeholder={["People, moments, or blessings…", "Something small you noticed today…", "Something you're proud of…"][i]}
-                  className="flex-1 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                  className="flex-1 bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
                 />
               </div>
             );
           })}
         </div>
-      </InteractiveGradientCard>
+      </SpotlightCard>
 
       {/* Sleep */}
-      <InteractiveGradientCard glowColor="#06b6d420" borderColor="#06b6d4" className="bg-card">
-        <div className="p-6 space-y-4">
+      <SpotlightCard spotlightColor="rgba(6,182,212,0.10)" padding="p-6">
+        <div className="space-y-4">
           <div className="flex items-center gap-2">
             <BedDouble className="w-5 h-5 text-[var(--emerald)]" />
             <h2 className="font-semibold">Sleep</h2>
@@ -353,20 +357,20 @@ export default function DailyPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground uppercase tracking-widest">Bed time</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-widest block">Bed time</label>
               <input type="time" value={state.bedTime}
                 onChange={e => setState(s => ({ ...s, bedTime: e.target.value }))}
-                className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
+                className="w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground uppercase tracking-widest">Wake time</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-widest block">Wake time</label>
               <input type="time" value={state.wakeTime}
                 onChange={e => setState(s => ({ ...s, wakeTime: e.target.value }))}
-                className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
+                className="w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground uppercase tracking-widest">Quality</label>
+            <label className="text-xs text-muted-foreground uppercase tracking-widest block">Quality</label>
             <div className="flex gap-2">
               {[1,2,3,4,5].map(n => (
                 <button key={n} type="button"
@@ -381,11 +385,11 @@ export default function DailyPage() {
             </div>
           </div>
         </div>
-      </InteractiveGradientCard>
+      </SpotlightCard>
 
       {/* Notes */}
-      <InteractiveGradientCard glowColor="#173eff10" borderColor="#173eff" className="bg-card">
-        <div className="p-6 space-y-3">
+      <SpotlightCard spotlightColor="rgba(23,62,255,0.08)" padding="p-6">
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
             <NotebookPen className="w-4 h-4 text-muted-foreground" />
             <h2 className="font-semibold">Daily Notes</h2>
@@ -395,16 +399,17 @@ export default function DailyPage() {
             onChange={(e) => setState((s) => ({ ...s, notes: e.target.value }))}
             placeholder="How was your day? Any reflections..."
             rows={4}
-            className="w-full bg-white/5 border border-white/8 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
+            className="w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
           />
         </div>
-      </InteractiveGradientCard>
+      </SpotlightCard>
 
-      <ShineButton
+      <MovingBorderBtn
         onClick={save}
         disabled={pending}
-        size="lg"
-        className="w-full !rounded-xl disabled:opacity-60"
+        containerClassName="w-full"
+        className="w-full h-12"
+        innerClassName="w-full justify-center text-base"
       >
         {pending ? (
           <span className="flex items-center gap-2 justify-center">
@@ -414,7 +419,7 @@ export default function DailyPage() {
         ) : (
           "Save Today's Check-in"
         )}
-      </ShineButton>
+      </MovingBorderBtn>
     </div>
   );
 }

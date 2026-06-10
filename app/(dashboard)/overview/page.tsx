@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils";
 import { ChevronRight, ChevronLeft, Sun, Moon, Star, Check, Flame, Droplets, BookOpen, Dumbbell, Sparkles, Frown, Minus, Smile, Heart, Leaf } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ShineButton } from "@/components/lw/shine-button";
-import { InteractiveGradientCard } from "@/components/lw/interactive-gradient";
+import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -512,14 +511,15 @@ export default function OverviewPage() {
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
           )}
-          <ShineButton
+          <MovingBorderBtn
             onClick={next}
-            size="md"
-            className="flex items-center gap-2"
+            containerClassName="h-10"
+            className="h-10"
+            innerClassName="gap-2 px-5"
           >
             {stepIdx === steps.length - 2 ? (mode === "morning" ? "Begin the day" : "Complete") : "Continue"}
             <ChevronRight className="w-4 h-4" />
-          </ShineButton>
+          </MovingBorderBtn>
         </div>
       )}
     </div>
