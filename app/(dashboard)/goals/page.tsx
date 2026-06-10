@@ -10,7 +10,7 @@ import {
 } from "@/lib/actions/goals";
 import type { DailyGoal } from "@/lib/db/schema";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, Target } from "lucide-react";
+import { Plus, Trash2, Loader2, Target, Moon, HeartPulse, BookOpen, Music2, User, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,29 +18,41 @@ import { Label } from "@/components/ui/label";
 type GoalWithCompletion = DailyGoal & { completed: boolean };
 
 const CATEGORIES = [
-  { id: "spiritual", label: "Spiritual", emoji: "🕌" },
-  { id: "health", label: "Health", emoji: "💪" },
-  { id: "learning", label: "Learning", emoji: "📚" },
-  { id: "creative", label: "Creative", emoji: "🎨" },
-  { id: "personal", label: "Personal", emoji: "✨" },
-  { id: "general", label: "General", emoji: "✓" },
+  { id: "spiritual", label: "Spiritual" },
+  { id: "health",    label: "Health"    },
+  { id: "learning",  label: "Learning"  },
+  { id: "creative",  label: "Creative"  },
+  { id: "personal",  label: "Personal"  },
+  { id: "general",   label: "General"   },
 ];
 
-const PRESET_EMOJIS = ["✓", "📖", "🏃", "🧘", "🎵", "✍️", "🙏", "💪", "🎯", "⭐", "🌙", "🕌"];
+const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  spiritual: Moon, health: HeartPulse, learning: BookOpen, creative: Music2,
+  personal: User, general: Target,
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  spiritual: "var(--emerald)",
+  health:    "oklch(0.70 0.19 32)",
+  learning:  "oklch(0.65 0.20 290)",
+  creative:  "oklch(0.68 0.20 38)",
+  personal:  "oklch(0.65 0.18 200)",
+  general:   "var(--gold)",
+};
 
 const DEFAULT_GOALS = [
-  { title: "All 5 prayers completed", category: "spiritual", emoji: "🕌" },
-  { title: "Read at least 10 pages", category: "learning", emoji: "📖" },
-  { title: "30 minutes of exercise", category: "health", emoji: "💪" },
-  { title: "10 minutes of meditation", category: "health", emoji: "🧘" },
-  { title: "Write or journal", category: "personal", emoji: "✍️" },
-  { title: "Practice music/production", category: "creative", emoji: "🎵" },
+  { title: "All 5 prayers completed",   category: "spiritual", emoji: "" },
+  { title: "Read at least 10 pages",    category: "learning",  emoji: "" },
+  { title: "30 minutes of exercise",    category: "health",    emoji: "" },
+  { title: "10 minutes of meditation",  category: "health",    emoji: "" },
+  { title: "Write or journal",          category: "personal",  emoji: "" },
+  { title: "Practice music/production", category: "creative",  emoji: "" },
 ];
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<GoalWithCompletion[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: "", category: "general", emoji: "✓" });
+  const [form, setForm] = useState({ title: "", category: "general", emoji: "" });
   const [pending, startTransition] = useTransition();
 
   function reload() {
@@ -56,9 +68,9 @@ export default function GoalsPage() {
     e.preventDefault();
     startTransition(async () => {
       await addGoal(form);
-      setForm({ title: "", category: "general", emoji: "✓" });
+      setForm({ title: "", category: "general", emoji: "" });
       setShowAdd(false);
-      toast.success("Goal added! 🎯");
+      toast.success("Goal added");
       reload();
     });
   }
@@ -136,36 +148,17 @@ export default function GoalsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Category</Label>
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                  className="w-full h-10 rounded-lg bg-white/5 border border-white/10 px-3 text-sm text-foreground focus:outline-none"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground uppercase tracking-widest">Emoji</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {PRESET_EMOJIS.map((e) => (
-                    <button
-                      key={e}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, emoji: e }))}
-                      className={`w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all ${
-                        form.emoji === e ? "bg-[var(--gold-muted)] border border-[var(--gold)]/40" : "bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase tracking-widest">Category</Label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                className="w-full h-10 rounded-lg bg-white/5 border border-white/10 px-3 text-sm text-foreground focus:outline-none"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
             </div>
 
             <div className="flex gap-3">
@@ -202,7 +195,7 @@ export default function GoalsPage() {
       {byCategory.map((cat) => (
         <div key={cat.id} className="space-y-2">
           <div className="flex items-center gap-2">
-            <span>{cat.emoji}</span>
+            {(() => { const CatIcon = CATEGORY_ICONS[cat.id] ?? Target; const catColor = CATEGORY_COLORS[cat.id] ?? "var(--gold)"; return <CatIcon className="w-4 h-4" style={{ color: catColor }} />; })()}
             <h2 className="text-sm font-semibold">{cat.label}</h2>
           </div>
           <div className="space-y-2">
@@ -252,9 +245,18 @@ function GoalRow({
         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
           goal.completed ? "border-[var(--gold)] bg-[var(--gold)]" : "border-white/25"
         }`}>
-          {goal.completed && <span className="text-[8px] text-[oklch(0.08_0.01_85)] font-bold">✓</span>}
+          {goal.completed && <Check className="w-3 h-3 text-[oklch(0.08_0.01_85)]" />}
         </div>
-        <span className="text-base">{goal.emoji}</span>
+        {(() => {
+          const cat = goal.category ?? "general";
+          const CatIcon = CATEGORY_ICONS[cat] ?? Target;
+          const catColor = CATEGORY_COLORS[cat] ?? "var(--gold)";
+          return (
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${catColor}18`, color: catColor }}>
+              <CatIcon className="w-3.5 h-3.5" />
+            </div>
+          );
+        })()}
         <span className={`text-sm font-medium ${goal.completed ? "text-[var(--gold)]" : "text-foreground"}`}>
           {goal.title}
         </span>

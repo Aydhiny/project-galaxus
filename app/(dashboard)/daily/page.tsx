@@ -4,35 +4,35 @@ import { useState, useTransition, useEffect } from "react";
 import { upsertCheckin, getTodayCheckin } from "@/lib/actions/checkin";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const PRAYERS = [
-  { key: "fajr", label: "Fajr", time: "Dawn", emoji: "🌙" },
-  { key: "dhuhr", label: "Dhuhr", time: "Midday", emoji: "☀️" },
-  { key: "asr", label: "Asr", time: "Afternoon", emoji: "🌤️" },
-  { key: "maghrib", label: "Maghrib", time: "Sunset", emoji: "🌅" },
-  { key: "isha", label: "Isha", time: "Night", emoji: "🌃" },
+  { key: "fajr",    label: "Fajr",    time: "Dawn",      Icon: Moon },
+  { key: "dhuhr",   label: "Dhuhr",   time: "Midday",    Icon: Sun },
+  { key: "asr",     label: "Asr",     time: "Afternoon", Icon: Sun },
+  { key: "maghrib", label: "Maghrib", time: "Sunset",    Icon: Sunrise },
+  { key: "isha",    label: "Isha",    time: "Night",     Icon: Moon },
 ] as const;
 
 const HABIT_SECTIONS = [
   {
     title: "Physical",
-    emoji: "💪",
+    Icon: Dumbbell,
     items: [
       { key: "training", label: "Training", subKey: "trainingMinutes", subLabel: "Minutes trained" },
     ],
   },
   {
     title: "Mental",
-    emoji: "🧘",
+    Icon: Sparkles,
     items: [
       { key: "meditation", label: "Meditation", subKey: "meditationMinutes", subLabel: "Minutes meditated" },
     ],
   },
   {
     title: "Creative",
-    emoji: "🎨",
+    Icon: Music2,
     items: [
       { key: "music", label: "Music / Production", subKey: "musicMinutes", subLabel: "Minutes in music" },
       { key: "design", label: "Design", subKey: null, subLabel: null },
@@ -41,7 +41,7 @@ const HABIT_SECTIONS = [
   },
   {
     title: "Personal",
-    emoji: "📝",
+    Icon: NotebookPen,
     items: [
       { key: "writing", label: "Writing", subKey: null, subLabel: null },
       { key: "gratitude", label: "Gratitude", subKey: null, subLabel: null },
@@ -115,7 +115,7 @@ export default function DailyPage() {
   function save() {
     startTransition(async () => {
       await upsertCheckin(today, state);
-      toast.success("Check-in saved! Keep going 🌟");
+      toast.success("Check-in saved");
     });
   }
 
@@ -157,7 +157,7 @@ export default function DailyPage() {
       <div className="rounded-2xl border border-[var(--emerald)]/20 bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🕌</span>
+            <Moon className="w-4 h-4 text-[var(--emerald)]" />
             <h2 className="font-semibold">Prayers (Salah)</h2>
           </div>
           <span className="text-sm text-[var(--emerald)] font-medium">
@@ -175,7 +175,7 @@ export default function DailyPage() {
                   : "prayer-undone hover:border-[var(--emerald)]/30"
               }`}
             >
-              <span className="text-xl">{p.emoji}</span>
+              <p.Icon className="w-5 h-5" />
               <span className="text-xs font-medium">{p.label}</span>
               <span className="text-[10px] text-muted-foreground">{p.time}</span>
             </button>
@@ -185,7 +185,7 @@ export default function DailyPage() {
         {/* Quran pages */}
         <div className="pt-2 border-t border-white/6">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium">📖 Quran Pages</span>
+            <span className="text-sm font-medium flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> Quran Pages</span>
             <span className="text-lg font-bold text-[var(--emerald)]">
               {state.quranPages}
             </span>
@@ -212,7 +212,7 @@ export default function DailyPage() {
           className="rounded-2xl border border-white/6 bg-card p-6 space-y-4"
         >
           <div className="flex items-center gap-2">
-            <span className="text-lg">{section.emoji}</span>
+            <section.Icon className="w-5 h-5 text-[var(--gold)]" />
             <h2 className="font-semibold">{section.title}</h2>
           </div>
 
@@ -235,9 +235,7 @@ export default function DailyPage() {
                     }`}
                   >
                     {state[item.key as keyof CheckinState] && (
-                      <span className="text-[var(--primary-foreground)] text-xs font-bold">
-                        ✓
-                      </span>
+                      <Check className="w-3 h-3 text-[var(--primary-foreground)]" />
                     )}
                   </div>
                   <span
@@ -285,7 +283,7 @@ export default function DailyPage() {
       {/* Notes */}
       <div className="rounded-2xl border border-white/6 bg-card p-6 space-y-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">💭</span>
+          <NotebookPen className="w-4 h-4 text-muted-foreground" />
           <h2 className="font-semibold">Daily Notes</h2>
         </div>
         <textarea

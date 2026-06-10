@@ -9,12 +9,13 @@ import {
 } from "@/lib/actions/courses";
 import type { Course } from "@/lib/db/schema";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, GraduationCap, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Loader2, GraduationCap, ExternalLink, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import PomodoroTimer from "@/components/pomodoro-timer";
 
 const MONTH_GOAL = 1;
 
@@ -39,7 +40,7 @@ export default function StudyPage() {
       await addCourse(form);
       setForm({ title: "", platform: "", instructor: "", url: "", notes: "" });
       setShowAdd(false);
-      toast.success(`"${form.title}" added! 🎓`);
+      toast.success(`"${form.title}" added`);
       reload();
     });
   }
@@ -56,6 +57,9 @@ export default function StudyPage() {
 
   return (
     <div className="p-6 space-y-8 max-w-4xl mx-auto">
+      {/* Pomodoro Timer */}
+      <PomodoroTimer />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -129,7 +133,7 @@ export default function StudyPage() {
       {inProgress.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold flex items-center gap-2">
-            📚 In Progress <Badge variant="secondary">{inProgress.length}</Badge>
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" /> In Progress <Badge variant="secondary">{inProgress.length}</Badge>
           </h2>
           {inProgress.map((course) => (
             <CourseCard
@@ -146,7 +150,7 @@ export default function StudyPage() {
       {completed.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold flex items-center gap-2">
-            ✅ Completed <Badge variant="secondary">{completed.length}</Badge>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[var(--emerald)]" /> Completed <Badge variant="secondary">{completed.length}</Badge>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {completed.map((course) => (

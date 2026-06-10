@@ -1,0 +1,31 @@
+{
+  "name": "Galaxus — Your Universe",
+  "short_name": "Galaxus",
+  "description": "Personal growth dashboard — habits, prayers, goals, creative work",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1a0e06",
+  "background_color": "#0f0804",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Daily Check-in", "url": "/daily",    "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Goals",          "url": "/goals",    "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Overview",       "url": "/overview", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ],
+  "categories": ["productivity", "lifestyle", "health"]
+}

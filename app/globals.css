@@ -51,7 +51,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ─── GitHub chart filter: dark mode inverts the white SVG background ──────── */
+/* ─── GitHub chart filter ─────────────────────────────────────────────────── */
 :root {
   --gh-chart-filter: saturate(1.3);
 }
@@ -59,102 +59,273 @@
   --gh-chart-filter: invert(1) hue-rotate(175deg) saturate(1.4) brightness(0.85);
 }
 
-/* ─── Light Mode — Warm Parchment ──────────────────────────────────────────── */
+/* ─── Light Mode — Warm Linen ─────────────────────────────────────────────── */
 :root {
-  --background: oklch(0.96 0.018 75);
-  --foreground: oklch(0.16 0.028 38);
-  --card: oklch(0.92 0.022 72);
-  --card-foreground: oklch(0.16 0.028 38);
-  --popover: oklch(0.92 0.022 72);
-  --popover-foreground: oklch(0.16 0.028 38);
-  --primary: oklch(0.52 0.17 45);
+  /* Warm off-white parchment — like the pages of a well-loved book */
+  --background: oklch(0.965 0.016 76);
+  --foreground: oklch(0.14 0.030 38);
+
+  /* Cards slightly more cream */
+  --card: oklch(0.935 0.022 74);
+  --card-foreground: oklch(0.14 0.030 38);
+  --popover: oklch(0.935 0.022 74);
+  --popover-foreground: oklch(0.14 0.030 38);
+
+  /* Warm amber primary */
+  --primary: oklch(0.50 0.18 44);
   --primary-foreground: oklch(0.97 0.01 75);
-  --secondary: oklch(0.87 0.025 70);
-  --secondary-foreground: oklch(0.16 0.028 38);
-  --muted: oklch(0.87 0.025 70);
-  --muted-foreground: oklch(0.44 0.050 50);
-  --accent: oklch(0.85 0.030 68);
-  --accent-foreground: oklch(0.16 0.028 38);
-  --destructive: oklch(0.55 0.23 26);
-  --border: oklch(0 0 0 / 10%);
+
+  --secondary: oklch(0.88 0.024 72);
+  --secondary-foreground: oklch(0.14 0.030 38);
+  --muted: oklch(0.88 0.024 72);
+  --muted-foreground: oklch(0.42 0.055 50);
+
+  --accent: oklch(0.86 0.028 70);
+  --accent-foreground: oklch(0.14 0.030 38);
+
+  --destructive: oklch(0.54 0.23 26);
+
+  /* Subtle warm borders */
+  --border: oklch(0 0 0 / 11%);
   --input: oklch(0 0 0 / 8%);
-  --ring: oklch(0.52 0.17 45);
-  --gold: oklch(0.52 0.17 45);
-  --gold-muted: oklch(0.52 0.14 45 / 15%);
-  --emerald: oklch(0.50 0.15 155);
-  --chart-1: oklch(0.52 0.17 45);
-  --chart-2: oklch(0.50 0.15 155);
-  --chart-3: oklch(0.55 0.19 32);
-  --chart-4: oklch(0.55 0.14 78);
-  --chart-5: oklch(0.55 0.23 26);
+  --ring: oklch(0.50 0.18 44);
+
+  --gold: oklch(0.50 0.18 44);
+  --gold-muted: oklch(0.50 0.15 44 / 14%);
+  --emerald: oklch(0.48 0.16 152);
+
+  --chart-1: oklch(0.50 0.18 44);
+  --chart-2: oklch(0.48 0.16 152);
+  --chart-3: oklch(0.54 0.20 32);
+  --chart-4: oklch(0.54 0.14 78);
+  --chart-5: oklch(0.54 0.23 26);
+
   --radius: 1rem;
-  --sidebar: oklch(0.88 0.026 70);
-  --sidebar-foreground: oklch(0.16 0.028 38);
-  --sidebar-primary: oklch(0.52 0.17 45);
+
+  --sidebar: oklch(0.895 0.024 72);
+  --sidebar-foreground: oklch(0.14 0.030 38);
+  --sidebar-primary: oklch(0.50 0.18 44);
   --sidebar-primary-foreground: oklch(0.97 0.01 75);
-  --sidebar-accent: oklch(0.84 0.030 68);
-  --sidebar-accent-foreground: oklch(0.16 0.028 38);
-  --sidebar-border: oklch(0 0 0 / 8%);
-  --sidebar-ring: oklch(0.52 0.17 45);
+  --sidebar-accent: oklch(0.855 0.028 70);
+  --sidebar-accent-foreground: oklch(0.14 0.030 38);
+  --sidebar-border: oklch(0 0 0 / 9%);
+  --sidebar-ring: oklch(0.50 0.18 44);
 }
 
-/* ─── Dark Mode — Cottage Fireplace ────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Room Themes  ·  data-room is set on <html> via useEffect in layout.tsx
+   CSS custom properties cascade down to all children automatically.
+   Body background-image overrides require targeting html → body.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Bamboo Zen ─────────────────────────────────────────────────────────── */
+html.dark[data-room="bamboo"] {
+  --background:        oklch(0.088 0.040 148);
+  --foreground:        oklch(0.930 0.028 130);
+  --card:              oklch(0.134 0.045 150);
+  --card-foreground:   oklch(0.930 0.028 130);
+  --popover:           oklch(0.142 0.046 150);
+  --popover-foreground:oklch(0.930 0.028 130);
+  --primary:           oklch(0.70 0.17 155);
+  --primary-foreground:oklch(0.08 0.015 148);
+  --secondary:         oklch(0.192 0.040 148);
+  --secondary-foreground:oklch(0.930 0.028 130);
+  --muted:             oklch(0.192 0.040 148);
+  --muted-foreground:  oklch(0.560 0.055 148);
+  --accent:            oklch(0.210 0.042 150);
+  --accent-foreground: oklch(0.930 0.028 130);
+  --destructive:       oklch(0.63 0.23 26);
+  --border:            oklch(1 0 0 / 9%);
+  --input:             oklch(1 0 0 / 11%);
+  --ring:              oklch(0.70 0.17 155);
+  --gold:              oklch(0.70 0.17 155);
+  --gold-muted:        oklch(0.70 0.14 155 / 16%);
+  --emerald:           oklch(0.65 0.20 145);
+  --sidebar:           oklch(0.098 0.032 148);
+  --sidebar-foreground:oklch(0.930 0.028 130);
+  --sidebar-primary:   oklch(0.70 0.17 155);
+  --sidebar-primary-foreground:oklch(0.08 0.015 148);
+  --sidebar-accent:    oklch(0.192 0.040 148);
+  --sidebar-accent-foreground:oklch(0.930 0.028 130);
+  --sidebar-border:    oklch(1 0 0 / 7%);
+  --sidebar-ring:      oklch(0.70 0.17 155);
+}
+html.dark[data-room="bamboo"] body {
+  background-image:
+    radial-gradient(ellipse 65% 38% at 14% 4%, oklch(0.30 0.12 152 / 28%) 0%, transparent 65%),
+    radial-gradient(ellipse 75% 50% at 50% 112%, oklch(0.22 0.10 148 / 38%) 0%, transparent 65%);
+}
+
+/* ── Lofi Night ─────────────────────────────────────────────────────────── */
+html.dark[data-room="lofi"] {
+  --background:        oklch(0.090 0.042 268);
+  --foreground:        oklch(0.930 0.025 260);
+  --card:              oklch(0.134 0.048 270);
+  --card-foreground:   oklch(0.930 0.025 260);
+  --popover:           oklch(0.142 0.050 270);
+  --popover-foreground:oklch(0.930 0.025 260);
+  --primary:           oklch(0.72 0.20 285);
+  --primary-foreground:oklch(0.08 0.015 268);
+  --secondary:         oklch(0.190 0.046 268);
+  --secondary-foreground:oklch(0.930 0.025 260);
+  --muted:             oklch(0.190 0.046 268);
+  --muted-foreground:  oklch(0.560 0.050 268);
+  --accent:            oklch(0.210 0.050 270);
+  --accent-foreground: oklch(0.930 0.025 260);
+  --destructive:       oklch(0.63 0.23 26);
+  --border:            oklch(1 0 0 / 9%);
+  --input:             oklch(1 0 0 / 11%);
+  --ring:              oklch(0.72 0.20 285);
+  --gold:              oklch(0.72 0.20 285);
+  --gold-muted:        oklch(0.72 0.17 285 / 16%);
+  --emerald:           oklch(0.66 0.18 220);
+  --sidebar:           oklch(0.098 0.035 268);
+  --sidebar-foreground:oklch(0.930 0.025 260);
+  --sidebar-primary:   oklch(0.72 0.20 285);
+  --sidebar-primary-foreground:oklch(0.08 0.015 268);
+  --sidebar-accent:    oklch(0.190 0.046 268);
+  --sidebar-accent-foreground:oklch(0.930 0.025 260);
+  --sidebar-border:    oklch(1 0 0 / 7%);
+  --sidebar-ring:      oklch(0.72 0.20 285);
+}
+html.dark[data-room="lofi"] body {
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% 112%, oklch(0.28 0.12 280 / 38%) 0%, transparent 65%),
+    radial-gradient(ellipse 28% 28% at 4% 96%, oklch(0.32 0.14 55 / 18%) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 90% 10%, oklch(0.22 0.10 280 / 20%) 0%, transparent 55%);
+}
+
+/* ── Reading Nook ───────────────────────────────────────────────────────── */
+html.dark[data-room="nook"] {
+  --background:        oklch(0.092 0.038 52);
+  --foreground:        oklch(0.935 0.030 76);
+  --card:              oklch(0.138 0.042 52);
+  --card-foreground:   oklch(0.935 0.030 76);
+  --popover:           oklch(0.146 0.044 52);
+  --popover-foreground:oklch(0.935 0.030 76);
+  --primary:           oklch(0.74 0.19 52);
+  --primary-foreground:oklch(0.08 0.015 50);
+  --secondary:         oklch(0.196 0.038 50);
+  --secondary-foreground:oklch(0.935 0.030 76);
+  --muted:             oklch(0.196 0.038 50);
+  --muted-foreground:  oklch(0.568 0.055 54);
+  --accent:            oklch(0.218 0.040 52);
+  --accent-foreground: oklch(0.935 0.030 76);
+  --destructive:       oklch(0.63 0.23 26);
+  --border:            oklch(1 0 0 / 9%);
+  --input:             oklch(1 0 0 / 11%);
+  --ring:              oklch(0.74 0.19 52);
+  --gold:              oklch(0.74 0.19 52);
+  --gold-muted:        oklch(0.74 0.16 52 / 16%);
+  --emerald:           oklch(0.68 0.16 140);
+  --sidebar:           oklch(0.102 0.030 50);
+  --sidebar-foreground:oklch(0.935 0.030 76);
+  --sidebar-primary:   oklch(0.74 0.19 52);
+  --sidebar-primary-foreground:oklch(0.08 0.015 50);
+  --sidebar-accent:    oklch(0.196 0.038 50);
+  --sidebar-accent-foreground:oklch(0.935 0.030 76);
+  --sidebar-border:    oklch(1 0 0 / 7%);
+  --sidebar-ring:      oklch(0.74 0.19 52);
+}
+html.dark[data-room="nook"] body {
+  background-image:
+    radial-gradient(ellipse 42% 52% at 4% 6%, oklch(0.38 0.15 56 / 22%) 0%, transparent 65%),
+    radial-gradient(ellipse 78% 42% at 50% 112%, oklch(0.28 0.12 50 / 42%) 0%, transparent 65%);
+}
+
+/* ── Mountain Hut ───────────────────────────────────────────────────────── */
+html.dark[data-room="mountain"] {
+  --background:        oklch(0.090 0.028 220);
+  --foreground:        oklch(0.930 0.022 210);
+  --card:              oklch(0.134 0.032 222);
+  --card-foreground:   oklch(0.930 0.022 210);
+  --popover:           oklch(0.142 0.034 222);
+  --popover-foreground:oklch(0.930 0.022 210);
+  --primary:           oklch(0.68 0.16 220);
+  --primary-foreground:oklch(0.08 0.015 220);
+  --secondary:         oklch(0.188 0.030 220);
+  --secondary-foreground:oklch(0.930 0.022 210);
+  --muted:             oklch(0.188 0.030 220);
+  --muted-foreground:  oklch(0.555 0.045 220);
+  --accent:            oklch(0.208 0.032 220);
+  --accent-foreground: oklch(0.930 0.022 210);
+  --destructive:       oklch(0.63 0.23 26);
+  --border:            oklch(1 0 0 / 9%);
+  --input:             oklch(1 0 0 / 11%);
+  --ring:              oklch(0.68 0.16 220);
+  --gold:              oklch(0.68 0.16 220);
+  --gold-muted:        oklch(0.68 0.13 220 / 16%);
+  --emerald:           oklch(0.64 0.14 180);
+  --sidebar:           oklch(0.098 0.022 220);
+  --sidebar-foreground:oklch(0.930 0.022 210);
+  --sidebar-primary:   oklch(0.68 0.16 220);
+  --sidebar-primary-foreground:oklch(0.08 0.015 220);
+  --sidebar-accent:    oklch(0.188 0.030 220);
+  --sidebar-accent-foreground:oklch(0.930 0.022 210);
+  --sidebar-border:    oklch(1 0 0 / 7%);
+  --sidebar-ring:      oklch(0.68 0.16 220);
+}
+html.dark[data-room="mountain"] body {
+  background-image:
+    radial-gradient(ellipse 95% 38% at 50% 0%, oklch(0.24 0.07 210 / 28%) 0%, transparent 60%),
+    radial-gradient(ellipse 78% 50% at 50% 112%, oklch(0.20 0.08 220 / 38%) 0%, transparent 65%);
+}
+
+/* ── Film grain toggle ──────────────────────────────────────────────────── */
+html[data-grain="true"] body::after  { opacity: 0.032; }
+html[data-grain="false"] body::after { opacity: 0; }
+
+/* ─── Dark Mode — Deep Cottage Fireplace ──────────────────────────────────── */
 .dark {
-  /* Deep mahogany — like charred oak */
-  --background: oklch(0.10 0.028 38);
-  --foreground: oklch(0.92 0.030 75);
+  /* Charred mahogany — deep reading-nook dark */
+  --background: oklch(0.095 0.030 36);
+  --foreground: oklch(0.935 0.028 76);
 
-  /* Cards: warm walnut surface */
-  --card: oklch(0.145 0.032 40);
-  --card-foreground: oklch(0.92 0.030 75);
-  --popover: oklch(0.145 0.032 40);
-  --popover-foreground: oklch(0.92 0.030 75);
+  /* Cards: warm walnut surface, clearly elevated from bg */
+  --card: oklch(0.140 0.034 38);
+  --card-foreground: oklch(0.935 0.028 76);
+  --popover: oklch(0.148 0.036 38);
+  --popover-foreground: oklch(0.935 0.028 76);
 
-  /* Firelight amber — primary action color */
+  /* Firelight amber */
   --primary: oklch(0.76 0.17 50);
   --primary-foreground: oklch(0.08 0.015 40);
 
-  /* Warm secondary surfaces */
-  --secondary: oklch(0.19 0.032 40);
-  --secondary-foreground: oklch(0.92 0.030 75);
-  --muted: oklch(0.19 0.032 40);
-  --muted-foreground: oklch(0.56 0.050 52);
+  --secondary: oklch(0.195 0.034 38);
+  --secondary-foreground: oklch(0.935 0.028 76);
+  --muted: oklch(0.195 0.034 38);
+  --muted-foreground: oklch(0.565 0.052 52);
 
-  /* Accent — slightly lighter warm surface */
-  --accent: oklch(0.21 0.034 40);
-  --accent-foreground: oklch(0.92 0.030 75);
+  --accent: oklch(0.215 0.036 40);
+  --accent-foreground: oklch(0.935 0.028 76);
 
-  /* Ember red for destructive */
-  --destructive: oklch(0.62 0.23 26);
+  --destructive: oklch(0.63 0.23 26);
 
-  /* Warm borders — barely-there wood grain */
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 10%);
+  /* Warm wood-grain borders — visible but subtle */
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 11%);
   --ring: oklch(0.76 0.17 50);
 
-  /* Core accent palette */
   --gold: oklch(0.76 0.17 50);
-  --gold-muted: oklch(0.76 0.14 50 / 18%);
-  --emerald: oklch(0.70 0.15 155);
+  --gold-muted: oklch(0.76 0.14 50 / 16%);
+  --emerald: oklch(0.70 0.15 152);
 
-  /* Charts — fire & nature */
   --chart-1: oklch(0.76 0.17 50);
-  --chart-2: oklch(0.70 0.15 155);
+  --chart-2: oklch(0.70 0.15 152);
   --chart-3: oklch(0.70 0.19 32);
   --chart-4: oklch(0.72 0.14 78);
-  --chart-5: oklch(0.62 0.23 26);
+  --chart-5: oklch(0.63 0.23 26);
 
-  /* Soft rounding — cozy not sharp */
   --radius: 1rem;
 
-  /* Sidebar — darker panel, like wainscoting */
-  --sidebar: oklch(0.115 0.026 38);
-  --sidebar-foreground: oklch(0.92 0.030 75);
+  /* Sidebar: darker panel, wainscoting feel */
+  --sidebar: oklch(0.108 0.028 36);
+  --sidebar-foreground: oklch(0.935 0.028 76);
   --sidebar-primary: oklch(0.76 0.17 50);
   --sidebar-primary-foreground: oklch(0.08 0.015 40);
-  --sidebar-accent: oklch(0.19 0.032 40);
-  --sidebar-accent-foreground: oklch(0.92 0.030 75);
-  --sidebar-border: oklch(1 0 0 / 6%);
+  --sidebar-accent: oklch(0.200 0.034 38);
+  --sidebar-accent-foreground: oklch(0.935 0.028 76);
+  --sidebar-border: oklch(1 0 0 / 7%);
   --sidebar-ring: oklch(0.76 0.17 50);
 }
 
@@ -172,44 +343,77 @@
     background-attachment: fixed;
   }
 
+  /* Dark mode warm radial gradient background */
   .dark body {
     background-image:
-      radial-gradient(ellipse 90% 50% at 50% 105%, oklch(0.30 0.08 42 / 50%) 0%, transparent 65%),
-      radial-gradient(ellipse 40% 30% at 5% 0%, oklch(0.25 0.06 45 / 20%) 0%, transparent 60%);
+      radial-gradient(ellipse 85% 45% at 50% 108%, oklch(0.28 0.09 40 / 55%) 0%, transparent 65%),
+      radial-gradient(ellipse 35% 28% at 4% 2%, oklch(0.22 0.06 44 / 22%) 0%, transparent 60%),
+      radial-gradient(ellipse 25% 20% at 96% 5%, oklch(0.18 0.05 38 / 15%) 0%, transparent 55%);
   }
 
-  /* ── Grain texture overlay ──
-     Gives every surface a physical, parchment-like quality.
-     Implemented as a fixed pseudo-element so it sits above everything
-     but never intercepts events.                                         */
+  /* Film-grain texture overlay — parchment quality */
   body::after {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 9999;
-    opacity: 0.038;
+    opacity: 0.032;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)' opacity='1'/%3E%3C/svg%3E");
     background-repeat: repeat;
     background-size: 200px 200px;
     mix-blend-mode: overlay;
   }
 
-  /* ── Serif headings ──
-     h1/h2 use Lora — warm, literary, like handwriting in a journal.
-     h3 and below stay sans-serif for legibility at small sizes.         */
+  /* Serif headings — warm, literary */
   h1, h2 {
     font-family: var(--font-heading), ui-serif, Georgia, serif;
     letter-spacing: -0.01em;
   }
 
-  /* ── Card depth — only in dark mode ── */
+  /* Card depth — dark mode only */
   .dark .card-surface {
     box-shadow:
-      inset 0 1px 0 oklch(1 0 0 / 8%),
-      0 4px 20px oklch(0 0 0 / 35%),
-      0 1px 3px oklch(0 0 0 / 25%);
+      inset 0 1px 0 oklch(1 0 0 / 9%),
+      0 4px 22px oklch(0 0 0 / 38%),
+      0 1px 3px oklch(0 0 0 / 28%);
   }
+}
+
+/* ─── Select / popover warmth ─────────────────────────────────────────────── */
+[data-slot="select-trigger"] {
+  background: oklch(1 0 0 / 4%);
+  border-color: var(--border);
+  transition: border-color 0.15s, background 0.15s;
+}
+[data-slot="select-trigger"]:hover {
+  background: oklch(1 0 0 / 7%);
+  border-color: oklch(1 0 0 / 18%);
+}
+.dark [data-slot="select-trigger"] {
+  background: oklch(1 0 0 / 5%);
+}
+.dark [data-slot="select-trigger"]:hover {
+  background: oklch(1 0 0 / 9%);
+}
+[data-slot="select-content"] {
+  border: 1px solid var(--border);
+  box-shadow:
+    0 8px 32px oklch(0 0 0 / 22%),
+    0 2px 8px oklch(0 0 0 / 14%),
+    inset 0 1px 0 oklch(1 0 0 / 6%);
+}
+.dark [data-slot="select-content"] {
+  background: oklch(0.155 0.034 38);
+  box-shadow:
+    0 8px 40px oklch(0 0 0 / 50%),
+    0 2px 12px oklch(0 0 0 / 30%),
+    inset 0 1px 0 oklch(1 0 0 / 8%);
+}
+[data-slot="select-item"]:focus,
+[data-slot="select-item"][data-highlighted] {
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 @layer utilities {
@@ -220,7 +424,7 @@
     color: var(--gold);
   }
 
-  /* Active streak tile — ember glow */
+  /* Streak tile */
   .streak-active {
     background: linear-gradient(135deg, oklch(0.76 0.17 50 / 20%), oklch(0.76 0.17 50 / 6%));
     border-color: oklch(0.76 0.17 50 / 42%);
@@ -231,12 +435,12 @@
     border-color: oklch(1 0 0 / 7%);
   }
 
-  /* Prayer tiles — sage, grounding and calm */
+  /* Prayer tiles */
   .prayer-done {
-    background: linear-gradient(135deg, oklch(0.70 0.15 155 / 22%), oklch(0.70 0.15 155 / 5%));
-    border-color: oklch(0.70 0.15 155 / 50%);
-    color: oklch(0.70 0.15 155);
-    box-shadow: inset 0 1px 0 oklch(0.70 0.15 155 / 15%);
+    background: linear-gradient(135deg, oklch(0.70 0.15 152 / 22%), oklch(0.70 0.15 152 / 5%));
+    border-color: oklch(0.70 0.15 152 / 50%);
+    color: oklch(0.70 0.15 152);
+    box-shadow: inset 0 1px 0 oklch(0.70 0.15 152 / 15%);
   }
   .prayer-undone {
     background: oklch(1 0 0 / 3%);
@@ -250,9 +454,9 @@
   }
   .card-hover:hover {
     background: oklch(0.18 0.034 40);
-    border-color: oklch(1 0 0 / 12%);
+    border-color: oklch(1 0 0 / 14%);
     transform: translateY(-1px);
-    box-shadow: inset 0 1px 0 oklch(1 0 0 / 8%), 0 6px 24px oklch(0 0 0 / 40%);
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 8%), 0 6px 24px oklch(0 0 0 / 42%);
   }
 
   /* Progress bar — amber to ember */
@@ -260,38 +464,185 @@
     background: linear-gradient(90deg, oklch(0.76 0.17 50), oklch(0.70 0.19 32));
   }
 
-  /* Subtle top-highlight on any bordered card — lighter in light mode */
+  /* Warm card shadow */
   .warm-card {
     border-color: var(--border);
-    box-shadow: 0 1px 4px oklch(0 0 0 / 12%);
+    box-shadow: 0 1px 5px oklch(0 0 0 / 10%);
   }
   .dark .warm-card {
     box-shadow:
-      inset 0 1px 0 oklch(1 0 0 / 7%),
-      0 2px 12px oklch(0 0 0 / 30%);
+      inset 0 1px 0 oklch(1 0 0 / 8%),
+      0 2px 14px oklch(0 0 0 / 32%);
+  }
+
+  /* Cozy card — elevated with inner highlight */
+  .cozy-card {
+    border-color: var(--border);
+  }
+  .dark .cozy-card {
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 9%),
+      inset 0 -1px 0 oklch(0 0 0 / 20%),
+      0 4px 20px oklch(0 0 0 / 35%);
+  }
+
+  /* Scrollbar hide utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 
-/* Rounded range inputs to feel softer */
-input[type="range"] {
+/* Warm amber scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: oklch(0.76 0.17 50 / 20%);
   border-radius: 9999px;
 }
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.76 0.17 50 / 38%);
+}
+
+/* Range inputs */
+input[type="range"] { border-radius: 9999px; }
 input[type="range"]::-webkit-slider-thumb {
   border-radius: 9999px;
   box-shadow: 0 0 6px oklch(0.76 0.17 50 / 40%);
 }
 
-/* Warm amber scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
+/* Native select — light/dark */
+select {
+  color-scheme: light;
+  appearance: none;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+.dark select {
+  color-scheme: dark;
+  background: oklch(0.155 0.034 38);
+  border-color: oklch(1 0 0 / 12%);
+  color: oklch(0.935 0.028 76);
 }
+select option {
+  background: inherit;
+}
+
+/* ─── Rich dark-mode card depth — applies across all rooms ───────────────── */
+.dark [class*="rounded-2xl"],
+.dark [class*="rounded-xl"] {
+  /* subtle inner highlight on top edge — makes surface feel physical */
+}
+
+/* Cards get a top-edge light catch in dark mode */
+.dark .bg-card {
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 8%),
+    0 2px 12px oklch(0 0 0 / 28%);
+}
+
+/* Progress bar uses the current room accent */
+.dark .progress-bar {
+  background: linear-gradient(90deg, var(--gold), oklch(from var(--gold) l c calc(h - 20)));
+}
+.progress-bar {
+  background: linear-gradient(90deg, var(--gold), oklch(from var(--gold) l c calc(h - 20)));
+}
+
+/* ─── Blanket / cozy texture at the very bottom of the viewport ─────────── */
+html.dark body::before {
+  content: "";
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--gold) 20%,
+    oklch(from var(--gold) l c calc(h + 25)) 50%,
+    var(--gold) 80%,
+    transparent 100%
+  );
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ─── Warm border on focused inputs — feels more alive ───────────────────── */
+.dark input:focus,
+.dark textarea:focus {
+  border-color: oklch(from var(--gold) l c h / 50%);
+  box-shadow: 0 0 0 2px oklch(from var(--gold) l c h / 12%);
+}
+
+/* ─── Room-aware scrollbar — tints to room accent ───────────────────────── */
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.76 0.17 50 / 22%);
-  border-radius: 9999px;
+  background: oklch(from var(--gold) l c h / 22%);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.76 0.17 50 / 40%);
+  background: oklch(from var(--gold) l c h / 40%);
+}
+
+/* ─── Production-grade global transitions ─────────────────────────────────── */
+button, a, input, textarea, select {
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+  transition-duration: 140ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Better focus rings ───────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid oklch(from var(--ring) l c h / 60%);
+  outline-offset: 2px;
+}
+
+/* ─── Better text selection ────────────────────────────────────────────────── */
+::selection {
+  background: oklch(from var(--gold) l c h / 25%);
+  color: var(--foreground);
+}
+
+/* ─── Better input styles ──────────────────────────────────────────────────── */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="url"],
+.dark textarea {
+  background: oklch(1 0 0 / 5%);
+  border-color: oklch(1 0 0 / 12%);
+}
+.dark input:focus,
+.dark textarea:focus {
+  background: oklch(1 0 0 / 7%);
+  border-color: oklch(from var(--gold) l c h / 45%);
+  box-shadow: 0 0 0 3px oklch(from var(--gold) l c h / 10%);
+}
+
+/* Page-level consistency */
+.page-container {
+  padding: 1.5rem;
+  max-width: 56rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.page-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted-foreground);
+}
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 0.125rem;
+  font-family: var(--font-heading), ui-serif, Georgia, serif;
 }

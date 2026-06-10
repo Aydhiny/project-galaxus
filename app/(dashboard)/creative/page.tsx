@@ -1,10 +1,180 @@
 "use client";
 
-import { useEffect, useTransition, useState } from "react";
+import { useEffect, useTransition, useState, useRef, useCallback } from "react";
 import { getRecentCheckins } from "@/lib/actions/checkin";
 import type { DailyCheckin } from "@/lib/db/schema";
 import { format, subDays, eachDayOfInterval } from "date-fns";
-import { Music, Palette, Tv, Flame } from "lucide-react";
+import { Music, Palette, Tv, Flame, Play, Square, Clock, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
+// ─── Production session types + localStorage ────────────────────────────────
+
+interface ProductionSession {
+  id: string;
+  project: string;
+  genre: string;
+  daw: string;
+  durationMs: number;
+  notes: string;
+  startedAt: string;
+}
+
+const SESSIONS_KEY = "galaxus-production-sessions";
+
+function loadSessions(): ProductionSession[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]"); } catch { return []; }
+}
+function saveSessions(s: ProductionSession[]) {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(s));
+}
+function formatDuration(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function SessionLogger() {
+  const [sessions, setSessions] = useState<ProductionSession[]>([]);
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [form, setForm] = useState({ project: "", genre: "", daw: "", notes: "" });
+  const startRef = useRef<number>(0);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => { setSessions(loadSessions()); }, []);
+
+  const tick = useCallback(() => {
+    setElapsed(Date.now() - startRef.current);
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  function startSession() {
+    startRef.current = Date.now();
+    setElapsed(0);
+    setRunning(true);
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  function stopSession() {
+    cancelAnimationFrame(rafRef.current);
+    setRunning(false);
+    const durationMs = Date.now() - startRef.current;
+    if (durationMs < 5000) { setElapsed(0); return; } // ignore accidental taps < 5s
+    const session: ProductionSession = {
+      id: crypto.randomUUID(),
+      project: form.project || "Untitled",
+      genre: form.genre,
+      daw: form.daw,
+      notes: form.notes,
+      durationMs,
+      startedAt: new Date(startRef.current).toISOString(),
+    };
+    const updated = [session, ...sessions];
+    setSessions(updated);
+    saveSessions(updated);
+    setElapsed(0);
+  }
+
+  function deleteSession(id: string) {
+    const updated = sessions.filter(s => s.id !== id);
+    setSessions(updated);
+    saveSessions(updated);
+  }
+
+  const totalMs = sessions.reduce((acc, s) => acc + s.durationMs, 0);
+  const thisWeekMs = sessions
+    .filter(s => new Date(s.startedAt) > subDays(new Date(), 7))
+    .reduce((acc, s) => acc + s.durationMs, 0);
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 space-y-5" style={{ borderColor: "oklch(0.65 0.20 290 / 20%)" }}>
+      <div className="flex items-center gap-2">
+        <Clock className="w-4 h-4" style={{ color: "oklch(0.65 0.20 290)" }} />
+        <h2 className="font-semibold">Production Session Logger</h2>
+      </div>
+
+      {/* Session stats */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-muted/40 p-3 space-y-0.5">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">This Week</p>
+          <p className="text-xl font-bold" style={{ color: "oklch(0.65 0.20 290)" }}>{formatDuration(thisWeekMs)}</p>
+        </div>
+        <div className="rounded-xl bg-muted/40 p-3 space-y-0.5">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">All Time</p>
+          <p className="text-xl font-bold" style={{ color: "oklch(0.65 0.20 290)" }}>{formatDuration(totalMs)}</p>
+        </div>
+      </div>
+
+      {/* Session form */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Input placeholder="Project / track name" value={form.project}
+          onChange={e => setForm(f => ({ ...f, project: e.target.value }))}
+          className="col-span-2 sm:col-span-1 bg-white/5 border-white/10 text-sm" />
+        <Input placeholder="Genre (trap, afro...)" value={form.genre}
+          onChange={e => setForm(f => ({ ...f, genre: e.target.value }))}
+          className="bg-white/5 border-white/10 text-sm" />
+        <Input placeholder="DAW (FL, Ableton...)" value={form.daw}
+          onChange={e => setForm(f => ({ ...f, daw: e.target.value }))}
+          className="bg-white/5 border-white/10 text-sm" />
+      </div>
+
+      {/* Timer */}
+      <div className="flex items-center gap-4">
+        <div className={cn(
+          "text-3xl font-mono font-bold tabular-nums transition-colors",
+          running ? "text-[var(--gold)]" : "text-muted-foreground"
+        )}>
+          {formatDuration(elapsed || 0)}
+        </div>
+        {!running ? (
+          <Button onClick={startSession}
+            className="bg-[var(--gold)] hover:bg-[var(--gold)]/90 text-[oklch(0.08_0.01_85)] font-semibold rounded-xl gap-2">
+            <Play className="w-4 h-4" /> Start Session
+          </Button>
+        ) : (
+          <Button onClick={stopSession} variant="outline"
+            className="border-red-400/40 text-red-400 hover:bg-red-400/10 rounded-xl gap-2">
+            <Square className="w-4 h-4" /> Stop & Save
+          </Button>
+        )}
+      </div>
+
+      {/* Session history */}
+      {sessions.length > 0 && (
+        <div className="space-y-2 pt-1 border-t border-white/6">
+          <p className="text-xs text-muted-foreground uppercase tracking-widest pt-1">Recent Sessions</p>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {sessions.slice(0, 20).map(s => (
+              <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/4 px-3 py-2.5 group">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs font-semibold truncate">{s.project}</p>
+                    {s.genre && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/8 text-muted-foreground">{s.genre}</span>}
+                    {s.daw && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/8 text-muted-foreground">{s.daw}</span>}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {format(new Date(s.startedAt), "MMM d, HH:mm")} · {formatDuration(s.durationMs)}
+                  </p>
+                </div>
+                <button onClick={() => deleteSession(s.id)}
+                  className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all p-1 shrink-0">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CreativePage() {
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
@@ -80,6 +250,9 @@ export default function CreativePage() {
         </p>
       </div>
 
+      {/* Production session logger */}
+      <SessionLogger />
+
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-2xl border bg-card p-4 text-center" style={{ borderColor: "oklch(0.65 0.20 290 / 30%)" }}>
@@ -130,8 +303,8 @@ export default function CreativePage() {
         <ActivityGrid field="music" />
 
         <div className="pt-3 border-t border-white/6">
-          <p className="text-xs text-muted-foreground">
-            🎵 <strong className="text-foreground">Aydhiny</strong> — 5M+ streams, 5000+ beats. Keep creating.
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <Music className="w-3.5 h-3.5 inline shrink-0" /> <strong className="text-foreground">Aydhiny</strong> — 5M+ streams, 5000+ beats. Keep creating.
           </p>
         </div>
       </div>
@@ -165,8 +338,8 @@ export default function CreativePage() {
         </div>
         <ActivityGrid field="youtube" />
         <div className="pt-3 border-t border-white/6">
-          <p className="text-xs text-muted-foreground">
-            📹 Building your channel one video at a time. Consistency is the only strategy.
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <Tv className="w-3.5 h-3.5 inline shrink-0" /> Building your channel one video at a time. Consistency is the only strategy.
           </p>
         </div>
       </div>

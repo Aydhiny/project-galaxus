@@ -67,9 +67,6 @@ export default async function FeedPage() {
     (checkin?.asr ? 1 : 0) + (checkin?.maghrib ? 1 : 0) +
     (checkin?.isha ? 1 : 0);
 
-  // Pick 4 random videos from the pool — different on every server render
-  const videos = serverShuffle(VIDEO_POOL).slice(0, 4);
-
   return (
     <FeedClient
       quote={quote}
@@ -79,7 +76,6 @@ export default async function FeedPage() {
       completedGoals={completedGoals}
       totalGoals={goals.length}
       readingStats={readingStats}
-      videos={videos}
     />
   );
 }

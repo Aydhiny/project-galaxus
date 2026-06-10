@@ -8,12 +8,13 @@ import {
 } from "@/lib/actions/journal";
 import type { JournalEntry } from "@/lib/db/schema";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, NotebookPen, Heart, PenLine } from "lucide-react";
+import { Plus, Trash2, Loader2, NotebookPen, Heart, PenLine, Frown, Minus, Smile, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 
-const MOOD_LABELS = ["", "😔", "😐", "🙂", "😊", "🌟"];
+const MOOD_ICONS = [null, Frown, Minus, Smile, Heart, Star];
+const MOOD_COLORS = ["", "oklch(0.62 0.22 26)", "oklch(0.70 0.19 32)", "oklch(0.72 0.14 78)", "var(--emerald)", "var(--gold)"];
 
 export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -37,7 +38,7 @@ export default function JournalPage() {
     if (!content.trim()) return;
     startTransition(async () => {
       await addJournalEntry({ type: tab, content, mood });
-      toast.success(tab === "gratitude" ? "Gratitude logged 🙏" : "Entry written ✍️");
+      toast.success(tab === "gratitude" ? "Gratitude logged" : "Entry written");
       setContent(""); setMood(3); setShowForm(false);
       reload();
     });
@@ -93,7 +94,9 @@ export default function JournalPage() {
 
       {/* Streak */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-white/6">
-        <div className="text-2xl">{tab === "gratitude" ? "🙏" : "✍️"}</div>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--gold-muted)]">
+          {tab === "gratitude" ? <Heart className="w-5 h-5 text-[var(--gold)]" /> : <PenLine className="w-5 h-5 text-[var(--gold)]" />}
+        </div>
         <div>
           <p className="font-semibold text-[var(--gold)]">{streak} day streak</p>
           <p className="text-xs text-muted-foreground">
@@ -126,16 +129,19 @@ export default function JournalPage() {
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground uppercase tracking-widest">Today&apos;s Mood</p>
                 <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setMood(m)}
-                      className={`text-2xl transition-all ${mood === m ? "scale-125" : "opacity-50 hover:opacity-80"}`}
-                    >
-                      {MOOD_LABELS[m]}
-                    </button>
-                  ))}
+                  {[1, 2, 3, 4, 5].map((m) => {
+                    const Icon = MOOD_ICONS[m]!;
+                    const color = MOOD_COLORS[m];
+                    return (
+                      <button key={m} type="button" onClick={() => setMood(m)}
+                        className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${
+                          mood === m ? "scale-110 border-transparent" : "border-border opacity-50 hover:opacity-80 bg-card"
+                        }`}
+                        style={mood === m ? { background: color, color: "white" } : { color }}>
+                        <Icon className="w-5 h-5" />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -179,9 +185,12 @@ export default function JournalPage() {
                   <p className="text-[11px] text-muted-foreground">
                     {format(new Date(entry.createdAt!), "EEEE, MMMM d · h:mm a")}
                   </p>
-                  {entry.mood != null && entry.type === "gratitude" && (
-                    <span className="text-base">{MOOD_LABELS[entry.mood]}</span>
-                  )}
+                  {entry.mood != null && entry.type === "gratitude" && (() => {
+                    const Icon = MOOD_ICONS[entry.mood];
+                    const color = MOOD_COLORS[entry.mood];
+                    if (!Icon) return null;
+                    return <Icon className="w-4 h-4" style={{ color }} />;
+                  })()}
                 </div>
                 <button
                   onClick={() =>

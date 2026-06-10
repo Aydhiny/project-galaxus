@@ -11,12 +11,13 @@ import {
 } from "@/lib/actions/books";
 import type { Book } from "@/lib/db/schema";
 import { toast } from "sonner";
-import { BookOpen, Plus, Trash2, CheckCircle, Loader2, Star } from "lucide-react";
+import { BookOpen, Plus, Trash2, CheckCircle, Loader2, Star, Bookmark, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import PomodoroTimer from "@/components/pomodoro-timer";
 
 const COVER_COLORS = [
   "#C9A84C", "#10B981", "#7C3AED", "#3B82F6", "#EF4444", "#F97316", "#EC4899",
@@ -53,7 +54,7 @@ export default function ReadingPage() {
       });
       setForm({ title: "", author: "", pagesTotal: "", status: "reading", coverColor: COVER_COLORS[0] });
       setShowAdd(false);
-      toast.success(`"${form.title}" added! 📚`);
+      toast.success(`"${form.title}" added`);
       reload();
     });
   }
@@ -66,6 +67,9 @@ export default function ReadingPage() {
 
   return (
     <div className="p-6 space-y-8 max-w-4xl mx-auto">
+      {/* Pomodoro timer */}
+      <PomodoroTimer />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -196,7 +200,7 @@ export default function ReadingPage() {
 
       {/* Currently Reading */}
       {reading.length > 0 && (
-        <Section title="Currently Reading" emoji="📖" count={reading.length}>
+        <Section title="Currently Reading" icon={<BookOpen className="w-4 h-4" />} count={reading.length}>
           <div className="space-y-3">
             {reading.map((book) => (
               <BookCard
@@ -217,7 +221,7 @@ export default function ReadingPage() {
                 onComplete={() => {
                   startTransition(async () => {
                     await markBookComplete(book.id, 5);
-                    toast.success(`Finished "${book.title}"! 🎉`);
+                    toast.success(`Finished "${book.title}"!`);
                     reload();
                   });
                 }}
@@ -229,7 +233,7 @@ export default function ReadingPage() {
 
       {/* Want to read */}
       {planned.length > 0 && (
-        <Section title="Want to Read" emoji="📋" count={planned.length}>
+        <Section title="Want to Read" icon={<Bookmark className="w-4 h-4" />} count={planned.length}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {planned.map((book) => (
               <BookCard
@@ -249,7 +253,7 @@ export default function ReadingPage() {
 
       {/* Completed */}
       {completed.length > 0 && (
-        <Section title="Completed" emoji="✅" count={completed.length}>
+        <Section title="Completed" icon={<CheckCircle2 className="w-4 h-4" />} count={completed.length}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {completed.map((book) => (
               <BookCard
@@ -278,11 +282,11 @@ export default function ReadingPage() {
   );
 }
 
-function Section({ title, emoji, count, children }: { title: string; emoji: string; count: number; children: React.ReactNode }) {
+function Section({ title, icon, count, children }: { title: string; icon: React.ReactNode; count: number; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <span>{emoji}</span>
+        <span className="text-muted-foreground">{icon}</span>
         <h2 className="font-semibold text-sm">{title}</h2>
         <Badge variant="secondary" className="text-xs">{count}</Badge>
       </div>
