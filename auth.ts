@@ -2,7 +2,10 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@/lib/ratelimit";
-import { getUserByEmail, verifyPassword } from "@/lib/actions/users";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -20,10 +23,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error(`Too many attempts. Try again in ${retryAfterSeconds}s.`);
         }
 
-        const email = credentials.email as string;
-        const password = credentials.password as string;
+        const email = (credentials.email as string) ?? "";
+        const password = (credentials.password as string) ?? "";
 
-        // Env-var admin fallback (for existing single-user setup)
+        // Env-var admin fallback (single-user legacy mode)
         if (
           email === process.env.ADMIN_USERNAME &&
           password === process.env.ADMIN_PASSWORD
@@ -32,19 +35,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // DB user lookup
-        const user = await getUserByEmail(email);
-        if (!user) return null;
-
-        const valid = await verifyPassword(password, user.passwordHash);
-        if (!valid) return null;
-
-        return { id: String(user.id), name: user.name, email: user.email };
+        try {
+          const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
+          const user = rows[0];
+          if (!user) return null;
+          const valid = await bcrypt.compare(password, user.passwordHash);
+          if (!valid) return null;
+          return { id: String(user.id), name: user.name, email: user.email };
+        } catch {
+          return null;
+        }
       },
     }),
   ],
-  pages: {
-    signIn: "/login",
-  },
+  pages: { signIn: "/login" },
   session: { strategy: "jwt" },
   secret: process.env.AUTH_SECRET,
 });

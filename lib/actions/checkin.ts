@@ -61,9 +61,11 @@ export async function upsertCheckin(
   }
 
   revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath("/daily");
   revalidatePath("/spiritual");
   revalidatePath("/training");
+  revalidatePath("/overview");
 }
 
 export async function calculateStreak(field: keyof typeof dailyCheckins.$inferSelect) {

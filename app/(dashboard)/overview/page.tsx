@@ -26,6 +26,12 @@ interface DayRecord {
   dayRating: number;
   yesterdayRating: number;
   tomorrowNote: string;
+  // habit booleans (evening review)
+  habit_Training: boolean;
+  habit_Reading: boolean;
+  habit_Creative: boolean;
+  habit_Hydration: boolean;
+  habit_Prayers: boolean;
 }
 
 const STORAGE_KEY = "galaxus-overview";
@@ -33,18 +39,24 @@ const MOOD_STORAGE = "galaxus-moods";
 
 /* ─── Data helpers ───────────────────────────────────────────────────────── */
 
+function emptyRecord(date: string): DayRecord {
+  return {
+    date, morningDone: false, eveningDone: false,
+    intention: "", priorities: ["", "", ""],
+    mood: 0, eveningMood: 0,
+    gratitude: ["", "", ""],
+    dayRating: 0, yesterdayRating: 0,
+    tomorrowNote: "",
+    habit_Training: false, habit_Reading: false,
+    habit_Creative: false, habit_Hydration: false, habit_Prayers: false,
+  };
+}
+
 function loadRecord(date: string): DayRecord {
   try {
     const all = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
-    return all[date] ?? {
-      date, morningDone: false, eveningDone: false,
-      intention: "", priorities: ["", "", ""],
-      mood: 0, eveningMood: 0,
-      gratitude: ["", "", ""],
-      dayRating: 0, yesterdayRating: 0,
-      tomorrowNote: "",
-    };
-  } catch { return { date, morningDone: false, eveningDone: false, intention: "", priorities: ["", "", ""], mood: 0, eveningMood: 0, gratitude: ["", "", ""], dayRating: 0, yesterdayRating: 0, tomorrowNote: "" }; }
+    return all[date] ?? emptyRecord(date);
+  } catch { return emptyRecord(date); }
 }
 
 function saveRecord(rec: DayRecord) {
@@ -55,13 +67,18 @@ function saveRecord(rec: DayRecord) {
   } catch { /* ignore */ }
 }
 
-function saveMood(date: string, mood: number) {
+function saveMoodLocal(date: string, mood: number) {
   try {
     const arr = JSON.parse(localStorage.getItem(MOOD_STORAGE) ?? "[]");
     const idx = arr.findIndex((e: { date: string; mood: number }) => e.date === date);
     if (idx >= 0) arr[idx].mood = mood; else arr.push({ date, mood });
     localStorage.setItem(MOOD_STORAGE, JSON.stringify(arr));
   } catch { /* ignore */ }
+}
+
+/* Sync a partial checkin to DB — fire-and-forget, never blocks UI */
+function syncCheckin(date: string, data: Parameters<typeof upsertCheckin>[1]) {
+  upsertCheckin(date, data).catch(() => { /* best-effort */ });
 }
 
 /* ─── Static data ────────────────────────────────────────────────────────── */
@@ -114,9 +131,7 @@ function RatingPicker({ value, onChange }: { value: number; onChange: (v: number
               ? "text-white border-transparent shadow-[0_0_10px_#173eff40]"
               : "border-border text-muted-foreground hover:border-[#173eff]/40 bg-card"
           )}
-          style={value >= n ? {
-            background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)",
-          } : {}}>
+          style={value >= n ? { background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)" } : {}}>
           {n}
         </button>
       ))}
@@ -133,8 +148,11 @@ export default function OverviewPage() {
 
   const [mode, setMode] = useState<FlowMode>(defaultMode);
   const [stepIdx, setStepIdx] = useState(0);
-  const [rec, setRec] = useState<DayRecord>(() => loadRecord(today));
+  const [rec, setRec] = useState<DayRecord>(() => emptyRecord(today));
   const [transitioning, setTransitioning] = useState(false);
+
+  // Load from localStorage after mount (SSR-safe)
+  useEffect(() => { setRec(loadRecord(today)); }, [today]);
 
   const steps = mode === "morning" ? MORNING_STEPS : EVENING_STEPS;
   const step = steps[stepIdx] as string;
@@ -157,21 +175,31 @@ export default function OverviewPage() {
     if (stepIdx === lastReal) {
       if (mode === "morning") {
         patch({ morningDone: true });
-        if (rec.mood > 0) saveMood(today, rec.mood);
+        // Sync morning data to DB
+        if (rec.mood > 0) saveMoodLocal(today, rec.mood);
+        syncCheckin(today, {
+          morningMood: rec.mood || undefined,
+          intention: rec.intention || undefined,
+          priorities: rec.priorities.filter(Boolean).length > 0
+            ? JSON.stringify(rec.priorities.filter(Boolean))
+            : undefined,
+        });
+        toast.success("Morning ritual complete! Bismillah");
       } else {
         patch({ eveningDone: true });
-        if (rec.eveningMood > 0) saveMood(today, rec.eveningMood);
-        // Sync evening habit checks to the DB so feed + streaks reflect them
-        const r = rec as unknown as Record<string, unknown>;
-        upsertCheckin(today, {
-          training:  !!(r["habit_Training"]),
-          meditation: false, // meditation is tracked via the dedicated page
-          music:     !!(r["habit_Creative work"]),
-          writing:   false,
-          gratitude: rec.gratitude.some(Boolean),
-        }).catch(() => { /* best-effort — don't block the UI */ });
+        if (rec.eveningMood > 0) saveMoodLocal(today, rec.eveningMood);
+        // Sync ALL evening data to DB at once
+        syncCheckin(today, {
+          training:      rec.habit_Training,
+          music:         rec.habit_Creative,
+          gratitude:     rec.gratitude.some(Boolean),
+          gratitudeText: rec.gratitude.filter(Boolean).join("\n") || undefined,
+          eveningMood:   rec.eveningMood || undefined,
+          dayRating:     rec.dayRating || undefined,
+          tomorrowNote:  rec.tomorrowNote || undefined,
+        });
+        toast.success("Day complete! Great reflection");
       }
-      toast.success(mode === "morning" ? "Morning ritual complete! Bismillah" : "Day complete! Great reflection");
     }
     go(1);
   }
@@ -207,7 +235,6 @@ export default function OverviewPage() {
                 بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم
               </p>
             </div>
-            {/* Premium pill switcher */}
             <div className="flex gap-2 p-1 rounded-2xl border border-border bg-card/50 backdrop-blur-sm">
               <button onClick={() => setMode("morning")}
                 className={cn("flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300",
@@ -215,9 +242,7 @@ export default function OverviewPage() {
                     ? "text-white shadow-[0_0_16px_#173eff40]"
                     : "text-muted-foreground hover:text-foreground"
                 )}
-                style={mode === "morning" ? {
-                  background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)",
-                } : {}}>
+                style={mode === "morning" ? { background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)" } : {}}>
                 <Sun className="w-4 h-4" /> Morning
                 {rec.morningDone && <Check className="w-3.5 h-3.5" />}
               </button>
@@ -227,9 +252,7 @@ export default function OverviewPage() {
                     ? "text-white shadow-[0_0_16px_#173eff40]"
                     : "text-muted-foreground hover:text-foreground"
                 )}
-                style={mode === "evening" ? {
-                  background: "linear-gradient(135deg, #173eff 0%, #a78bfa 100%)",
-                } : {}}>
+                style={mode === "evening" ? { background: "linear-gradient(135deg, #173eff 0%, #a78bfa 100%)" } : {}}>
                 <Moon className="w-4 h-4" /> Evening
                 {rec.eveningDone && <Check className="w-3.5 h-3.5" />}
               </button>
@@ -248,17 +271,15 @@ export default function OverviewPage() {
               {[1,2,3,4,5].map(n => {
                 const Icon = YESTERDAY_ICONS[n]!;
                 return (
-                <button key={n} onClick={() => patch({ yesterdayRating: n })}
-                  className={cn("w-16 h-16 rounded-2xl transition-all border flex items-center justify-center",
-                    rec.yesterdayRating === n
-                      ? "border-[#173eff]/50 scale-110 shadow-[0_0_20px_#173eff30]"
-                      : "border-border hover:scale-105 bg-card text-muted-foreground"
-                  )}
-                  style={rec.yesterdayRating === n ? {
-                    background: "linear-gradient(135deg, #173eff15 0%, #173eff05 100%)",
-                  } : {}}>
-                  <Icon className="w-7 h-7" style={rec.yesterdayRating === n ? { color: "#3758f9" } : {}} />
-                </button>
+                  <button key={n} onClick={() => patch({ yesterdayRating: n })}
+                    className={cn("w-16 h-16 rounded-2xl transition-all border flex items-center justify-center",
+                      rec.yesterdayRating === n
+                        ? "border-[#173eff]/50 scale-110 shadow-[0_0_20px_#173eff30]"
+                        : "border-border hover:scale-105 bg-card text-muted-foreground"
+                    )}
+                    style={rec.yesterdayRating === n ? { background: "linear-gradient(135deg, #173eff15 0%, #173eff05 100%)" } : {}}>
+                    <Icon className="w-7 h-7" style={rec.yesterdayRating === n ? { color: "#3758f9" } : {}} />
+                  </button>
                 );
               })}
             </div>
@@ -286,9 +307,7 @@ export default function OverviewPage() {
                       ? "text-white border-transparent shadow-[0_0_12px_#173eff40]"
                       : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
-                  style={rec.intention === w ? {
-                    background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)",
-                  } : {}}>
+                  style={rec.intention === w ? { background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)" } : {}}>
                   {w}
                 </button>
               ))}
@@ -317,11 +336,7 @@ export default function OverviewPage() {
                     style={{ background: "linear-gradient(135deg, #173eff, #3758f9)" }}>{i+1}</span>
                   <input
                     value={rec.priorities[i] ?? ""}
-                    onChange={e => {
-                      const p = [...rec.priorities];
-                      p[i] = e.target.value;
-                      patch({ priorities: p });
-                    }}
+                    onChange={e => { const p = [...rec.priorities]; p[i] = e.target.value; patch({ priorities: p }); }}
                     placeholder={["Most important task", "Second priority", "Third priority"][i]}
                     className="flex-1 bg-transparent border-b border-border pb-1 text-sm outline-none placeholder:text-muted-foreground/40"
                   />
@@ -338,7 +353,12 @@ export default function OverviewPage() {
             <h2 className="text-2xl font-semibold lw-gradient-text" style={{ fontFamily: "var(--font-heading)" }}>
               How are you feeling right now?
             </h2>
-            <MoodPicker value={rec.mood} onChange={v => patch({ mood: v })} />
+            <MoodPicker value={rec.mood} onChange={v => {
+              patch({ mood: v });
+              // Immediately write morning mood to DB on selection
+              syncCheckin(today, { morningMood: v });
+              saveMoodLocal(today, v);
+            }} />
           </div>
         );
 
@@ -351,24 +371,26 @@ export default function OverviewPage() {
             </h2>
             <div className="w-full max-w-sm space-y-3">
               {[
-                { icon: <Sparkles className="w-4 h-4" />, label: "Prayers", color: "var(--emerald)" },
-                { icon: <Dumbbell className="w-4 h-4" />, label: "Training", color: "oklch(0.70 0.19 32)" },
-                { icon: <BookOpen className="w-4 h-4" />, label: "Reading", color: "oklch(0.65 0.20 290)" },
-                { icon: <Flame className="w-4 h-4" />, label: "Creative work", color: "var(--gold)" },
-                { icon: <Droplets className="w-4 h-4" />, label: "Hydration", color: "#60a5fa" },
-              ].map(({ icon, label, color }) => {
-                const key = `habit_${label}` as keyof DayRecord;
-                const checked = !!(rec as unknown as Record<string, unknown>)[key];
+                { icon: <Sparkles className="w-4 h-4" />, label: "Prayers",       color: "var(--emerald)",        field: "habit_Prayers"   as keyof DayRecord, dbField: {} },
+                { icon: <Dumbbell className="w-4 h-4" />, label: "Training",      color: "oklch(0.70 0.19 32)",   field: "habit_Training"  as keyof DayRecord, dbField: { training:  true } },
+                { icon: <BookOpen className="w-4 h-4" />, label: "Reading",       color: "oklch(0.65 0.20 290)",  field: "habit_Reading"   as keyof DayRecord, dbField: {} },
+                { icon: <Flame className="w-4 h-4" />,    label: "Creative work", color: "var(--gold)",           field: "habit_Creative"  as keyof DayRecord, dbField: { music: true } },
+                { icon: <Droplets className="w-4 h-4" />, label: "Hydration",     color: "#60a5fa",               field: "habit_Hydration" as keyof DayRecord, dbField: {} },
+              ].map(({ icon, label, color, field, dbField }) => {
+                const checked = !!rec[field];
                 return (
-                  <button key={label} onClick={() => patch({ [key]: !checked } as Partial<DayRecord>)}
+                  <button key={label} onClick={() => {
+                    const next = !checked;
+                    patch({ [field]: next });
+                    // Immediately sync relevant DB fields when toggled on
+                    if (next && Object.keys(dbField).length > 0) {
+                      syncCheckin(today, dbField as Parameters<typeof upsertCheckin>[1]);
+                    }
+                  }}
                     className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-300",
-                      checked
-                        ? "border-[#173eff]/30 shadow-[0_0_12px_#173eff15]"
-                        : "border-border bg-card hover:bg-accent"
+                      checked ? "border-[#173eff]/30 shadow-[0_0_12px_#173eff15]" : "border-border bg-card hover:bg-accent"
                     )}
-                    style={checked ? {
-                      background: "linear-gradient(135deg, #173eff10 0%, #173eff04 100%)",
-                    } : {}}>
+                    style={checked ? { background: "linear-gradient(135deg, #173eff10 0%, #173eff04 100%)" } : {}}>
                     <span style={{ color }}>{icon}</span>
                     <span className="flex-1 text-left text-sm font-medium">{label}</span>
                     <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
@@ -389,11 +411,18 @@ export default function OverviewPage() {
             <h2 className="text-2xl font-semibold lw-gradient-text" style={{ fontFamily: "var(--font-heading)" }}>
               Rate today overall.
             </h2>
-            <RatingPicker value={rec.dayRating} onChange={v => patch({ dayRating: v })} />
+            <RatingPicker value={rec.dayRating} onChange={v => {
+              patch({ dayRating: v });
+              syncCheckin(today, { dayRating: v });
+            }} />
             {rec.dayRating > 0 && (
               <div className="mt-4">
                 <p className="text-sm font-medium text-muted-foreground mb-4">Evening mood</p>
-                <MoodPicker value={rec.eveningMood} onChange={v => patch({ eveningMood: v })} />
+                <MoodPicker value={rec.eveningMood} onChange={v => {
+                  patch({ eveningMood: v });
+                  syncCheckin(today, { eveningMood: v });
+                  saveMoodLocal(today, v);
+                }} />
               </div>
             )}
           </div>
@@ -417,6 +446,15 @@ export default function OverviewPage() {
                   <input
                     value={rec.gratitude[i] ?? ""}
                     onChange={e => { const g = [...rec.gratitude]; g[i] = e.target.value; patch({ gratitude: g }); }}
+                    onBlur={() => {
+                      // Sync to DB when user leaves the field
+                      if (rec.gratitude.some(Boolean)) {
+                        syncCheckin(today, {
+                          gratitude: true,
+                          gratitudeText: rec.gratitude.filter(Boolean).join("\n"),
+                        });
+                      }
+                    }}
                     placeholder={["I'm grateful for…", "Also grateful for…", "And for…"][i]}
                     className="flex-1 bg-transparent border-b border-border pb-1 text-sm outline-none placeholder:text-muted-foreground/40"
                   />
@@ -436,6 +474,9 @@ export default function OverviewPage() {
             <Textarea
               value={rec.tomorrowNote}
               onChange={e => patch({ tomorrowNote: e.target.value })}
+              onBlur={() => {
+                if (rec.tomorrowNote) syncCheckin(today, { tomorrowNote: rec.tomorrowNote });
+              }}
               placeholder="A note, a task, something to remember…"
               className="w-full max-w-sm min-h-[120px] resize-none bg-card/50 border-border text-sm"
             />
@@ -505,8 +546,7 @@ export default function OverviewPage() {
   const prevAvg = prevMoods.length ? prevMoods.reduce((s, d) => s + d.mood, 0) / prevMoods.length : 0;
   const moodTrend = avgMood - prevAvg;
 
-  // Rough stretch detection: 3+ consecutive days below 5
-  let roughStreak = 0, maxRough = 0, curRough = 0;
+  let maxRough = 0, curRough = 0;
   for (const d of moodDots.slice(-14)) {
     if (d.mood > 0 && d.mood < 5) { curRough++; maxRough = Math.max(maxRough, curRough); }
     else curRough = 0;
@@ -522,9 +562,7 @@ export default function OverviewPage() {
               ? "w-6 h-2 shadow-[0_0_8px_#173eff60]"
               : i < stepIdx ? "w-2 h-2 opacity-50" : "w-2 h-2 bg-border"
           )}
-          style={i <= stepIdx ? {
-            background: "linear-gradient(90deg, #173eff, #a78bfa)",
-          } : {}}
+          style={i <= stepIdx ? { background: "linear-gradient(90deg, #173eff, #a78bfa)" } : {}}
           />
         ))}
       </div>
@@ -573,8 +611,6 @@ export default function OverviewPage() {
               )}
             </div>
           </div>
-
-          {/* Sparkline dots */}
           <div className="flex items-end gap-0.5 h-10">
             {moodDots.map((d, i) => (
               <div key={i} className="flex-1 flex flex-col items-center justify-end" title={`${d.date}: ${d.mood > 0 ? d.mood : "—"}`}>
@@ -587,7 +623,6 @@ export default function OverviewPage() {
               </div>
             ))}
           </div>
-
           {maxRough >= 3 && (
             <p className="text-[10px] text-red-400/80">
               Rough stretch detected lately. Be gentle with yourself.

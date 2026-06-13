@@ -38,6 +38,13 @@ export const dailyCheckins = pgTable(
     sleepQuality: integer("sleep_quality"),           // 1–5
     bedTime: varchar("bed_time", { length: 5 }),      // "22:30"
     wakeTime: varchar("wake_time", { length: 5 }),    // "06:30"
+    // Overview flow fields
+    morningMood: integer("morning_mood"),             // 1–10 from morning overview
+    eveningMood: integer("evening_mood"),             // 1–10 from evening overview
+    dayRating: integer("day_rating"),                 // 1–10 overall day score
+    intention: varchar("intention", { length: 100 }), // morning word/phrase
+    priorities: text("priorities"),                   // JSON: string[]
+    tomorrowNote: text("tomorrow_note"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },

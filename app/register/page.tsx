@@ -48,11 +48,16 @@ export default function RegisterPage() {
     setError("");
     if (password !== confirm) { setError("Passwords don't match."); return; }
     setLoading(true);
-    const result = await registerUser(name, email, password);
-    setLoading(false);
-    if (result.error) { setError(result.error); return; }
-    setDone(true);
-    setTimeout(() => router.push("/login"), 2000);
+    try {
+      const result = await registerUser(name, email, password);
+      if (result.error) { setError(result.error); return; }
+      setDone(true);
+      setTimeout(() => router.push("/login"), 2000);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
