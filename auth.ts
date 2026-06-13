@@ -2,12 +2,13 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { getUserByEmail, verifyPassword } from "@/lib/actions/users";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        username: { label: "Username" },
+        email: { label: "Email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
@@ -19,17 +20,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error(`Too many attempts. Try again in ${retryAfterSeconds}s.`);
         }
 
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+
+        // Env-var admin fallback (for existing single-user setup)
         if (
-          credentials.username === process.env.ADMIN_USERNAME &&
-          credentials.password === process.env.ADMIN_PASSWORD
+          email === process.env.ADMIN_USERNAME &&
+          password === process.env.ADMIN_PASSWORD
         ) {
-          return {
-            id: "1",
-            name: "Ajdin",
-            email: "ajdin@galaxus.me",
-          };
+          return { id: "0", name: "Ajdin", email: process.env.ADMIN_USERNAME! };
         }
-        return null;
+
+        // DB user lookup
+        const user = await getUserByEmail(email);
+        if (!user) return null;
+
+        const valid = await verifyPassword(password, user.passwordHash);
+        if (!valid) return null;
+
+        return { id: String(user.id), name: user.name, email: user.email };
       },
     }),
   ],

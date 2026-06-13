@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { loadMoods, moodColor as moodCol, type MoodEntry } from "@/lib/utils/mood";
+import { upsertCheckin } from "@/lib/actions/checkin";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -160,6 +161,15 @@ export default function OverviewPage() {
       } else {
         patch({ eveningDone: true });
         if (rec.eveningMood > 0) saveMood(today, rec.eveningMood);
+        // Sync evening habit checks to the DB so feed + streaks reflect them
+        const r = rec as unknown as Record<string, unknown>;
+        upsertCheckin(today, {
+          training:  !!(r["habit_Training"]),
+          meditation: false, // meditation is tracked via the dedicated page
+          music:     !!(r["habit_Creative work"]),
+          writing:   false,
+          gratitude: rec.gratitude.some(Boolean),
+        }).catch(() => { /* best-effort — don't block the UI */ });
       }
       toast.success(mode === "morning" ? "Morning ritual complete! Bismillah" : "Day complete! Great reflection");
     }

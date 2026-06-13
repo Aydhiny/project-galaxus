@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BackgroundBeams } from "@/components/aceternity/background-beams";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { GradientText } from "@/components/aceternity/gradient-text";
@@ -43,7 +44,7 @@ const STARS = [
 ];
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -52,9 +53,9 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError("");
-    const res = await signIn("credentials", { username, password, redirect: false });
+    const res = await signIn("credentials", { email, password, redirect: false });
     if (res?.ok) router.push("/dashboard");
-    else setError("Invalid credentials. Try again.");
+    else setError("Invalid email or password.");
     setLoading(false);
   }
 
@@ -95,9 +96,9 @@ export default function LoginPage() {
           style={{ background:"rgba(10,14,28,0.85)", backdropFilter:"blur(32px) saturate(180%)", boxShadow:"inset 0 1px 0 rgba(255,255,255,0.08),0 32px 80px rgba(0,0,0,0.60)" }}>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Username</label>
-              <input value={username} onChange={e => setUsername(e.target.value)}
-                placeholder="ajdin" required
+              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com" required
                 className="w-full px-4 py-3 rounded-xl border text-sm"
                 style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
             </div>
@@ -119,7 +120,13 @@ export default function LoginPage() {
             </MovingBorderBtn>
           </form>
         </div>
-        <p className="text-center text-xs text-white/25 mt-6">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم</p>
+        <p className="text-center text-sm text-white/30 mt-6">
+          New here?{" "}
+          <Link href="/register" className="text-white/60 hover:text-white transition-colors underline underline-offset-2">
+            Create an account
+          </Link>
+        </p>
+        <p className="text-center text-xs text-white/20 mt-3">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم</p>
       </div>
     </div>
   );
