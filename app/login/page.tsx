@@ -96,9 +96,9 @@ export default function LoginPage() {
           style={{ background:"rgba(10,14,28,0.85)", backdropFilter:"blur(32px) saturate(180%)", boxShadow:"inset 0 1px 0 rgba(255,255,255,0.08),0 32px 80px rgba(0,0,0,0.60)" }}>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com" required
+              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Username or Email</label>
+              <input type="text" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="Username or email" required
                 className="w-full px-4 py-3 rounded-xl border text-sm"
                 style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
             </div>
