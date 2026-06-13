@@ -11,6 +11,7 @@ import {
   Activity, BarChart3, BookMarked, StickyNote, ChevronLeft, ChevronRight, LayoutDashboard, PanelLeftClose, Sunrise, Command,
   Disc3, Trophy, Download, Lightbulb,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useUIStore } from "@/lib/store/ui";
@@ -68,6 +69,9 @@ interface SidebarProps {
 
 export function Sidebar({ mobile, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const userName = session?.user?.name ?? "User";
+  const userEmail = session?.user?.email ?? "";
   const { sidebarCollapsed, toggleSidebar, toggleHidden } = useUIStore();
   const { openPalette } = useCommandStore();
   // Use mounted guard so SSR and first client render always agree (collapsed=false).
@@ -186,8 +190,8 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           {!collapsed && (
             <div className="px-3 py-2 flex items-center gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">Ajdin Mehmedović</p>
-                <p className="text-[10px] text-muted-foreground/60 truncate">ajdin@galaxus.me</p>
+                <p className="text-xs font-semibold text-foreground truncate">{userName}</p>
+                <p className="text-[10px] text-muted-foreground/60 truncate">{userEmail}</p>
               </div>
             </div>
           )}

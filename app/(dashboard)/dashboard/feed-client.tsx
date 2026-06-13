@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { StreakRing } from "@/components/streak-ring";
 import { PrayerCountdown } from "@/components/prayer-countdown";
 import Link from "next/link";
@@ -52,8 +53,10 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
   const [todayMood, setTodayMood] = useState(0);
   const [moodOpen, setMoodOpen] = useState(false);
   const { pinned } = useFeedVideoStore();
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(" ")[0] ?? "friend";
   const today = new Date().toISOString().slice(0, 10);
-  const greeting = "As-salamu alaykum, Ajdin.";
+  const greeting = `As-salamu alaykum, ${firstName}.`;
   const hijri = toHijri(new Date());
 
   useEffect(() => { setTodayMood(loadTodayMood(today)); }, [today]);

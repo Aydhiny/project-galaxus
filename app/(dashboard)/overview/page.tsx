@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { loadMoods, moodColor as moodCol, type MoodEntry } from "@/lib/utils/mood";
 import { upsertCheckin } from "@/lib/actions/checkin";
+import { useSession } from "next-auth/react";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -204,6 +205,8 @@ export default function OverviewPage() {
     go(1);
   }
 
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(" ")[0] ?? "friend";
   const greeting = hour < 5 ? "As-salamu alaykum" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   /* ── Step renders ── */
@@ -229,7 +232,7 @@ export default function OverviewPage() {
                 {format(new Date(), "EEEE, MMMM d")}
               </p>
               <h1 className="text-3xl font-bold lw-gradient-text" style={{ fontFamily: "var(--font-heading)" }}>
-                {greeting}, Ajdin.
+                {greeting}, {firstName}.
               </h1>
               <p className="text-muted-foreground mt-2 text-sm">
                 بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم
