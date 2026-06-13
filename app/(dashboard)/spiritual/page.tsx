@@ -22,6 +22,36 @@ function getPrayerCount(checkin: DailyCheckin) {
   return PRAYERS.filter((p) => checkin[p]).length;
 }
 
+// ── Quran Surah Progress ───────────────────────────────────────────────────
+const SURAHS = [
+  "Al-Fatiha","Al-Baqarah","Al-Imran","An-Nisa","Al-Maidah","Al-Anam","Al-Araf","Al-Anfal","At-Tawbah","Yunus",
+  "Hud","Yusuf","Ar-Rad","Ibrahim","Al-Hijr","An-Nahl","Al-Isra","Al-Kahf","Maryam","Ta-Ha",
+  "Al-Anbiya","Al-Hajj","Al-Muminun","An-Nur","Al-Furqan","Ash-Shuara","An-Naml","Al-Qasas","Al-Ankabut","Ar-Rum",
+  "Luqman","As-Sajdah","Al-Ahzab","Saba","Fatir","Ya-Sin","As-Saffat","Sad","Az-Zumar","Ghafir",
+  "Fussilat","Ash-Shura","Az-Zukhruf","Ad-Dukhan","Al-Jathiyah","Al-Ahqaf","Muhammad","Al-Fath","Al-Hujurat","Qaf",
+  "Adh-Dhariyat","At-Tur","An-Najm","Al-Qamar","Ar-Rahman","Al-Waqiah","Al-Hadid","Al-Mujadila","Al-Hashr","Al-Mumtahina",
+  "As-Saf","Al-Jumuah","Al-Munafiqun","At-Taghabun","At-Talaq","At-Tahrim","Al-Mulk","Al-Qalam","Al-Haqqah","Al-Maarij",
+  "Nuh","Al-Jinn","Al-Muzzammil","Al-Muddaththir","Al-Qiyamah","Al-Insan","Al-Mursalat","An-Naba","An-Naziat","Abasa",
+  "At-Takwir","Al-Infitar","Al-Mutaffifin","Al-Inshiqaq","Al-Buruj","At-Tariq","Al-Ala","Al-Ghashiyah","Al-Fajr","Al-Balad",
+  "Ash-Shams","Al-Layl","Ad-Duha","Al-Inshirah","At-Tin","Al-Alaq","Al-Qadr","Al-Bayyinah","Az-Zalzalah","Al-Adiyat",
+  "Al-Qariah","At-Takathur","Al-Asr","Al-Humazah","Al-Fil","Quraysh","Al-Maun","Al-Kawthar","Al-Kafirun","An-Nasr",
+  "Al-Masad","Al-Ikhlas","Al-Falaq","An-Nas",
+];
+const JUZ_SIZE = Math.ceil(114 / 30);
+type SurahStatus = "none" | "reading" | "memorized" | "reviewed";
+const STATUS_COLORS: Record<SurahStatus, string> = {
+  none: "oklch(1 0 0 / 8%)",
+  reading: "oklch(0.65 0.15 55 / 70%)",
+  memorized: "var(--emerald)",
+  reviewed: "oklch(0.65 0.20 290)",
+};
+function loadQuranProgress(): Record<number, SurahStatus> {
+  try { return JSON.parse(localStorage.getItem("galaxus-quran-progress") ?? "{}"); } catch { return {}; }
+}
+function saveQuranProgress(p: Record<number, SurahStatus>) {
+  try { localStorage.setItem("galaxus-quran-progress", JSON.stringify(p)); } catch { /* ignore */ }
+}
+
 // ── Tasbih ─────────────────────────────────────────────────────────────────
 const DHIKR = [
   { key: "subhanallah",  arabic: "سُبْحَانَ اللَّهِ",  latin: "SubhanAllah",   meaning: "Glory be to Allah",       target: 33 },
@@ -55,6 +85,22 @@ export default function SpiritualPage() {
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
   const [pending, startTransition] = useTransition();
 
+  // Quran progress
+  const [quranProgress, setQuranProgress] = useState<Record<number, SurahStatus>>({});
+  useEffect(() => { setQuranProgress(loadQuranProgress()); }, []);
+
+  function cycleSurahStatus(idx: number) {
+    const cycle: SurahStatus[] = ["none", "reading", "reviewed", "memorized"];
+    const current = quranProgress[idx] ?? "none";
+    const next = cycle[(cycle.indexOf(current) + 1) % cycle.length];
+    const updated = { ...quranProgress, [idx]: next };
+    setQuranProgress(updated);
+    saveQuranProgress(updated);
+  }
+
+  const memorizedCount = Object.values(quranProgress).filter(s => s === "memorized").length;
+  const reviewedCount = Object.values(quranProgress).filter(s => s === "reviewed").length;
+
   // Tasbih state
   const today = format(new Date(), "yyyy-MM-dd");
   const [tasbih, setTasbih] = useState<TasbihState>({} as TasbihState);
@@ -87,17 +133,44 @@ export default function SpiritualPage() {
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [countdown, setCountdown] = useState<string>("");
   const [countdownLabel, setCountdownLabel] = useState<string>("");
+  const [nextPrayerName, setNextPrayerName] = useState<string>("");
+  const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
+  const [compassHeading, setCompassHeading] = useState<number>(0);
+  const [qiblaError, setQiblaError] = useState<string>("");
 
   useEffect(() => {
-    if (!isRamadan) return;
-    setRamadanFasts(loadRamadanFasts(new Date().getFullYear()));
+    if (isRamadan) setRamadanFasts(loadRamadanFasts(new Date().getFullYear()));
+    // Always load prayer times
     getUserLocation().then(async coords => {
       if (!coords) return;
       try {
         const t = await fetchPrayerTimes(coords.latitude, coords.longitude);
         setPrayerTimes(t);
+        // Qibla bearing: great-circle bearing from user to Kaaba (21.3891°N, 39.8579°E)
+        const lat1 = coords.latitude * Math.PI / 180;
+        const lon1 = coords.longitude * Math.PI / 180;
+        const lat2 = 21.3891 * Math.PI / 180;
+        const lon2 = 39.8579 * Math.PI / 180;
+        const dLon = lon2 - lon1;
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        setQiblaAngle(bearing);
       } catch { /* ignore */ }
-    });
+    }).catch(() => setQiblaError("Location unavailable"));
+
+    // Compass via DeviceOrientationEvent
+    function handleOrientation(e: DeviceOrientationEvent) {
+      const heading = (e as DeviceOrientationEvent & { webkitCompassHeading?: number }).webkitCompassHeading
+        ?? (e.alpha != null ? (360 - e.alpha) : 0);
+      setCompassHeading(heading);
+    }
+    window.addEventListener("deviceorientationabsolute" as "deviceorientation", handleOrientation, true);
+    window.addEventListener("deviceorientation", handleOrientation, true);
+    return () => {
+      window.removeEventListener("deviceorientationabsolute" as "deviceorientation", handleOrientation, true);
+      window.removeEventListener("deviceorientation", handleOrientation, true);
+    };
   }, [isRamadan]);
 
   useEffect(() => {
@@ -105,26 +178,29 @@ export default function SpiritualPage() {
     const tick = () => {
       const next = getNextPrayer(prayerTimes);
       if (!next) return;
-      if (next.name === "Maghrib") {
-        setCountdownLabel("Iftar in");
-        setCountdown(formatCountdown(next.msLeft));
-      } else if (next.name === "Fajr") {
-        setCountdownLabel("Suhoor ends in");
-        setCountdown(formatCountdown(next.msLeft));
-      } else {
-        const maghribTime = prayerTimes.Maghrib;
-        const [h, m] = maghribTime.split(":").map(Number);
-        const maghribDate = new Date(); maghribDate.setHours(h, m, 0, 0);
-        const msLeft = maghribDate.getTime() - Date.now();
-        if (msLeft > 0) {
-          setCountdownLabel("Iftar in"); setCountdown(formatCountdown(msLeft));
+      setNextPrayerName(next.name);
+      if (isRamadan) {
+        if (next.name === "Maghrib") {
+          setCountdownLabel("Iftar in");
+          setCountdown(formatCountdown(next.msLeft));
+        } else if (next.name === "Fajr") {
+          setCountdownLabel("Suhoor ends in");
+          setCountdown(formatCountdown(next.msLeft));
+        } else {
+          const [h, m] = prayerTimes.Maghrib.split(":").map(Number);
+          const maghribDate = new Date(); maghribDate.setHours(h, m, 0, 0);
+          const msLeft = maghribDate.getTime() - Date.now();
+          if (msLeft > 0) { setCountdownLabel("Iftar in"); setCountdown(formatCountdown(msLeft)); }
         }
+      } else {
+        setCountdownLabel(`${next.name} in`);
+        setCountdown(formatCountdown(next.msLeft));
       }
     };
     tick();
     const iv = setInterval(tick, 1000);
     return () => clearInterval(iv);
-  }, [prayerTimes]);
+  }, [prayerTimes, isRamadan]);
 
   function toggleRamadanFast(day: number) {
     const fasts = [...ramadanFasts];
@@ -203,6 +279,53 @@ export default function SpiritualPage() {
         </div>
       </div>
 
+      {/* ── Prayer Countdown + Qibla ──────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Prayer Countdown */}
+        <div className="glass p-5 flex flex-col items-center justify-center text-center gap-2">
+          <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-muted-foreground/60">
+            {countdown ? countdownLabel : "Next prayer"}
+          </p>
+          {countdown ? (
+            <>
+              <p className="text-4xl font-bold tabular-nums text-[var(--emerald)]">{countdown}</p>
+              <p className="text-xs text-muted-foreground">{nextPrayerName} {prayerTimes?.[nextPrayerName as keyof typeof prayerTimes] ?? ""}</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Allow location to see prayer times</p>
+          )}
+        </div>
+
+        {/* Qibla Compass */}
+        <div className="glass p-5 flex flex-col items-center justify-center gap-3">
+          <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-muted-foreground/60">Qibla Direction</p>
+          {qiblaAngle != null ? (
+            <>
+              <div className="relative w-24 h-24">
+                {/* Compass ring */}
+                <div className="absolute inset-0 rounded-full border-2 border-border" />
+                <div className="absolute inset-2 rounded-full border border-border/40" />
+                {/* N marker */}
+                <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[9px] font-bold text-muted-foreground">N</span>
+                {/* Qibla needle */}
+                <div className="absolute inset-0 flex items-center justify-center"
+                  style={{ transform: `rotate(${qiblaAngle - compassHeading}deg)` }}>
+                  <div className="w-0.5 h-10 rounded-full relative -mt-4"
+                    style={{ background: "linear-gradient(to top, transparent 0%, var(--emerald) 100%)" }}>
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-[var(--emerald)]">
+                      <span style={{ fontSize: 8 }}>🕋</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">{Math.round(qiblaAngle)}° from North</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">{qiblaError || "Allow location access for Qibla"}</p>
+          )}
+        </div>
+      </div>
+
       {/* Today's prayers */}
       <div className="glass p-6">
         <div className="flex items-center justify-between mb-5">
@@ -236,7 +359,7 @@ export default function SpiritualPage() {
                 </div>
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    done ? "border-[var(--emerald)] bg-[var(--emerald)]" : "border-white/20"
+                    done ? "border-[var(--emerald)] bg-[var(--emerald)]" : "border-muted-foreground/30"
                   }`}
                 >
                   {done && <span className="text-[8px] text-white font-bold">✓</span>}
@@ -301,7 +424,7 @@ export default function SpiritualPage() {
                 <span className="text-[11px] text-muted-foreground w-10 shrink-0">
                   {format(day, "d MMM")}
                 </span>
-                <div className="flex-1 h-2 rounded-full bg-white/6 overflow-hidden">
+                <div className="flex-1 h-2 rounded-full bg-foreground/[0.06] overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -320,6 +443,56 @@ export default function SpiritualPage() {
         <p className="text-xs text-muted-foreground mt-3">
           Total: <span className="text-foreground font-medium">{totalQuranPages} pages</span> in the last 30 days
         </p>
+      </div>
+
+      {/* ── Quran Surah Progress ─────────────────────────────────────── */}
+      <div className="glass p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold flex items-center gap-2">
+            <span className="text-lg">📖</span> Quran Progress
+          </h2>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: "var(--emerald)" }} /> {memorizedCount} memorized</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: "oklch(0.65 0.20 290)" }} /> {reviewedCount} reviewed</span>
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Tap a surah to cycle: unread → reading → reviewed → memorized</p>
+
+        {/* 30-Juz progress bars */}
+        <div className="space-y-1.5">
+          {Array.from({ length: 30 }, (_, juz) => {
+            const start = juz * 4;
+            const end = Math.min(start + 4, 114);
+            const juzSurahs = SURAHS.slice(start, end);
+            const memorizedInJuz = juzSurahs.filter((_, i) => (quranProgress[start + i] ?? "none") === "memorized").length;
+            const reviewedInJuz = juzSurahs.filter((_, i) => ["reviewed", "memorized"].includes(quranProgress[start + i] ?? "none")).length;
+            return (
+              <div key={juz} className="flex items-center gap-2">
+                <span className="text-[9px] text-muted-foreground w-7 shrink-0 text-right">J{juz + 1}</span>
+                <div className="flex-1 flex gap-0.5">
+                  {juzSurahs.map((name, i) => {
+                    const status = quranProgress[start + i] ?? "none";
+                    return (
+                      <button key={i} onClick={() => cycleSurahStatus(start + i)}
+                        title={`${name} — ${status}`}
+                        className="flex-1 h-4 rounded-sm transition-all hover:scale-110"
+                        style={{ background: STATUS_COLORS[status] }} />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
+          {(["none", "reading", "reviewed", "memorized"] as SurahStatus[]).map(s => (
+            <span key={s} className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm inline-block" style={{ background: STATUS_COLORS[s] }} />
+              {s === "none" ? "Unread" : s.charAt(0).toUpperCase() + s.slice(1)}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* ── Tasbih counter ─────────────────────────────────────────────── */}
@@ -354,7 +527,7 @@ export default function SpiritualPage() {
                   {d.arabic}
                 </p>
                 <p className="text-xs text-muted-foreground">{d.latin}</p>
-                <div className="w-full h-1.5 rounded-full bg-white/8 overflow-hidden">
+                <div className="w-full h-1.5 rounded-full bg-foreground/[0.08] overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-200"
                     style={{ width: `${pct * 100}%`, background: done ? "var(--emerald)" : "var(--gold)" }} />
                 </div>

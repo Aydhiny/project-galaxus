@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, subDays, eachDayOfInterval } from "date-fns";
 import { cn } from "@/lib/utils";
-import { ChevronRight, ChevronLeft, Sun, Moon, Star, Check, Flame, Droplets, BookOpen, Dumbbell, Sparkles, Frown, Minus, Smile, Heart, Leaf } from "lucide-react";
+import { ChevronRight, ChevronLeft, Sun, Moon, Star, Check, Flame, Droplets, BookOpen, Dumbbell, Sparkles, Frown, Minus, Smile, Heart, Leaf, TrendingUp, TrendingDown } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
+import { loadMoods, moodColor as moodCol, type MoodEntry } from "@/lib/utils/mood";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -480,6 +481,27 @@ export default function OverviewPage() {
     }
   };
 
+  // ── Mood trajectory ──────────────────────────────────────────────────────
+  const [moodHistory, setMoodHistory] = useState<MoodEntry[]>([]);
+  useEffect(() => { setMoodHistory(loadMoods()); }, []);
+
+  const last30 = eachDayOfInterval({ start: subDays(new Date(), 29), end: new Date() });
+  const moodMap = new Map(moodHistory.map(e => [e.date, e.mood]));
+  const moodDots = last30.map(d => ({ date: format(d, "yyyy-MM-dd"), mood: moodMap.get(format(d, "yyyy-MM-dd")) ?? 0 }));
+
+  const recentMoods = moodDots.filter(d => d.mood > 0).slice(-7);
+  const avgMood = recentMoods.length ? Math.round(recentMoods.reduce((s, d) => s + d.mood, 0) / recentMoods.length * 10) / 10 : 0;
+  const prevMoods = moodDots.filter(d => d.mood > 0).slice(-14, -7);
+  const prevAvg = prevMoods.length ? prevMoods.reduce((s, d) => s + d.mood, 0) / prevMoods.length : 0;
+  const moodTrend = avgMood - prevAvg;
+
+  // Rough stretch detection: 3+ consecutive days below 5
+  let roughStreak = 0, maxRough = 0, curRough = 0;
+  for (const d of moodDots.slice(-14)) {
+    if (d.mood > 0 && d.mood < 5) { curRough++; maxRough = Math.max(maxRough, curRough); }
+    else curRough = 0;
+  }
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-12 page-fade-in">
       {/* Progress dots */}
@@ -520,6 +542,47 @@ export default function OverviewPage() {
             {stepIdx === steps.length - 2 ? (mode === "morning" ? "Begin the day" : "Complete") : "Continue"}
             <ChevronRight className="w-4 h-4" />
           </MovingBorderBtn>
+        </div>
+      )}
+
+      {/* ── Mood Trajectory (always visible) ────────────────────────────── */}
+      {moodHistory.length >= 3 && (
+        <div className="w-full max-w-md mt-16 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-muted-foreground/60">30-day mood</p>
+            <div className="flex items-center gap-1.5">
+              {avgMood > 0 && (
+                <>
+                  <span className="text-xs font-bold tabular-nums" style={{ color: moodCol(Math.round(avgMood)) }}>{avgMood}</span>
+                  {Math.abs(moodTrend) >= 0.5 && (
+                    moodTrend > 0
+                      ? <TrendingUp className="w-3 h-3 text-[var(--emerald)]" />
+                      : <TrendingDown className="w-3 h-3 text-red-400" />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Sparkline dots */}
+          <div className="flex items-end gap-0.5 h-10">
+            {moodDots.map((d, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center justify-end" title={`${d.date}: ${d.mood > 0 ? d.mood : "—"}`}>
+                <div className="w-full rounded-sm transition-all"
+                  style={{
+                    height: d.mood > 0 ? `${(d.mood / 10) * 100}%` : "2px",
+                    background: d.mood > 0 ? moodCol(d.mood) : "oklch(1 0 0 / 8%)",
+                    minHeight: "2px",
+                  }} />
+              </div>
+            ))}
+          </div>
+
+          {maxRough >= 3 && (
+            <p className="text-[10px] text-red-400/80">
+              Rough stretch detected lately. Be gentle with yourself.
+            </p>
+          )}
         </div>
       )}
     </div>

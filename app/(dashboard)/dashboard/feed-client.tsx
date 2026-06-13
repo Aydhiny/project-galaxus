@@ -16,7 +16,6 @@ import { toHijri } from "@/lib/hijri";
 import { cn } from "@/lib/utils";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
-import { GradientText, SectionLabel } from "@/components/aceternity/gradient-text";
 import { BackgroundBeams } from "@/components/aceternity/background-beams";
 
 function MoodIcon({ mood }: { mood: number }) {
@@ -93,7 +92,7 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
   return (
     <div className="min-h-full page-fade-in">
       {/* Hero */}
-      <div className="relative overflow-hidden bg-[#070b18] border-b border-white/[0.06] px-6 pt-10 pb-8">
+      <div className="relative overflow-hidden bg-card border-b border-border px-6 pt-10 pb-8">
         <BackgroundBeams />
         {/* glow orbs */}
         <div className="absolute top-4 right-16 w-64 h-64 rounded-full blur-[80px] opacity-20 bg-[#173eff]" />
@@ -182,7 +181,7 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             <SpotlightCard elevated spotlightColor="rgba(23,62,255,0.15)" padding="p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold">Today&apos;s Progress</h3>
-                <GradientText as="span" from="#60a5fa" via="#818cf8" to="#a78bfa" className="text-2xl font-bold">{goalPct}%</GradientText>
+                <span className="text-2xl font-bold text-foreground">{goalPct}%</span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
                 <div className="h-full rounded-full progress-bar transition-all duration-700" style={{ width: `${goalPct}%` }} />

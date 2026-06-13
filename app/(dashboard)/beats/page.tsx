@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getBeats, createBeat, updateBeat, deleteBeat } from "@/lib/actions/beats";
 import { getBeatSales, createBeatSale, deleteBeatSale } from "@/lib/actions/beat-sales";
-import type { Beat, BeatSale } from "@/lib/db/schema";
+import { getAllBeatAudio, upsertBeatAudio } from "@/lib/actions/beats-audio";
+import type { Beat, BeatSale, BeatAudio } from "@/lib/db/schema";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { RowSkeleton } from "@/components/ui/skeleton";
 import {
   Plus, Search, Download, Trash2, Pencil, Disc3,
-  Music2, DollarSign, TrendingUp, Calendar,
+  Music2, DollarSign, TrendingUp, Calendar, Upload,
+  Play, Pause, Volume2,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -104,12 +106,73 @@ function BeatForm({
   );
 }
 
+function AudioPlayer({ audioUrl, beatName }: { audioUrl: string; beatName: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0.8);
+
+  function toggle() {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play(); setPlaying(true); }
+  }
+
+  function fmt(sec: number) {
+    return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-[var(--gold)]/20 bg-foreground/[0.03] p-3 space-y-2">
+      <audio ref={audioRef}
+        src={audioUrl}
+        onTimeUpdate={e => setProgress((e.currentTarget.currentTime / e.currentTarget.duration) * 100)}
+        onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+        onEnded={() => setPlaying(false)}
+      />
+      <div className="flex items-center gap-2">
+        <button onClick={toggle}
+          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all"
+          style={{ background: "var(--gold)", color: "oklch(0.08 0.01 85)" }}>
+          {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+        </button>
+        <div className="flex-1 space-y-1">
+          <div className="h-1.5 rounded-full bg-foreground/[0.08] overflow-hidden cursor-pointer"
+            onClick={e => {
+              const a = audioRef.current;
+              if (!a) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const pct = (e.clientX - rect.left) / rect.width;
+              a.currentTime = pct * a.duration;
+            }}>
+            <div className="h-full rounded-full bg-[var(--gold)] transition-all" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="flex justify-between text-[9px] text-muted-foreground tabular-nums">
+            <span>{audioRef.current ? fmt(audioRef.current.currentTime) : "0:00"}</span>
+            <span>{duration ? fmt(duration) : "--:--"}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Volume2 className="w-3 h-3 text-muted-foreground" />
+          <input type="range" min="0" max="1" step="0.1" value={volume}
+            onChange={e => { const v = parseFloat(e.target.value); setVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
+            className="w-12 h-1 accent-[var(--gold)]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BeatRow({
-  beat, onUpdate, onDelete,
+  beat, onUpdate, onDelete, audioMap, onAudioUpload,
 }: {
   beat: Beat;
   onUpdate: (id: number, data: Partial<Beat>) => void;
   onDelete: (id: number) => void;
+  audioMap: Record<number, BeatAudio>;
+  onAudioUpload: (beatId: number, file: File) => void;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -146,6 +209,7 @@ function BeatRow({
   }
 
   const status = (beat.status ?? "idea") as BeatStatus;
+  const audio = audioMap[beat.id];
 
   return (
     <div className="glass p-4 space-y-2 group relative hover:border-[var(--gold)]/25 transition-colors">
@@ -164,10 +228,14 @@ function BeatRow({
         {beat.client && <Tag color="var(--gold)">{beat.client}</Tag>}
       </div>
       {beat.notes && <p className="text-[11px] text-muted-foreground line-clamp-2">{beat.notes}</p>}
-      {beat.producedAt && (
-        <p className="text-[10px] text-muted-foreground">{beat.producedAt}</p>
-      )}
+      {beat.producedAt && <p className="text-[10px] text-muted-foreground">{beat.producedAt}</p>}
+      {audio && <AudioPlayer audioUrl={audio.audioUrl} beatName={beat.name} />}
       <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <label className="w-6 h-6 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-[var(--gold)] transition-colors cursor-pointer" title="Upload audio">
+          <Upload className="w-3 h-3" />
+          <input type="file" accept="audio/*,.mp3,.wav,.flac,.aac,.m4a,.ogg" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) onAudioUpload(beat.id, f); }} />
+        </label>
         <button onClick={() => setEditing(true)}
           className="w-6 h-6 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
           <Pencil className="w-3 h-3" />
@@ -382,10 +450,32 @@ export default function BeatsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BeatStatus | "all">("all");
   const [tab, setTab] = useState<"catalog" | "income">("catalog");
+  const [audioMap, setAudioMap] = useState<Record<number, BeatAudio>>({});
 
   useEffect(() => {
-    getBeats().then(b => { setBeats(b); setLoading(false); });
+    Promise.all([getBeats(), getAllBeatAudio()]).then(([b, audio]) => {
+      setBeats(b);
+      const map: Record<number, BeatAudio> = {};
+      audio.forEach(a => { if (a.beatId) map[a.beatId] = a; });
+      setAudioMap(map);
+      setLoading(false);
+    });
   }, []);
+
+  async function handleAudioUpload(beatId: number, file: File) {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) return;
+      const data = await res.json();
+      await upsertBeatAudio({ beatId, audioUrl: data.url, fileName: data.fileName, fileSize: data.fileSize });
+      const audio = await getAllBeatAudio();
+      const map: Record<number, BeatAudio> = {};
+      audio.forEach(a => { if (a.beatId) map[a.beatId] = a; });
+      setAudioMap(map);
+    } catch { /* ignore */ }
+  }
 
   async function handleCreate(f: FormState) {
     const beat = await createBeat({
@@ -521,7 +611,8 @@ export default function BeatsPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filtered.map(b => (
-                  <BeatRow key={b.id} beat={b} onUpdate={handleUpdate} onDelete={handleDelete} />
+                  <BeatRow key={b.id} beat={b} onUpdate={handleUpdate} onDelete={handleDelete}
+                    audioMap={audioMap} onAudioUpload={handleAudioUpload} />
                 ))}
               </div>
             )}

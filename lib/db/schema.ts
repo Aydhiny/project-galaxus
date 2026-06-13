@@ -154,6 +154,71 @@ export const beats = pgTable("beats", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ─── Personal Records ─────────────────────────────────────────────────────────
+export const personalRecords = pgTable("personal_records", {
+  id: serial("id").primaryKey(),
+  exercise: varchar("exercise", { length: 255 }).notNull(),
+  value: real("value").notNull(),
+  unit: varchar("unit", { length: 50 }).default("kg"),
+  notes: text("notes"),
+  recordedAt: date("recorded_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Reading Sessions ──────────────────────────────────────────────────────────
+export const readingSessions = pgTable("reading_sessions", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").references(() => books.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  minutesRead: integer("minutes_read").default(0),
+  pagesRead: integer("pages_read").default(0),
+  startPage: integer("start_page"),
+  endPage: integer("end_page"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Bookmarks ────────────────────────────────────────────────────────────────
+export const bookmarks = pgTable("bookmarks", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").references(() => books.id, { onDelete: "cascade" }),
+  page: integer("page").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Book Content (uploaded files) ────────────────────────────────────────────
+export const bookContent = pgTable("book_content", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").references(() => books.id, { onDelete: "cascade" }).unique(),
+  fileUrl: text("file_url").notNull(),
+  fileType: varchar("file_type", { length: 10 }).notNull().default("pdf"),
+  fileName: varchar("file_name", { length: 255 }),
+  fileSize: integer("file_size"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Study Sessions ───────────────────────────────────────────────────────────
+export const studySessions = pgTable("study_sessions", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull(),
+  topic: varchar("topic", { length: 255 }),
+  courseId: integer("course_id").references(() => courses.id, { onDelete: "set null" }),
+  hours: real("hours").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Add audioUrl to beats (separate table to avoid breaking existing beat actions)
+// Using an extension approach: beats_audio
+export const beatsAudio = pgTable("beats_audio", {
+  id: serial("id").primaryKey(),
+  beatId: integer("beat_id").references(() => beats.id, { onDelete: "cascade" }).unique(),
+  audioUrl: text("audio_url").notNull(),
+  fileName: varchar("file_name", { length: 255 }),
+  fileSize: integer("file_size"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Course = typeof courses.$inferSelect;
@@ -164,3 +229,9 @@ export type GoalCompletion = typeof goalCompletions.$inferSelect;
 export type JournalEntry = typeof journalEntries.$inferSelect;
 export type Beat = typeof beats.$inferSelect;
 export type BeatSale = typeof beatSales.$inferSelect;
+export type PersonalRecord = typeof personalRecords.$inferSelect;
+export type ReadingSession = typeof readingSessions.$inferSelect;
+export type Bookmark = typeof bookmarks.$inferSelect;
+export type BookContent = typeof bookContent.$inferSelect;
+export type StudySession = typeof studySessions.$inferSelect;
+export type BeatAudio = typeof beatsAudio.$inferSelect;

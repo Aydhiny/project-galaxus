@@ -171,8 +171,8 @@ export default async function ReviewPage() {
                     done
                       ? `${h.color} opacity-80`
                       : isPast
-                      ? "bg-white/5"
-                      : "bg-white/[0.02] border border-dashed border-white/8"
+                      ? "bg-foreground/[0.05]"
+                      : "bg-foreground/[0.02] border border-dashed border-border"
                   }`}
                 >
                   {done && <span className="text-white text-[10px]">✓</span>}
@@ -245,7 +245,7 @@ export default async function ReviewPage() {
                       className={`w-7 h-7 rounded-lg text-[9px] flex items-center justify-center font-medium ${
                         prayers[pi]
                           ? "bg-[var(--emerald)]/20 text-[var(--emerald)] border border-[var(--emerald)]/40"
-                          : "bg-white/5 text-muted-foreground border border-white/6"
+                          : "bg-foreground/[0.05] text-muted-foreground border border-border"
                       }`}
                     >
                       {name[0]}

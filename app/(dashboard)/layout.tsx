@@ -21,8 +21,13 @@ import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { sidebarCollapsed, sidebarHidden, toggleHidden } = useUIStore();
   const { theme, decorations } = useRoomStore();
+  // Only read localStorage-backed state after mount so SSR and first paint agree
+  const effectiveCollapsed = mounted ? sidebarCollapsed : false;
+  const effectiveHidden   = mounted ? sidebarHidden   : false;
+  useEffect(() => setMounted(true), []);
 
   // Sync room theme + grain onto <html> for CSS custom properties + body gradients
   useEffect(() => {
@@ -53,23 +58,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Keyboard shortcut cheatsheet — z=200 */}
       <ShortcutCheatsheet />
 
-      {/* Desktop sidebar */}
-      {!sidebarHidden && (
-        <aside
-          suppressHydrationWarning
-          className={cn(
-            "hidden md:flex flex-col border-r border-sidebar-border shrink-0 relative z-10 overflow-hidden",
-            "bg-sidebar/88 backdrop-blur-md",
-            "transition-[width] duration-300 ease-in-out",
-            sidebarCollapsed ? "w-[56px]" : "w-60"
-          )}
-        >
+      {/* Desktop sidebar — uses effectiveCollapsed (mounted guard prevents SSR mismatch) */}
+      {!effectiveHidden && (
+        <aside suppressHydrationWarning className={cn(
+          "hidden md:flex flex-col border-r border-sidebar-border shrink-0 relative z-10 overflow-hidden",
+          "bg-sidebar/90 backdrop-blur-xl",
+          "transition-[width] duration-300 ease-in-out",
+          effectiveCollapsed ? "w-[56px]" : "w-60"
+        )}>
           <Sidebar />
         </aside>
       )}
 
       {/* Edge strip to restore hidden sidebar */}
-      {sidebarHidden && (
+      {effectiveHidden && (
         <button onClick={toggleHidden} title="Show sidebar"
           className="hidden md:flex fixed left-0 top-1/2 -translate-y-1/2 z-50 w-5 h-14 items-center justify-center bg-card/80 backdrop-blur-sm border border-l-0 border-border rounded-r-xl text-muted-foreground hover:text-foreground hover:bg-card transition-colors">
           <PanelLeft className="w-3 h-3" />

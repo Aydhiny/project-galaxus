@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Lora } from "next/font/google";
+import { DM_Sans, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
@@ -7,11 +7,11 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 
-const geistSans = Geist({ variable: "--font-sans", subsets: ["latin"] });
+const dmSans = DM_Sans({ variable: "--font-sans", subsets: ["latin"], weight: ["300","400","500","600"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const lora = Lora({
+const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-heading", subsets: ["latin"],
-  weight: ["400","500","600","700"], style: ["normal","italic"],
+  weight: ["500","600","700","800"],
 });
 
 export const metadata: Metadata = {
@@ -31,7 +31,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full`} suppressHydrationWarning>
+    <html lang="en" className={`${dmSans.variable} ${geistMono.variable} ${plusJakarta.variable} h-full`} suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />

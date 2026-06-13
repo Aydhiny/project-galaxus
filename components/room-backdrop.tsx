@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { useRoomStore } from "@/lib/store/room";
 import { useAmbientStore } from "@/lib/store/ambient";
 import type { Decorations } from "@/lib/store/room";
@@ -431,9 +432,11 @@ function getMountainLayers(dec: Decorations, rainVol: number) {
 export function RoomBackdrop() {
   const { theme, decorations } = useRoomStore();
   const { rainVol, fireVol } = useAmbientStore();
+  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+  // Only suppress in explicit light mode — undefined/system fall through so dark rooms still render
+  if (!mounted || resolvedTheme === "light") return null;
 
   const layers = (() => {
     if (theme === "cabin")    return getCabinLayers(decorations, rainVol, fireVol);

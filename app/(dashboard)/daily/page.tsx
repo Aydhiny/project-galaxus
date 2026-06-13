@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { Loader2, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check, BedDouble, Star, Heart } from "lucide-react";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
-import { GradientText, SectionLabel } from "@/components/aceternity/gradient-text";
+import { SectionLabel } from "@/components/aceternity/gradient-text";
 
 const PRAYERS = [
   { key: "fajr",    label: "Fajr",    arabic: "الفجر",  time: "Dawn",      Icon: Moon },
@@ -160,9 +160,9 @@ export default function DailyPage() {
       <div className="flex items-center justify-between">
         <div>
           <SectionLabel className="mb-1">Daily Check-in</SectionLabel>
-          <GradientText as="h1" from="#60a5fa" via="#818cf8" to="#a78bfa" className="text-2xl font-bold" style={{ fontFamily: "var(--font-heading)" } as React.CSSProperties}>
+          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
             {todayDisplay}
-          </GradientText>
+          </h1>
         </div>
         <MovingBorderBtn
           onClick={save}
@@ -210,7 +210,7 @@ export default function DailyPage() {
           </div>
 
           {/* Quran pages */}
-          <div className="pt-2 border-t border-white/[0.06]">
+          <div className="pt-2 border-t border-border">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-[#3758f9]" /> Quran Pages
@@ -255,7 +255,7 @@ export default function DailyPage() {
                     <button
                       onClick={() => toggle(item.key as keyof CheckinState)}
                       className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 ${
-                        isActive ? "streak-active" : "streak-inactive hover:border-white/12"
+                        isActive ? "streak-active" : "streak-inactive hover:border-border"
                       }`}
                       style={isActive ? {
                         borderLeftWidth: "3px",
@@ -266,7 +266,7 @@ export default function DailyPage() {
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
                           isActive
                             ? "border-[#173eff] bg-[#173eff] shadow-[0_0_10px_#173eff60]"
-                            : "border-white/20"
+                            : "border-muted-foreground/30"
                         }`}
                       >
                         {isActive && (
@@ -337,7 +337,7 @@ export default function DailyPage() {
                     setState(s => ({ ...s, gratitudeText: arr.join("\n"), gratitude: arr.some(l => l.trim().length > 0) }));
                   }}
                   placeholder={["People, moments, or blessings…", "Something small you noticed today…", "Something you're proud of…"][i]}
-                  className="flex-1 bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                  className="flex-1 bg-foreground/[0.05] border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
                 />
               </div>
             );
@@ -360,13 +360,13 @@ export default function DailyPage() {
               <label className="text-xs text-muted-foreground uppercase tracking-widest block">Bed time</label>
               <input type="time" value={state.bedTime}
                 onChange={e => setState(s => ({ ...s, bedTime: e.target.value }))}
-                className="w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
+                className="w-full bg-foreground/[0.05] border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground uppercase tracking-widest block">Wake time</label>
               <input type="time" value={state.wakeTime}
                 onChange={e => setState(s => ({ ...s, wakeTime: e.target.value }))}
-                className="w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
+                className="w-full bg-foreground/[0.05] border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -399,7 +399,7 @@ export default function DailyPage() {
             onChange={(e) => setState((s) => ({ ...s, notes: e.target.value }))}
             placeholder="How was your day? Any reflections..."
             rows={4}
-            className="w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
+            className="w-full bg-foreground/[0.05] border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
           />
         </div>
       </SpotlightCard>

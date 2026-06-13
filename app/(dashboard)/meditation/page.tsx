@@ -320,7 +320,7 @@ export default function MeditationPage() {
                       ? "bg-[var(--emerald)] scale-125"
                       : i < phaseIndex
                       ? "bg-[var(--emerald)]/40"
-                      : "bg-white/15"
+                      : "bg-foreground/[0.12]"
                   }`}
                 />
                 <span className="text-[9px] text-muted-foreground uppercase tracking-wide">

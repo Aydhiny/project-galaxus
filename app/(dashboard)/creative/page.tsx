@@ -116,13 +116,13 @@ function SessionLogger() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Input placeholder="Project / track name" value={form.project}
           onChange={e => setForm(f => ({ ...f, project: e.target.value }))}
-          className="col-span-2 sm:col-span-1 bg-white/5 border-white/10 text-sm" />
+          className="col-span-2 sm:col-span-1 bg-foreground/[0.05] border-border text-sm" />
         <Input placeholder="Genre (trap, afro...)" value={form.genre}
           onChange={e => setForm(f => ({ ...f, genre: e.target.value }))}
-          className="bg-white/5 border-white/10 text-sm" />
+          className="bg-foreground/[0.05] border-border text-sm" />
         <Input placeholder="DAW (FL, Ableton...)" value={form.daw}
           onChange={e => setForm(f => ({ ...f, daw: e.target.value }))}
-          className="bg-white/5 border-white/10 text-sm" />
+          className="bg-foreground/[0.05] border-border text-sm" />
       </div>
 
       {/* Timer */}
@@ -148,16 +148,16 @@ function SessionLogger() {
 
       {/* Session history */}
       {sessions.length > 0 && (
-        <div className="space-y-2 pt-1 border-t border-white/6">
+        <div className="space-y-2 pt-1 border-t border-border">
           <p className="text-xs text-muted-foreground uppercase tracking-widest pt-1">Recent Sessions</p>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {sessions.slice(0, 20).map(s => (
-              <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/4 px-3 py-2.5 group">
+              <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl bg-foreground/[0.04] px-3 py-2.5 group">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-xs font-semibold truncate">{s.project}</p>
-                    {s.genre && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/8 text-muted-foreground">{s.genre}</span>}
-                    {s.daw && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/8 text-muted-foreground">{s.daw}</span>}
+                    {s.genre && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-foreground/[0.08] text-muted-foreground">{s.genre}</span>}
+                    {s.daw && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-foreground/[0.08] text-muted-foreground">{s.daw}</span>}
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {format(new Date(s.startedAt), "MMM d, HH:mm")} · {formatDuration(s.durationMs)}
@@ -288,11 +288,11 @@ export default function CreativePage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="bg-white/3 rounded-xl p-3">
+          <div className="bg-foreground/[0.03] rounded-xl p-3">
             <p className="text-muted-foreground text-xs">Days active</p>
             <p className="font-bold text-lg mt-0.5" style={{ color: "oklch(0.65 0.20 290)" }}>{musicDays}</p>
           </div>
-          <div className="bg-white/3 rounded-xl p-3">
+          <div className="bg-foreground/[0.03] rounded-xl p-3">
             <p className="text-muted-foreground text-xs">Avg per session</p>
             <p className="font-bold text-lg mt-0.5" style={{ color: "oklch(0.65 0.20 290)" }}>
               {musicDays > 0 ? Math.round(totalMusicMins / musicDays) : 0}m
@@ -302,7 +302,7 @@ export default function CreativePage() {
 
         <ActivityGrid field="music" />
 
-        <div className="pt-3 border-t border-white/6">
+        <div className="pt-3 border-t border-border">
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Music className="w-3.5 h-3.5 inline shrink-0" /> <strong className="text-foreground">Aydhiny</strong> — 5M+ streams, 5000+ beats. Keep creating.
           </p>
@@ -337,7 +337,7 @@ export default function CreativePage() {
           </div>
         </div>
         <ActivityGrid field="youtube" />
-        <div className="pt-3 border-t border-white/6">
+        <div className="pt-3 border-t border-border">
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Tv className="w-3.5 h-3.5 inline shrink-0" /> Building your channel one video at a time. Consistency is the only strategy.
           </p>

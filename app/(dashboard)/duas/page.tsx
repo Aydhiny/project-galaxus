@@ -240,7 +240,7 @@ export default function DuasPage() {
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200",
               activeTab === cat.id
                 ? "bg-[var(--emerald)]/20 text-[var(--emerald)] border border-[var(--emerald)]/40"
-                : "bg-card border border-white/6 text-muted-foreground hover:text-foreground hover:border-white/12"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-border"
             )}
           >
             {cat.icon}
@@ -255,7 +255,7 @@ export default function DuasPage() {
         {active.duas.map((dua, i) => (
           <div
             key={i}
-            className="rounded-2xl border border-white/8 bg-card p-6 space-y-4 relative overflow-hidden"
+            className="rounded-2xl border border-border bg-card p-6 space-y-4 relative overflow-hidden"
           >
             {/* Left accent bar */}
             <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl bg-[var(--emerald)]/60" />
@@ -269,7 +269,7 @@ export default function DuasPage() {
               {dua.arabic}
             </p>
 
-            <div className="border-t border-white/6 pt-4 space-y-2">
+            <div className="border-t border-border pt-4 space-y-2">
               {/* Transliteration */}
               <p className="text-sm italic text-muted-foreground leading-relaxed">
                 {dua.transliteration}

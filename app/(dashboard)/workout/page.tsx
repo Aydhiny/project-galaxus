@@ -419,7 +419,7 @@ export default function WorkoutPage() {
             <span>Progress</span>
             <span>{Math.round(progressPercent)}%</span>
           </div>
-          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+          <div className="h-2 rounded-full bg-foreground/[0.05] overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
@@ -437,7 +437,7 @@ export default function WorkoutPage() {
                     ? "bg-[var(--gold)]"
                     : i === completedSteps
                     ? "bg-[var(--gold)]/30"
-                    : "bg-white/5"
+                    : "bg-foreground/[0.05]"
                 }`}
               />
             ))}
@@ -510,7 +510,7 @@ export default function WorkoutPage() {
                   isCurrent
                     ? "bg-[var(--gold-muted)] border border-[var(--gold)]/30"
                     : isRestingAfter
-                    ? "bg-white/3 border border-white/6"
+                    ? "bg-foreground/[0.03] border border-border"
                     : "border border-transparent"
                 }`}
               >

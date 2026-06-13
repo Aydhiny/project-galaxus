@@ -289,46 +289,29 @@ html.dark[data-room="mountain"] body {
   html { @apply font-sans; }
   body { @apply bg-background text-foreground antialiased; background-attachment: fixed; }
 
-  /* DARK body — electric aurora */
+  /* DARK body — clean deep navy, subtle top bloom only */
   .dark body {
     background: #070b18;
     background-image:
-      radial-gradient(ellipse 110% 60% at 50% -8%, rgba(23,62,255,0.30) 0%, transparent 65%),
-      radial-gradient(ellipse 55% 40% at 100% 100%, rgba(124,58,237,0.18) 0%, transparent 55%),
-      radial-gradient(ellipse 40% 30% at 0% 80%, rgba(6,182,212,0.12) 0%, transparent 50%);
+      radial-gradient(ellipse 90% 45% at 50% -5%, rgba(23,62,255,0.22) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 95% 95%, rgba(79,70,229,0.10) 0%, transparent 50%);
     background-attachment: fixed;
   }
 
-  /* LIGHT body */
+  /* LIGHT body — clean white, barely-there blue tint */
   body {
-    background: #f2f5ff;
+    background: #ffffff;
     background-image:
-      radial-gradient(ellipse 80% 45% at 50% -10%, rgba(23,62,255,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 40% 30% at 100% 100%, rgba(124,58,237,0.05) 0%, transparent 50%);
+      radial-gradient(ellipse 70% 40% at 50% -5%, rgba(23,62,255,0.05) 0%, transparent 55%);
     background-attachment: fixed;
   }
 
-  /* Dot grid overlay — subtle */
-  .dark body::before {
-    content: "";
-    position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 32px 32px;
-  }
-
-  /* Film grain */
+  /* NO dot grid, NO bottom glow line — they were distracting */
+  /* Film grain only when explicitly enabled by user */
   html[data-grain="true"] body::after {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.022;
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.020;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)' opacity='1'/%3E%3C/svg%3E");
     background-repeat: repeat; background-size: 200px; mix-blend-mode: overlay;
-  }
-
-  /* Bottom glow line */
-  .dark body::after {
-    content: ""; position: fixed; bottom: 0; left: 0; right: 0; height: 1px;
-    pointer-events: none; z-index: 9998;
-    background: linear-gradient(90deg, transparent, #173eff 30%, #4f46e5 70%, transparent);
-    opacity: 0.45;
   }
 
   h1, h2, h3 { font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif; }
@@ -444,19 +427,23 @@ html.dark[data-room="mountain"] body {
   syntax: "<angle>"; inherits: true; initial-value: 0turn;
 }
 
-/* ── Utilities ────────────────────────────────────────────────────── */
-@layer utilities {
-  /* PAGE WRAPPER */
+/* ── Layout components (below utilities — lets max-w-X utilities override max-width) ── */
+@layer components {
   .page {
     padding: 1.5rem;
     max-width: 64rem;
-    margin: 0 auto;
+    margin-left: auto;
+    margin-right: auto;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     animation: fade-in-up 0.35s cubic-bezier(0.16,1,0.3,1) both;
   }
+  .page-fade-in { animation: fade-slide-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+}
 
+/* ── Utilities ────────────────────────────────────────────────────── */
+@layer utilities {
   /* PRIMARY BUTTON */
   .btn-primary {
     display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
@@ -564,14 +551,10 @@ html.dark[data-room="mountain"] body {
 
   /* Legacy aliases */
   .lw-top-accent { height: 1px; background: linear-gradient(90deg, transparent, #173eff 30%, #4f46e5 70%, transparent); }
-  /* 2-colour gradient text — blue-400 → indigo-400. CSS class avoids SSR hydration issues. */
+  /* Heading text — plain foreground, no gradient */
   .heading-gradient,
   .lw-gradient-text {
-    background: linear-gradient(135deg, #60a5fa 0%, #818cf8 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    color: transparent; /* fallback */
+    color: var(--foreground);
   }
   .section-label {
     font-size: 10px;
@@ -588,7 +571,7 @@ html.dark[data-room="mountain"] body {
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 4px 24px rgba(0,0,0,0.50);
     border-radius: var(--radius);
   }
-  :root .glass {
+  :root:not(.dark) .glass {
     background: rgba(255,255,255,0.95);
     border-color: rgba(0,0,0,0.07);
     box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
@@ -634,6 +617,10 @@ html.dark[data-room="mountain"] body {
   .lw-glow-blue { box-shadow: 0 0 30px rgba(23,62,255,0.25), 0 0 60px rgba(23,62,255,0.10); }
   .gold-text { color: var(--gold); }
   .gold-glow { box-shadow: 0 0 28px rgba(23,62,255,0.22); }
+  /* Global dark card depth — all bg-card elements get the 3D inset look */
+  .dark .bg-card {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.50);
+  }
   .warm-card { border-color: var(--border); box-shadow: 0 1px 5px rgba(0,0,0,0.10); }
   .dark .warm-card { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 14px rgba(0,0,0,0.32); }
   .cozy-card { border-color: var(--border); }
@@ -644,7 +631,6 @@ html.dark[data-room="mountain"] body {
     transform: translateY(-1px);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 24px rgba(0,0,0,0.42);
   }
-  .page-fade-in { animation: fade-slide-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
   .animate-fade-slide-up { animation: fade-slide-up 0.4s ease both; }
   .animate-card-enter    { animation: card-enter 0.35s cubic-bezier(0.16,1,0.3,1) both; }
   .animate-glow-pulse    { animation: glow-pulse 2s ease-in-out infinite; }
@@ -680,3 +666,88 @@ html.dark[data-room="mountain"] body {
   select { color-scheme: light; appearance: none; }
   .dark select { color-scheme: dark; }
 }
+
+/* ── Light-mode overrides ─────────────────────────────────────────────────────
+   Unlayered CSS wins over @layer utilities in cascade, so these cleanly
+   override the dark-first defaults above without touching @layer processing.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* btn-ghost */
+:root:not(.dark) .btn-ghost {
+  background: rgba(0,0,0,0.04);
+  color: rgba(0,0,0,0.60);
+  border-color: rgba(0,0,0,0.08);
+}
+:root:not(.dark) .btn-ghost:hover {
+  background: rgba(0,0,0,0.07);
+  border-color: rgba(0,0,0,0.14);
+  color: rgba(0,0,0,0.85);
+}
+
+/* prayer tiles */
+:root:not(.dark) .prayer-done {
+  background: linear-gradient(135deg, rgba(23,62,255,0.15), rgba(23,62,255,0.05)) !important;
+  border-color: rgba(23,62,255,0.45) !important;
+  color: #2563eb !important;
+  box-shadow: 0 0 12px rgba(23,62,255,0.12) !important;
+}
+:root:not(.dark) .prayer-undone {
+  background: rgba(0,0,0,0.03) !important;
+  border-color: rgba(0,0,0,0.09) !important;
+}
+:root:not(.dark) .prayer-undone:hover {
+  background: rgba(23,62,255,0.06) !important;
+  border-color: rgba(23,62,255,0.28) !important;
+}
+
+/* habit streaks */
+:root:not(.dark) .streak-active {
+  background: linear-gradient(135deg, rgba(23,62,255,0.12), rgba(23,62,255,0.04));
+  border-color: rgba(23,62,255,0.38) !important;
+  box-shadow: inset 0 1px 0 rgba(23,62,255,0.16);
+}
+:root:not(.dark) .streak-inactive {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.08);
+}
+:root:not(.dark) .streak-inactive:hover {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.13);
+}
+
+/* glass / lw-glass */
+:root:not(.dark) .lw-glass {
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(16px) saturate(120%);
+  border-color: rgba(0,0,0,0.07);
+}
+:root:not(.dark) .lw-divider {
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.10) 30%, rgba(0,0,0,0.10) 70%, transparent);
+}
+
+/* card hover */
+:root:not(.dark) .card-hover:hover {
+  border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+/* select trigger */
+:root:not(.dark) [data-slot="select-trigger"] {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.10);
+}
+:root:not(.dark) [data-slot="select-trigger"]:hover {
+  background: rgba(0,0,0,0.055);
+  border-color: rgba(0,0,0,0.16);
+}
+
+/* ── View Transitions API — smooth page-to-page fade ──────────────────────── */
+@view-transition { navigation: auto; }
+::view-transition-old(root) {
+  animation: 180ms ease-out both fade-out-vt;
+}
+::view-transition-new(root) {
+  animation: 220ms ease-in both fade-in-vt;
+}
+@keyframes fade-out-vt { from { opacity: 1; } to { opacity: 0; transform: translateY(4px); } }
+@keyframes fade-in-vt  { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }

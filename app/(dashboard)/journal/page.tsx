@@ -75,7 +75,7 @@ export default function JournalPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/6 w-fit">
+      <div className="flex gap-1 p-1 rounded-xl bg-foreground/[0.05] border border-border w-fit">
         {(["gratitude", "writing"] as const).map((t) => (
           <button
             key={t}
@@ -93,7 +93,7 @@ export default function JournalPage() {
       </div>
 
       {/* Streak */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-white/6">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--gold-muted)]">
           {tab === "gratitude" ? <Heart className="w-5 h-5 text-[var(--gold)]" /> : <PenLine className="w-5 h-5 text-[var(--gold)]" />}
         </div>
@@ -121,7 +121,7 @@ export default function JournalPage() {
                   : "My thoughts today..."
               }
               rows={6}
-              className="bg-white/5 border-white/10 focus:border-[var(--gold)]/40 resize-none text-sm"
+              className="bg-foreground/[0.05] border-border focus:border-[var(--gold)]/40 resize-none text-sm"
               required
             />
 
@@ -178,7 +178,7 @@ export default function JournalPage() {
           {tabEntries.map((entry) => (
             <div
               key={entry.id}
-              className="rounded-xl border border-white/6 bg-card p-5 space-y-3"
+              className="rounded-xl border border-border bg-card p-5 space-y-3"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-0.5">

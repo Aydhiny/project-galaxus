@@ -142,8 +142,8 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                         "flex items-center rounded-lg text-sm font-medium transition-all duration-150 group relative",
                         collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 py-2",
                         active
-                          ? "bg-[rgba(23,62,255,0.12)] border-l-2 border-[#173eff] text-blue-400 pl-[calc(0.75rem-2px)]"
-                          : "dark:text-white/45 dark:hover:text-white/80 dark:hover:bg-white/[0.05] text-black/55 hover:text-black/85 hover:bg-black/5 border-l-2 border-transparent pl-3"
+                          ? "bg-primary/[0.13] text-primary font-semibold px-3"
+                          : "dark:text-white/50 dark:hover:text-white/85 dark:hover:bg-white/[0.06] text-foreground/55 hover:text-foreground/90 hover:bg-foreground/[0.05] px-3"
                       )}
                     >
                       <Icon className={cn(
@@ -181,11 +181,37 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           "px-2 py-3 border-t border-sidebar-border space-y-0.5",
           collapsed && "flex flex-col items-center"
         )}>
+
+          {/* User info */}
           {!collapsed && (
-            <div className="px-3 py-2 mb-1">
-              <p className="text-xs font-semibold text-foreground truncate">Ajdin Mehmedović</p>
-              <p className="text-[10px] text-muted-foreground/60 truncate">ajdin@galaxus.me</p>
+            <div className="px-3 py-2 flex items-center gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">Ajdin Mehmedović</p>
+                <p className="text-[10px] text-muted-foreground/60 truncate">ajdin@galaxus.me</p>
+              </div>
             </div>
+          )}
+
+          {/* Sign out — explicit row, clearly labeled */}
+          {!collapsed && (
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="w-full flex items-center gap-3 rounded-lg text-sm px-3 py-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors mb-0.5"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span className="text-xs">Sign out</span>
+            </button>
+          )}
+          {collapsed && (
+            <Tooltip>
+              <TooltipTrigger render={
+                <button onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-colors">
+                  <LogOut className="w-4 h-4" />
+                </button>
+              } />
+              <TooltipContent side="right" className="text-xs text-red-400">Sign out</TooltipContent>
+            </Tooltip>
           )}
 
           {collapsed && <ThemeToggle />}
@@ -244,16 +270,10 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
             </button>
           )}
 
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className={cn(
-              "flex items-center gap-3 btn-ghost rounded-lg text-sm",
-              collapsed ? "justify-center w-9 h-9" : "w-full px-3 py-2"
-            )}
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!collapsed && <span className="text-xs">Sign out</span>}
-          </button>
+          {/* Divider — separates layout controls from user actions */}
+          {!mobile && (
+            <div className="h-px bg-sidebar-border mx-1 my-1.5" />
+          )}
 
           {/* Collapse toggle — desktop only */}
           {!mobile && (

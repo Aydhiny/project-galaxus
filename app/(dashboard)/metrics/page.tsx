@@ -106,7 +106,7 @@ function Trend({ current, previous }: { current?: number; previous?: number }) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-white/10 bg-card/95 backdrop-blur-sm p-3 text-xs shadow-xl">
+    <div className="rounded-xl border border-border bg-card/95 backdrop-blur-sm p-3 text-xs shadow-xl">
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} className="font-semibold" style={{ color: p.color }}>
@@ -241,7 +241,7 @@ export default function MetricsPage() {
                 if (!active || !payload?.length) return null;
                 const v = payload[0].value as number;
                 return (
-                  <div className="rounded-xl border border-white/10 bg-card/95 backdrop-blur-sm p-2 text-xs shadow-xl">
+                  <div className="rounded-xl border border-border bg-card/95 backdrop-blur-sm p-2 text-xs shadow-xl">
                     <p className="text-muted-foreground">{label}</p>
                     <p className="font-semibold">{v}/10</p>
                   </div>
@@ -302,7 +302,7 @@ export default function MetricsPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, [m.key]: e.target.value }))
                 }
-                className="bg-white/5 border-white/10 h-9 text-sm"
+                className="bg-foreground/[0.05] border-border h-9 text-sm"
               />
             </div>
           ))}

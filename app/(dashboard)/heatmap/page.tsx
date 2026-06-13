@@ -209,7 +209,7 @@ export default function HeatmapPage() {
                                   "w-[10px] h-[10px] rounded-[2px] transition-colors",
                                   done
                                     ? cn(habit.color, "opacity-80")
-                                    : "bg-white/8"
+                                    : "bg-foreground/[0.08]"
                                 )}
                               />
                             );

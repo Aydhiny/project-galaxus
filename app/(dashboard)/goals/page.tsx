@@ -122,7 +122,7 @@ export default function GoalsPage() {
               {done}<span className="text-muted-foreground text-base font-normal">/{goals.length}</span>
             </p>
           </div>
-          <div className="h-3 rounded-full bg-white/6 overflow-hidden">
+          <div className="h-3 rounded-full bg-foreground/[0.06] overflow-hidden">
             <div
               className="h-full rounded-full progress-bar transition-all duration-700"
               style={{ width: `${pct}%` }}
@@ -144,7 +144,7 @@ export default function GoalsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 placeholder="e.g. Read 20 pages"
                 required
-                className="bg-white/5 border-white/10"
+                className="bg-foreground/[0.05] border-border"
               />
             </div>
 
@@ -153,7 +153,7 @@ export default function GoalsPage() {
               <select
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                className="w-full h-10 rounded-lg bg-white/5 border border-white/10 px-3 text-sm text-foreground focus:outline-none"
+                className="w-full h-10 rounded-lg bg-foreground/[0.05] border border-border px-3 text-sm text-foreground focus:outline-none"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.id} value={c.id}>{c.label}</option>
@@ -239,11 +239,11 @@ function GoalRow({
 }) {
   return (
     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
-      goal.completed ? "streak-active" : "streak-inactive hover:border-white/12"
+      goal.completed ? "streak-active" : "streak-inactive hover:border-border"
     }`}>
       <button onClick={onToggle} className="flex items-center gap-3 flex-1 text-left">
         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-          goal.completed ? "border-[var(--gold)] bg-[var(--gold)]" : "border-white/25"
+          goal.completed ? "border-[var(--gold)] bg-[var(--gold)]" : "border-muted-foreground/40"
         }`}>
           {goal.completed && <Check className="w-3 h-3 text-[oklch(0.08_0.01_85)]" />}
         </div>

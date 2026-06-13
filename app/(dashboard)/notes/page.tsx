@@ -30,7 +30,7 @@ const STORAGE_KEY = "galaxus-notes";
 const CATEGORIES = ["General", "Ideas", "Workout", "Music", "Learning", "Random"] as const;
 
 const CATEGORY_COLORS: Record<string, string> = {
-  General: "bg-white/10 text-white/60",
+  General: "bg-foreground/[0.10] text-white/60",
   Ideas: "bg-[var(--gold)]/15 text-[var(--gold)]",
   Workout: "bg-orange-500/15 text-orange-400",
   Music: "bg-purple-500/15 text-purple-400",
@@ -123,11 +123,11 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] max-h-[900px] overflow-hidden rounded-2xl border border-white/6 bg-card m-6">
+    <div className="flex h-[calc(100vh-4rem)] max-h-[900px] overflow-hidden rounded-2xl border border-border bg-card m-6">
       {/* Left sidebar — note list */}
-      <div className="w-72 shrink-0 border-r border-white/6 flex flex-col">
+      <div className="w-72 shrink-0 border-r border-border flex flex-col">
         {/* Sidebar header */}
-        <div className="p-4 border-b border-white/6 space-y-3">
+        <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="section-label mb-0.5">Brain Dump</p>
@@ -147,7 +147,7 @@ export default function NotesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search notes…"
-              className="pl-8 h-8 text-xs bg-white/5 border-white/10"
+              className="pl-8 h-8 text-xs"
             />
           </div>
         </div>
@@ -172,7 +172,7 @@ export default function NotesPage() {
                   "w-full text-left p-3 rounded-xl transition-all duration-150 space-y-1",
                   activeId === note.id
                     ? "bg-[var(--gold)]/10 border border-[var(--gold)]/25"
-                    : "hover:bg-white/4 border border-transparent"
+                    : "hover:bg-accent border border-transparent"
                 )}
               >
                 <p className="text-xs font-semibold truncate">{note.title}</p>
@@ -183,7 +183,7 @@ export default function NotesPage() {
                   <Badge
                     className={cn(
                       "text-[9px] px-1.5 py-0 rounded-md border-0",
-                      CATEGORY_COLORS[note.category] ?? "bg-white/10 text-white/60"
+                      CATEGORY_COLORS[note.category] ?? "bg-foreground/[0.10] text-white/60"
                     )}
                   >
                     {note.category}
@@ -203,7 +203,7 @@ export default function NotesPage() {
         {activeNote ? (
           <>
             {/* Editor toolbar */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/6">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground uppercase tracking-widest">Category</Label>
@@ -211,7 +211,7 @@ export default function NotesPage() {
                     value={activeNote.category}
                     onValueChange={(v) => v && handleField("category", v)}
                   >
-                    <SelectTrigger className="h-7 w-36 text-xs bg-white/5 border-white/10">
+                    <SelectTrigger className="h-7 w-36 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
