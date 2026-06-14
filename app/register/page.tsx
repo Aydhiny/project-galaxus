@@ -7,7 +7,6 @@ import { BackgroundBeams } from "@/components/aceternity/background-beams";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { GradientText } from "@/components/aceternity/gradient-text";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import { registerUser } from "@/lib/actions/users";
 
 const STARS = [
   { w: 1.5, h: 2.1, top: 12.3, left: 8.7,  op: 0.35 },
@@ -49,12 +48,17 @@ export default function RegisterPage() {
     if (password !== confirm) { setError("Passwords don't match."); return; }
     setLoading(true);
     try {
-      const result = await registerUser(name, email, password);
-      if (result.error) { setError(result.error); return; }
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) { setError(data.error ?? "Registration failed. Please try again."); return; }
       setDone(true);
       setTimeout(() => router.push("/login"), 2000);
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Network error. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
