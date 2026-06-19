@@ -30,6 +30,7 @@ const NAV_GROUPS = [
       { href: "/review",    icon: BarChart3,    label: "Weekly Review"  },
       { href: "/yearly",    icon: Trophy,       label: "Year in Review" },
       { href: "/insights",  icon: Lightbulb,    label: "Insights"       },
+      { href: "/leaderboard", icon: Trophy,      label: "Leaderboard"    },
     ],
   },
   {

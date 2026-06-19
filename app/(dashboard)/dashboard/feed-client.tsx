@@ -8,7 +8,7 @@ import Link from "next/link";
 import {
   BookOpen, Dumbbell, Moon, CheckCircle2,
   Quote, ChevronRight, Flame, Sparkles, GitBranch, Play, RefreshCw,
-  Meh, Frown, Smile, Heart, Star,
+  Meh, Frown, Smile, Heart, Star, Pencil, Pin, X, Check as CheckIcon,
 } from "lucide-react";
 import { VIDEO_POOL, pickRandomVideos, type FeedVideo } from "@/lib/constants/videos";
 import { useFeedVideoStore } from "@/lib/store/feed-video";
@@ -18,6 +18,99 @@ import { cn } from "@/lib/utils";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { BackgroundBeams } from "@/components/aceternity/background-beams";
+
+const FOCUS_KEY = "galaxus-dashboard-focus";
+
+function FocusCard({ fallbackQuote }: { fallbackQuote: { text: string; source: string } }) {
+  const [text, setText] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    try { setText(localStorage.getItem(FOCUS_KEY) ?? ""); } catch { /* ignore */ }
+  }, []);
+
+  function save() {
+    const trimmed = draft.trim();
+    setText(trimmed);
+    try { localStorage.setItem(FOCUS_KEY, trimmed); } catch { /* ignore */ }
+    setEditing(false);
+  }
+
+  function clear() {
+    setText("");
+    try { localStorage.setItem(FOCUS_KEY, ""); } catch { /* ignore */ }
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="rounded-2xl border border-[#173eff]/30 bg-[#173eff]/5 p-5 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Pin className="w-3.5 h-3.5 text-[#173eff]" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#173eff]">Focus</span>
+        </div>
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          placeholder="What's your focus this week? A goal, a reminder, a mantra…"
+          className="w-full min-h-[80px] resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/40 outline-none"
+        />
+        <div className="flex gap-2">
+          <button onClick={save}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-[0_0_12px_#173eff40]"
+            style={{ background: "linear-gradient(135deg,#173eff,#3758f9)" }}>
+            <CheckIcon className="w-3 h-3" /> Save
+          </button>
+          <button onClick={() => setEditing(false)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground border border-border hover:bg-accent">
+            <X className="w-3 h-3" /> Cancel
+          </button>
+          {text && (
+            <button onClick={clear}
+              className="ml-auto text-xs text-red-400/70 hover:text-red-400 transition-colors">
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (text) {
+    return (
+      <div className="group rounded-2xl border border-[#173eff]/20 bg-[#173eff]/5 p-5 relative">
+        <div className="flex items-center gap-2 mb-2">
+          <Pin className="w-3.5 h-3.5 text-[#173eff]" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#173eff]">Focus</span>
+          <button onClick={() => { setDraft(text); setEditing(true); }}
+            className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-md hover:bg-accent">
+            <Pencil className="w-3 h-3" /> Edit
+          </button>
+        </div>
+        <p className="text-base font-medium leading-relaxed" style={{ fontFamily: "var(--font-heading)" }}>{text}</p>
+        <div className="mt-4 pt-3 border-t border-[#173eff]/10">
+          <p className="text-xs text-muted-foreground/60 italic">&ldquo;{fallbackQuote.text}&rdquo;</p>
+          <p className="text-[10px] text-muted-foreground/40 mt-1">— {fallbackQuote.source}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // No custom text — show quote with "add focus" hint
+  return (
+    <SpotlightCard spotlightColor="rgba(245,158,11,0.10)" className="border-[var(--gold)]/20 bg-[var(--gold-muted)] group relative" padding="p-6">
+      <Quote className="absolute top-4 right-4 w-8 h-8 text-[var(--gold)]/15" />
+      <p className="text-lg font-medium leading-relaxed" style={{ fontFamily: "var(--font-heading)" }}>&ldquo;{fallbackQuote.text}&rdquo;</p>
+      <p className="text-sm text-muted-foreground mt-3">— {fallbackQuote.source}</p>
+      <button onClick={() => { setDraft(""); setEditing(true); }}
+        className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+        <Pin className="w-3 h-3" /> Add a personal focus…
+      </button>
+    </SpotlightCard>
+  );
+}
 
 function MoodIcon({ mood }: { mood: number }) {
   if (mood === 0) return <Meh className="w-4 h-4 text-muted-foreground" />;
@@ -124,12 +217,8 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-        {/* Quote */}
-        <SpotlightCard spotlightColor="rgba(245,158,11,0.10)" className="border-[var(--gold)]/20 bg-[var(--gold-muted)]" padding="p-6">
-          <Quote className="absolute top-4 right-4 w-8 h-8 text-[var(--gold)]/15" />
-          <p className="text-lg font-medium leading-relaxed" style={{ fontFamily: "var(--font-heading)" }}>&ldquo;{quote.text}&rdquo;</p>
-          <p className="text-sm text-muted-foreground mt-3">— {quote.source}</p>
-        </SpotlightCard>
+        {/* Focus / Quote */}
+        <FocusCard fallbackQuote={quote} />
 
         {/* Streaks + Mood */}
         <div>
