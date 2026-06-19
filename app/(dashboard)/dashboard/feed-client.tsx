@@ -14,32 +14,30 @@ import { VIDEO_POOL, pickRandomVideos, type FeedVideo } from "@/lib/constants/vi
 import { useFeedVideoStore } from "@/lib/store/feed-video";
 import { moodColor, MOOD_LABELS, loadMoods, saveMood, type MoodEntry } from "@/lib/utils/mood";
 import { toHijri } from "@/lib/hijri";
+import { saveDashboardFocus } from "@/lib/actions/user-settings";
 import { cn } from "@/lib/utils";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { BackgroundBeams } from "@/components/aceternity/background-beams";
 
-const FOCUS_KEY = "galaxus-dashboard-focus";
-
-function FocusCard({ fallbackQuote }: { fallbackQuote: { text: string; source: string } }) {
-  const [text, setText] = useState("");
+function FocusCard({ initialText, fallbackQuote }: { initialText: string; fallbackQuote: { text: string; source: string } }) {
+  const [text, setText] = useState(initialText);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState("");
 
-  useEffect(() => {
-    try { setText(localStorage.getItem(FOCUS_KEY) ?? ""); } catch { /* ignore */ }
-  }, []);
-
-  function save() {
+  async function save() {
     const trimmed = draft.trim();
+    setSaving(true);
+    await saveDashboardFocus(trimmed);
     setText(trimmed);
-    try { localStorage.setItem(FOCUS_KEY, trimmed); } catch { /* ignore */ }
+    setSaving(false);
     setEditing(false);
   }
 
-  function clear() {
+  async function clear() {
+    await saveDashboardFocus("");
     setText("");
-    try { localStorage.setItem(FOCUS_KEY, ""); } catch { /* ignore */ }
     setEditing(false);
   }
 
@@ -58,10 +56,10 @@ function FocusCard({ fallbackQuote }: { fallbackQuote: { text: string; source: s
           className="w-full min-h-[80px] resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/40 outline-none"
         />
         <div className="flex gap-2">
-          <button onClick={save}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-[0_0_12px_#173eff40]"
+          <button onClick={save} disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-[0_0_12px_#173eff40] disabled:opacity-60"
             style={{ background: "linear-gradient(135deg,#173eff,#3758f9)" }}>
-            <CheckIcon className="w-3 h-3" /> Save
+            <CheckIcon className="w-3 h-3" /> {saving ? "Saving…" : "Save"}
           </button>
           <button onClick={() => setEditing(false)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground border border-border hover:bg-accent">
@@ -136,11 +134,12 @@ interface Props {
   completedGoals: number;
   totalGoals: number;
   readingStats: { completedThisMonth: number; currentlyReading: number; totalCompleted: number; planned: number };
+  focusText: string;
 }
 
 const SESSION_KEY = "galaxus-feed-videos-v2";
 
-export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoals, totalGoals, readingStats }: Props) {
+export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoals, totalGoals, readingStats, focusText }: Props) {
   const [typed, setTyped] = useState("");
   const [videos, setVideos] = useState<FeedVideo[]>([]);
   const [todayMood, setTodayMood] = useState(0);
@@ -218,7 +217,7 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {/* Focus / Quote */}
-        <FocusCard fallbackQuote={quote} />
+        <FocusCard initialText={focusText} fallbackQuote={quote} />
 
         {/* Streaks + Mood */}
         <div>

@@ -226,6 +226,13 @@ export const beatsAudio = pgTable("beats_audio", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ─── User Settings (single-row config per install) ───────────────────────────
+export const userSettings = pgTable("user_settings", {
+  id: serial("id").primaryKey(),
+  dashboardFocus: text("dashboard_focus"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -251,4 +258,5 @@ export type ReadingSession = typeof readingSessions.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
 export type BookContent = typeof bookContent.$inferSelect;
 export type StudySession = typeof studySessions.$inferSelect;
-export type BeatAudio = typeof beatsAudio.$inferSelect;
+export type BeatAudio      = typeof beatsAudio.$inferSelect;
+export type UserSettings   = typeof userSettings.$inferSelect;

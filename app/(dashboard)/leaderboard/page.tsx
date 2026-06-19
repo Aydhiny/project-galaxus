@@ -1,119 +1,31 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import { getLeaderboardData } from "@/lib/actions/leaderboard";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
-import { getAllTimeStats, getLocalStreaks, type AllTimeStats } from "@/lib/utils/local-data";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import {
-  Trophy, Flame, Dumbbell, BookOpen, Moon, Music2, Droplets,
-  Star, Sun, TrendingUp, Calendar, BarChart2, Heart, Sparkles,
+  Trophy, Flame, Dumbbell, BookOpen, Moon, Music2,
+  Star, Sun, TrendingUp, Calendar, BarChart2, Heart, Sparkles, PenLine,
 } from "lucide-react";
 
 const HABIT_META = [
-  { key: "prayers",   label: "Prayers",    icon: Moon,     color: "#10b981" },
-  { key: "training",  label: "Training",   icon: Dumbbell, color: "#f59e0b" },
-  { key: "music",     label: "Creative",   icon: Music2,   color: "#f97316" },
-  { key: "reading",   label: "Reading",    icon: BookOpen, color: "#a78bfa" },
-  { key: "hydration", label: "Hydration",  icon: Droplets, color: "#60a5fa" },
-  { key: "gratitude", label: "Gratitude",  icon: Heart,    color: "#ec4899" },
-  { key: "morning",   label: "Morning ritual", icon: Sun,    color: "#fbbf24" },
-  { key: "evening",   label: "Evening ritual", icon: Star,   color: "#818cf8" },
+  { key: "prayers",    label: "Prayers",        icon: Moon,     color: "#10b981" },
+  { key: "training",   label: "Training",        icon: Dumbbell, color: "#f59e0b" },
+  { key: "music",      label: "Creative",        icon: Music2,   color: "#f97316" },
+  { key: "writing",    label: "Writing",         icon: PenLine,  color: "#a78bfa" },
+  { key: "gratitude",  label: "Gratitude",       icon: Heart,    color: "#ec4899" },
+  { key: "meditation", label: "Meditation",      icon: Sparkles, color: "#818cf8" },
 ] as const;
 
 function medalColor(rank: number) {
-  if (rank === 0) return "#fbbf24"; // gold
-  if (rank === 1) return "#94a3b8"; // silver
-  if (rank === 2) return "#c2732a"; // bronze
+  if (rank === 0) return "#fbbf24";
+  if (rank === 1) return "#94a3b8";
+  if (rank === 2) return "#c2732a";
   return "var(--muted-foreground)";
 }
 
-function StatBox({ label, value, sub, icon, color }: {
-  label: string; value: string | number; sub?: string;
-  icon: React.ReactNode; color: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
-        <span style={{ color }}>{icon}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">{label}</span>
-      </div>
-      <p className="text-2xl font-bold" style={{ color }}>{value}</p>
-      {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-function StreakRow({ label, current, best, color, icon }: {
-  label: string; current: number; best: number; color: string;
-  icon: React.ReactNode;
-}) {
-  const pct = best > 0 ? Math.min(100, Math.round((current / best) * 100)) : 0;
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <span style={{ color }}>{icon}</span>
-          <span className="font-medium">{label}</span>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
-          <span className="flex items-center gap-1">
-            <Flame className="w-3 h-3 text-orange-400" /> {current}d now
-          </span>
-          <span className="flex items-center gap-1">
-            <Trophy className="w-3 h-3 text-[#fbbf24]" /> {best}d best
-          </span>
-        </div>
-      </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${pct}%`, background: color }} />
-      </div>
-    </div>
-  );
-}
-
-export default function LeaderboardPage() {
-  const [stats, setStats] = useState<AllTimeStats | null>(null);
-  const [streaks, setStreaks] = useState<ReturnType<typeof getLocalStreaks> | null>(null);
-
-  useEffect(() => {
-    setStats(getAllTimeStats());
-    setStreaks(getLocalStreaks());
-  }, []);
-
-  if (!stats || !streaks) {
-    return (
-      <div className="page max-w-4xl flex items-center justify-center min-h-[40vh]">
-        <p className="text-muted-foreground text-sm">Loading your records…</p>
-      </div>
-    );
-  }
-
-  const hasData = stats.totalDays > 0;
-
-  const currentMap: Record<string, number> = {
-    prayers: streaks.prayers, training: streaks.training, music: streaks.music,
-    reading: streaks.reading, hydration: streaks.hydration, gratitude: streaks.gratitude,
-    morning: streaks.writing, evening: streaks.meditation,
-  };
-
-  const bestMap: Record<string, number> = {
-    prayers:   stats.bestStreaks.prayers.streak,
-    training:  stats.bestStreaks.training.streak,
-    music:     stats.bestStreaks.music.streak,
-    reading:   stats.bestStreaks.reading.streak,
-    hydration: stats.bestStreaks.hydration.streak,
-    gratitude: stats.bestStreaks.gratitude.streak,
-    morning:   stats.bestStreaks.morning.streak,
-    evening:   stats.bestStreaks.evening.streak,
-  };
-
-  const habitTotalMap: Record<string, number> = {
-    prayers: stats.habitTotals.prayers, training: stats.habitTotals.training,
-    music: stats.habitTotals.music, reading: stats.habitTotals.reading,
-    hydration: stats.habitTotals.hydration,
-  };
+export default async function LeaderboardPage() {
+  const data = await getLeaderboardData();
+  const hasData = data.totalDays > 0;
 
   return (
     <div className="page max-w-4xl">
@@ -128,8 +40,8 @@ export default function LeaderboardPage() {
           <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Leaderboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {hasData
-              ? `${stats.totalDays} days logged · all data from local storage`
-              : "No data yet — complete your morning or evening ritual to start."}
+              ? `${data.totalDays} days logged in the database`
+              : "No data yet — start your daily check-in to build records."}
           </p>
         </div>
       </div>
@@ -138,7 +50,7 @@ export default function LeaderboardPage() {
         <div className="glass p-12 text-center text-muted-foreground">
           <Trophy className="w-12 h-12 mx-auto opacity-15 mb-4" />
           <p className="font-medium">No records yet.</p>
-          <p className="text-sm mt-1">Head to <a href="/overview" className="text-[#173eff] hover:underline">Overview</a> and complete a morning or evening ritual.</p>
+          <p className="text-sm mt-1">Head to <a href="/daily" className="text-[#173eff] hover:underline">Daily Check-in</a> and log your first day.</p>
         </div>
       )}
 
@@ -148,10 +60,12 @@ export default function LeaderboardPage() {
           <div>
             <SectionHeader title="Overall Stats" icon={<BarChart2 className="w-4 h-4" />} />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-              <StatBox label="Days logged"  value={stats.totalDays}       icon={<Calendar className="w-4 h-4" />}    color="#173eff" />
-              <StatBox label="Mornings"     value={stats.totalMorning}    icon={<Sun className="w-4 h-4" />}         color="#fbbf24" />
-              <StatBox label="Evenings"     value={stats.totalEvening}    icon={<Star className="w-4 h-4" />}        color="#818cf8" />
-              <StatBox label="Gratitudes"   value={stats.totalGratitudes} icon={<Heart className="w-4 h-4" />}       color="#ec4899" />
+              <StatBox label="Days logged"  value={data.totalDays}        icon={<Calendar className="w-4 h-4" />} color="#173eff" />
+              <StatBox label="Best mood"    value={`${data.bestMood}/10`} icon={<Star className="w-4 h-4" />}     color="#818cf8"
+                sub={data.bestMoodDate ? format(parseISO(data.bestMoodDate), "MMM d, yyyy") : undefined} />
+              <StatBox label="Best day"     value={`${data.bestDayRating}/10`} icon={<Sun className="w-4 h-4" />} color="#fbbf24"
+                sub={data.bestDayRatingDate ? format(parseISO(data.bestDayRatingDate), "MMM d, yyyy") : undefined} />
+              <StatBox label="Gratitudes"   value={data.totalGratitudes}  icon={<Heart className="w-4 h-4" />}    color="#ec4899" />
             </div>
           </div>
 
@@ -162,16 +76,28 @@ export default function LeaderboardPage() {
               <h2 className="text-sm font-semibold">Streaks — Now vs. All-Time Best</h2>
             </div>
             <div className="space-y-4">
-              {HABIT_META.map(({ key, label, icon: Icon, color }) => (
-                <StreakRow
-                  key={key}
-                  label={label}
-                  current={currentMap[key] ?? 0}
-                  best={bestMap[key] ?? 0}
-                  color={color}
-                  icon={<Icon className="w-3.5 h-3.5" />}
-                />
-              ))}
+              {HABIT_META.map(({ key, label, icon: Icon, color }) => {
+                const current = data.currentStreaks[key] ?? 0;
+                const best    = data.bestStreaks[key]?.streak ?? 0;
+                const pct     = best > 0 ? Math.min(100, Math.round((current / best) * 100)) : 0;
+                return (
+                  <div key={key} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span style={{ color }}><Icon className="w-3.5 h-3.5" /></span>
+                        <span className="font-medium">{label}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                        <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />{current}d now</span>
+                        <span className="flex items-center gap-1"><Trophy className="w-3 h-3 text-[#fbbf24]" />{best}d best</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </SpotlightCard>
 
@@ -180,8 +106,8 @@ export default function LeaderboardPage() {
             <SectionHeader title="All-Time Records" icon={<Trophy className="w-4 h-4" />} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               {HABIT_META.map(({ key, label, icon: Icon, color }) => {
-                const b = bestMap[key] ?? 0;
-                const total = habitTotalMap[key];
+                const b     = data.bestStreaks[key]?.streak ?? 0;
+                const total = data.habitTotals[key] ?? 0;
                 return (
                   <div key={key} className={cn(
                     "flex items-center gap-4 px-4 py-3 rounded-xl border",
@@ -196,12 +122,11 @@ export default function LeaderboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{label}</p>
-                      {total !== undefined && (
-                        <p className="text-[10px] text-muted-foreground">{total} total days</p>
-                      )}
+                      <p className="text-[10px] text-muted-foreground">{total} total days completed</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xl font-bold" style={{ color: b >= 7 ? medalColor(b >= 30 ? 0 : b >= 14 ? 1 : 2) : "var(--muted-foreground)" }}>
+                      <p className="text-xl font-bold"
+                        style={{ color: b >= 7 ? medalColor(b >= 30 ? 0 : b >= 14 ? 1 : 2) : "var(--muted-foreground)" }}>
                         {b}<span className="text-xs font-normal text-muted-foreground">d</span>
                       </p>
                       <p className="text-[10px] text-muted-foreground">best streak</p>
@@ -214,54 +139,61 @@ export default function LeaderboardPage() {
 
           {/* Best days */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Top rated days */}
             <div>
               <SectionHeader title="Top Rated Days" icon={<TrendingUp className="w-4 h-4" />} />
               <div className="space-y-2 mt-3">
-                {stats.topRatedDays.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No rated days yet — complete an evening ritual.</p>
-                ) : stats.topRatedDays.map((d, i) => (
-                  <div key={d.date} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-card">
-                    <span className="text-sm font-bold w-5 text-center" style={{ color: medalColor(i) }}>
-                      {i + 1}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{format(parseISO(d.date), "EEE, MMM d yyyy")}</p>
+                {data.topRatedDays.length === 0
+                  ? <p className="text-sm text-muted-foreground">No rated days yet — rate your day in the evening ritual.</p>
+                  : data.topRatedDays.map((d, i) => (
+                    <div key={d.date} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-card">
+                      <span className="text-sm font-bold w-5 text-center" style={{ color: medalColor(i) }}>{i + 1}</span>
+                      <p className="flex-1 text-sm font-medium">{format(parseISO(d.date), "EEE, MMM d yyyy")}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold" style={{ color: d.rating >= 8 ? "#10b981" : d.rating >= 5 ? "#fbbf24" : "#94a3b8" }}>{d.rating}</span>
+                        <span className="text-xs text-muted-foreground">/10</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg font-bold" style={{ color: d.rating >= 8 ? "#10b981" : d.rating >= 5 ? "#fbbf24" : "#94a3b8" }}>{d.rating}</span>
-                      <span className="text-xs text-muted-foreground">/10</span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                }
               </div>
             </div>
 
-            {/* Top mood days */}
             <div>
               <SectionHeader title="Best Mood Days" icon={<Sparkles className="w-4 h-4" />} />
               <div className="space-y-2 mt-3">
-                {stats.topMoodDays.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No mood entries yet — log your mood in Overview.</p>
-                ) : stats.topMoodDays.map((d, i) => (
-                  <div key={d.date} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-card">
-                    <span className="text-sm font-bold w-5 text-center" style={{ color: medalColor(i) }}>
-                      {i + 1}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{format(parseISO(d.date), "EEE, MMM d yyyy")}</p>
+                {data.topMoodDays.length === 0
+                  ? <p className="text-sm text-muted-foreground">No mood entries yet — log mood in the Overview flow.</p>
+                  : data.topMoodDays.map((d, i) => (
+                    <div key={d.date} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-card">
+                      <span className="text-sm font-bold w-5 text-center" style={{ color: medalColor(i) }}>{i + 1}</span>
+                      <p className="flex-1 text-sm font-medium">{format(parseISO(d.date), "EEE, MMM d yyyy")}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold" style={{ color: d.mood >= 8 ? "#10b981" : d.mood >= 5 ? "#fbbf24" : "#94a3b8" }}>{d.mood}</span>
+                        <span className="text-xs text-muted-foreground">/10</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg font-bold" style={{ color: d.mood >= 8 ? "#10b981" : d.mood >= 5 ? "#fbbf24" : "#94a3b8" }}>{d.mood}</span>
-                      <span className="text-xs text-muted-foreground">/10</span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                }
               </div>
             </div>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function StatBox({ label, value, sub, icon, color }: {
+  label: string; value: string | number; sub?: string; icon: React.ReactNode; color: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <span style={{ color }}>{icon}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">{label}</span>
+      </div>
+      <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
