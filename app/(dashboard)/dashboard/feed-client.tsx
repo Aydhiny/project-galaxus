@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { BackgroundBeams } from "@/components/aceternity/background-beams";
+import { SoulAnchorCard } from "@/components/soul-anchor";
 
 function FocusCard({ initialText, fallbackQuote }: { initialText: string; fallbackQuote: { text: string; source: string } }) {
   const [text, setText] = useState(initialText);
@@ -216,6 +217,9 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+        {/* Soul Anchor */}
+        <SoulAnchorCard />
+
         {/* Focus / Quote */}
         <FocusCard initialText={focusText} fallbackQuote={quote} />
 
