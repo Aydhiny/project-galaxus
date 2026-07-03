@@ -6,6 +6,7 @@ import { Providers } from "@/components/providers";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const dmSans = DM_Sans({ variable: "--font-sans", subsets: ["latin"], weight: ["300","400","500","600"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -15,11 +16,24 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Galaxus — Ajdin's Universe",
-  description: "Personal growth dashboard — habits, prayers, goals, creative work",
+  metadataBase: new URL(SITE_URL),
+  title: { default: `${SITE_NAME} — Your Personal Growth Universe`, template: `%s — ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Galaxus" },
   icons: { apple: "/icons/icon-192.png" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — Your Personal Growth Universe`,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — Your Personal Growth Universe`,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {
