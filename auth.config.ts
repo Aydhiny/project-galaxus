@@ -7,6 +7,11 @@ const AUTHED_REDIRECT_PATHS = new Set(["/", "/login", "/register"]);
 // Routes a guest is allowed to see without a session
 const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/terms"]);
 
+// Guests must be able to POST here to create an account in the first place —
+// /api/auth/* is excluded from the proxy matcher entirely, but /api/register
+// isn't, so it needs an explicit allowance here.
+const GUEST_ALLOWED_PREFIXES = ["/api/register"];
+
 /**
  * Edge-safe base config — no Credentials provider here (it needs bcrypt +
  * a DB call + next/headers, none of which belong in the middleware bundle).
@@ -33,7 +38,10 @@ export const authConfig = {
       if (isLoggedIn && AUTHED_REDIRECT_PATHS.has(pathname)) {
         return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
       }
-      if (!isLoggedIn && !GUEST_ALLOWED_PATHS.has(pathname)) {
+      const isGuestAllowed =
+        GUEST_ALLOWED_PATHS.has(pathname) || GUEST_ALLOWED_PREFIXES.some((p) => pathname.startsWith(p));
+
+      if (!isLoggedIn && !isGuestAllowed) {
         return false; // NextAuth redirects to pages.signIn with ?callbackUrl=
       }
       return true;

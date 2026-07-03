@@ -58,6 +58,7 @@ export const GlowingCards: React.FC<GlowingCardsProps> = ({
         {enableGlow && (
           <div
             ref={overlayRef}
+            aria-hidden="true"
             className="absolute inset-0 pointer-events-none select-none transition-opacity duration-300"
             style={{
               WebkitMask: `radial-gradient(${glowRadius}rem ${glowRadius}rem at var(--x,0) var(--y,0), #000 1%, transparent 50%)`,
