@@ -2,13 +2,15 @@
 
 import { db } from "@/lib/db";
 import { journalEntries } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { format } from "date-fns";
+import { requireUserId } from "@/lib/auth-session";
 
 export async function getJournalEntries(type?: string) {
   try {
-    const all = await db.select().from(journalEntries).orderBy(desc(journalEntries.createdAt));
+    const userId = await requireUserId();
+    const all = await db.select().from(journalEntries).where(eq(journalEntries.userId, userId)).orderBy(desc(journalEntries.createdAt));
     return type ? all.filter((e) => e.type === type) : all;
   } catch {
     return [];
@@ -20,7 +22,9 @@ export async function addJournalEntry(data: {
   content: string;
   mood?: number;
 }) {
+  const userId = await requireUserId();
   await db.insert(journalEntries).values({
+    userId,
     type: data.type,
     content: data.content,
     mood: data.mood,
@@ -31,15 +35,17 @@ export async function addJournalEntry(data: {
 }
 
 export async function deleteJournalEntry(id: number) {
-  await db.delete(journalEntries).where(eq(journalEntries.id, id));
+  const userId = await requireUserId();
+  await db.delete(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)));
   revalidatePath("/journal");
 }
 
 export async function getJournalStreak(type: "gratitude" | "writing") {
+  const userId = await requireUserId();
   const entries = await db
     .select()
     .from(journalEntries)
-    .where(eq(journalEntries.type, type))
+    .where(and(eq(journalEntries.userId, userId), eq(journalEntries.type, type)))
     .orderBy(desc(journalEntries.date));
 
   const dates = [...new Set(entries.map((e) => e.date))].sort(

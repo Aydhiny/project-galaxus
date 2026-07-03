@@ -8,6 +8,13 @@
       "when": 1780784175001,
       "tag": "0000_yielding_ghost_rider",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783084482811,
+      "tag": "0001_old_silver_samurai",
+      "breakpoints": true
     }
   ]
 }

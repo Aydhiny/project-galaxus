@@ -2,7 +2,9 @@
 
 import { db } from "@/lib/db";
 import { dailyCheckins } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { parseISO } from "date-fns";
+import { requireUserId } from "@/lib/auth-session";
 
 type Row = typeof dailyCheckins.$inferSelect;
 
@@ -104,9 +106,16 @@ export interface LeaderboardData {
   topMoodDays:  { date: string; mood: number }[];
 }
 
+/**
+ * Despite the name, this returns the current user's own stats/streaks —
+ * not a cross-user public leaderboard. Surfacing other users' habit and
+ * prayer data by default is a privacy decision (opt-in visibility, etc.)
+ * that deserves its own product conversation.
+ */
 export async function getLeaderboardData(): Promise<LeaderboardData> {
   try {
-    const all = await db.select().from(dailyCheckins).orderBy(dailyCheckins.date);
+    const userId = await requireUserId();
+    const all = await db.select().from(dailyCheckins).where(eq(dailyCheckins.userId, userId)).orderBy(dailyCheckins.date);
     const asc  = all;
     const desc = [...all].reverse();
 

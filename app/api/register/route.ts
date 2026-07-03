@@ -3,9 +3,16 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const { allowed, retryAfterSeconds } = checkRateLimit(ip);
+    if (!allowed) {
+      return NextResponse.json({ error: `Too many attempts. Try again in ${retryAfterSeconds}s.` }, { status: 429 });
+    }
+
     const { name, email, password } = await req.json();
 
     if (!name?.trim()) return NextResponse.json({ error: "Name is required." }, { status: 400 });

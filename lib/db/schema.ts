@@ -11,10 +11,22 @@ import {
   real,
 } from "drizzle-orm/pg-core";
 
+// ─── Users ────────────────────────────────────────────────────────────────────
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const userIdCol = () => integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" });
+
 export const dailyCheckins = pgTable(
   "daily_checkins",
   {
     id: serial("id").primaryKey(),
+    userId: userIdCol(),
     date: date("date").notNull(),
     fajr: boolean("fajr").default(false),
     dhuhr: boolean("dhuhr").default(false),
@@ -48,11 +60,12 @@ export const dailyCheckins = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-  (t) => [unique("uq_daily_checkins_date").on(t.date)]
+  (t) => [unique("uq_daily_checkins_user_date").on(t.userId, t.date)]
 );
 
 export const books = pgTable("books", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   title: varchar("title", { length: 255 }).notNull(),
   author: varchar("author", { length: 255 }),
   status: varchar("status", { length: 20 }).default("reading"),
@@ -68,6 +81,7 @@ export const books = pgTable("books", {
 
 export const courses = pgTable("courses", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   title: varchar("title", { length: 255 }).notNull(),
   platform: varchar("platform", { length: 100 }),
   instructor: varchar("instructor", { length: 255 }),
@@ -84,6 +98,7 @@ export const courses = pgTable("courses", {
 
 export const trainingPlans = pgTable("training_plans", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(true),
@@ -92,6 +107,7 @@ export const trainingPlans = pgTable("training_plans", {
 
 export const trainingExercises = pgTable("training_exercises", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   planId: integer("plan_id").references(() => trainingPlans.id, {
     onDelete: "cascade",
   }),
@@ -105,6 +121,7 @@ export const trainingExercises = pgTable("training_exercises", {
 
 export const dailyGoals = pgTable("daily_goals", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   title: varchar("title", { length: 255 }).notNull(),
   isActive: boolean("is_active").default(true),
   orderIndex: integer("order_index").default(0),
@@ -117,6 +134,7 @@ export const goalCompletions = pgTable(
   "goal_completions",
   {
     id: serial("id").primaryKey(),
+    userId: userIdCol(),
     goalId: integer("goal_id").references(() => dailyGoals.id, {
       onDelete: "cascade",
     }),
@@ -128,6 +146,7 @@ export const goalCompletions = pgTable(
 
 export const journalEntries = pgTable("journal_entries", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   type: varchar("type", { length: 20 }).notNull(),
   content: text("content").notNull(),
   date: date("date").notNull(),
@@ -135,19 +154,9 @@ export const journalEntries = pgTable("journal_entries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const beatSales = pgTable("beat_sales", {
-  id: serial("id").primaryKey(),
-  beatId: integer("beat_id").references(() => beats.id, { onDelete: "set null" }),
-  date: date("date").notNull(),
-  amountCents: integer("amount_cents").notNull(),  // stored as cents; divide by 100 for display
-  platform: varchar("platform", { length: 100 }),  // BeatStars / direct / etc.
-  client: varchar("client", { length: 255 }),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 export const beats = pgTable("beats", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   name: varchar("name", { length: 255 }).notNull(),
   bpm: integer("bpm"),
   key: varchar("key", { length: 10 }),
@@ -161,9 +170,22 @@ export const beats = pgTable("beats", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const beatSales = pgTable("beat_sales", {
+  id: serial("id").primaryKey(),
+  userId: userIdCol(),
+  beatId: integer("beat_id").references(() => beats.id, { onDelete: "set null" }),
+  date: date("date").notNull(),
+  amountCents: integer("amount_cents").notNull(),  // stored as cents; divide by 100 for display
+  platform: varchar("platform", { length: 100 }),  // BeatStars / direct / etc.
+  client: varchar("client", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ─── Personal Records ─────────────────────────────────────────────────────────
 export const personalRecords = pgTable("personal_records", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   exercise: varchar("exercise", { length: 255 }).notNull(),
   value: real("value").notNull(),
   unit: varchar("unit", { length: 50 }).default("kg"),
@@ -175,6 +197,7 @@ export const personalRecords = pgTable("personal_records", {
 // ─── Reading Sessions ──────────────────────────────────────────────────────────
 export const readingSessions = pgTable("reading_sessions", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   bookId: integer("book_id").references(() => books.id, { onDelete: "cascade" }),
   date: date("date").notNull(),
   minutesRead: integer("minutes_read").default(0),
@@ -187,6 +210,7 @@ export const readingSessions = pgTable("reading_sessions", {
 // ─── Bookmarks ────────────────────────────────────────────────────────────────
 export const bookmarks = pgTable("bookmarks", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   bookId: integer("book_id").references(() => books.id, { onDelete: "cascade" }),
   page: integer("page").notNull(),
   note: text("note"),
@@ -196,6 +220,7 @@ export const bookmarks = pgTable("bookmarks", {
 // ─── Book Content (uploaded files) ────────────────────────────────────────────
 export const bookContent = pgTable("book_content", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   bookId: integer("book_id").references(() => books.id, { onDelete: "cascade" }).unique(),
   fileUrl: text("file_url").notNull(),
   fileType: varchar("file_type", { length: 10 }).notNull().default("pdf"),
@@ -207,6 +232,7 @@ export const bookContent = pgTable("book_content", {
 // ─── Study Sessions ───────────────────────────────────────────────────────────
 export const studySessions = pgTable("study_sessions", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   date: date("date").notNull(),
   topic: varchar("topic", { length: 255 }),
   courseId: integer("course_id").references(() => courses.id, { onDelete: "set null" }),
@@ -219,6 +245,7 @@ export const studySessions = pgTable("study_sessions", {
 // Using an extension approach: beats_audio
 export const beatsAudio = pgTable("beats_audio", {
   id: serial("id").primaryKey(),
+  userId: userIdCol(),
   beatId: integer("beat_id").references(() => beats.id, { onDelete: "cascade" }).unique(),
   audioUrl: text("audio_url").notNull(),
   fileName: varchar("file_name", { length: 255 }),
@@ -226,20 +253,12 @@ export const beatsAudio = pgTable("beats_audio", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// ─── User Settings (single-row config per install) ───────────────────────────
+// ─── User Settings (one row per user) ─────────────────────────────────────────
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),
+  userId: userIdCol().unique(),
   dashboardFocus: text("dashboard_focus"),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// ─── Users ────────────────────────────────────────────────────────────────────
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export type User = typeof users.$inferSelect;

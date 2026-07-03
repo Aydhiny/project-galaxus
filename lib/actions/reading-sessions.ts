@@ -1,21 +1,24 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { readingSessions } from "@/lib/db/schema";
-import { eq, desc, sum } from "drizzle-orm";
+import { readingSessions, books } from "@/lib/db/schema";
+import { and, eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/auth-session";
 
 export async function getReadingSessions(bookId: number) {
   try {
+    const userId = await requireUserId();
     return db.select().from(readingSessions)
-      .where(eq(readingSessions.bookId, bookId))
+      .where(and(eq(readingSessions.userId, userId), eq(readingSessions.bookId, bookId)))
       .orderBy(desc(readingSessions.date));
   } catch { return []; }
 }
 
 export async function getAllReadingSessions() {
   try {
-    return db.select().from(readingSessions).orderBy(desc(readingSessions.date));
+    const userId = await requireUserId();
+    return db.select().from(readingSessions).where(eq(readingSessions.userId, userId)).orderBy(desc(readingSessions.date));
   } catch { return []; }
 }
 
@@ -27,7 +30,13 @@ export async function addReadingSession(data: {
   startPage?: number;
   endPage?: number;
 }) {
+  const userId = await requireUserId();
+
+  const owned = await db.select({ id: books.id }).from(books).where(and(eq(books.id, data.bookId), eq(books.userId, userId))).limit(1);
+  if (!owned[0]) throw new Error("Book not found.");
+
   const row = await db.insert(readingSessions).values({
+    userId,
     bookId: data.bookId,
     date: data.date,
     minutesRead: data.minutesRead,
@@ -40,6 +49,7 @@ export async function addReadingSession(data: {
 }
 
 export async function deleteReadingSession(id: number) {
-  await db.delete(readingSessions).where(eq(readingSessions.id, id));
+  const userId = await requireUserId();
+  await db.delete(readingSessions).where(and(eq(readingSessions.id, id), eq(readingSessions.userId, userId)));
   revalidatePath("/reading");
 }

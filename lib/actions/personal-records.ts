@@ -4,28 +4,32 @@ import { db } from "@/lib/db";
 import { personalRecords } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/auth-session";
 
 export async function getPersonalRecords(exercise?: string) {
   try {
+    const userId = await requireUserId();
     if (exercise) {
       return db.select().from(personalRecords)
-        .where(eq(personalRecords.exercise, exercise))
+        .where(and(eq(personalRecords.userId, userId), eq(personalRecords.exercise, exercise)))
         .orderBy(desc(personalRecords.recordedAt));
     }
-    return db.select().from(personalRecords).orderBy(desc(personalRecords.recordedAt));
+    return db.select().from(personalRecords).where(eq(personalRecords.userId, userId)).orderBy(desc(personalRecords.recordedAt));
   } catch { return []; }
 }
 
 export async function getExerciseList() {
   try {
-    const rows = await db.select({ exercise: personalRecords.exercise }).from(personalRecords);
+    const userId = await requireUserId();
+    const rows = await db.select({ exercise: personalRecords.exercise }).from(personalRecords).where(eq(personalRecords.userId, userId));
     return [...new Set(rows.map(r => r.exercise))].sort();
   } catch { return []; }
 }
 
 export async function getPersonalBests() {
   try {
-    const all = await db.select().from(personalRecords).orderBy(desc(personalRecords.recordedAt));
+    const userId = await requireUserId();
+    const all = await db.select().from(personalRecords).where(eq(personalRecords.userId, userId)).orderBy(desc(personalRecords.recordedAt));
     const bests = new Map<string, typeof all[0]>();
     for (const r of all) {
       const prev = bests.get(r.exercise);
@@ -42,7 +46,9 @@ export async function addPersonalRecord(data: {
   notes?: string;
   recordedAt: string;
 }) {
+  const userId = await requireUserId();
   const row = await db.insert(personalRecords).values({
+    userId,
     exercise: data.exercise,
     value: data.value,
     unit: data.unit ?? "kg",
@@ -54,6 +60,7 @@ export async function addPersonalRecord(data: {
 }
 
 export async function deletePersonalRecord(id: number) {
-  await db.delete(personalRecords).where(eq(personalRecords.id, id));
+  const userId = await requireUserId();
+  await db.delete(personalRecords).where(and(eq(personalRecords.id, id), eq(personalRecords.userId, userId)));
   revalidatePath("/training");
 }

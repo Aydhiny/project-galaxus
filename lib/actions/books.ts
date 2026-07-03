@@ -2,12 +2,14 @@
 
 import { db } from "@/lib/db";
 import { books } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/auth-session";
 
 export async function getBooks() {
   try {
-    return db.select().from(books).orderBy(desc(books.createdAt));
+    const userId = await requireUserId();
+    return db.select().from(books).where(eq(books.userId, userId)).orderBy(desc(books.createdAt));
   } catch {
     return [];
   }
@@ -20,7 +22,9 @@ export async function addBook(data: {
   status?: string;
   coverColor?: string;
 }) {
+  const userId = await requireUserId();
   await db.insert(books).values({
+    userId,
     title: data.title,
     author: data.author,
     pagesTotal: data.pagesTotal,
@@ -35,7 +39,8 @@ export async function addBook(data: {
 }
 
 export async function updateBookProgress(id: number, pagesRead: number) {
-  const book = await db.select().from(books).where(eq(books.id, id)).limit(1);
+  const userId = await requireUserId();
+  const book = await db.select().from(books).where(and(eq(books.id, id), eq(books.userId, userId))).limit(1);
   if (!book[0]) return;
 
   const isComplete =
@@ -50,12 +55,13 @@ export async function updateBookProgress(id: number, pagesRead: number) {
         ? new Date().toISOString().split("T")[0]
         : undefined,
     })
-    .where(eq(books.id, id));
+    .where(and(eq(books.id, id), eq(books.userId, userId)));
 
   revalidatePath("/reading");
 }
 
 export async function markBookComplete(id: number, rating?: number) {
+  const userId = await requireUserId();
   await db
     .update(books)
     .set({
@@ -63,34 +69,36 @@ export async function markBookComplete(id: number, rating?: number) {
       completedAt: new Date().toISOString().split("T")[0],
       rating,
     })
-    .where(eq(books.id, id));
+    .where(and(eq(books.id, id), eq(books.userId, userId)));
   revalidatePath("/reading");
 }
 
 export async function deleteBook(id: number) {
-  await db.delete(books).where(eq(books.id, id));
+  const userId = await requireUserId();
+  await db.delete(books).where(and(eq(books.id, id), eq(books.userId, userId)));
   revalidatePath("/reading");
 }
 
 export async function getMonthlyReadingStats() {
   try {
-  const all = await db.select().from(books);
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+    const userId = await requireUserId();
+    const all = await db.select().from(books).where(eq(books.userId, userId));
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
 
-  const completedThisMonth = all.filter((b) => {
-    if (!b.completedAt) return false;
-    const d = new Date(b.completedAt);
-    return d.getMonth() + 1 === month && d.getFullYear() === year;
-  });
+    const completedThisMonth = all.filter((b) => {
+      if (!b.completedAt) return false;
+      const d = new Date(b.completedAt);
+      return d.getMonth() + 1 === month && d.getFullYear() === year;
+    });
 
-  return {
-    completedThisMonth: completedThisMonth.length,
-    totalCompleted: all.filter((b) => b.status === "completed").length,
-    currentlyReading: all.filter((b) => b.status === "reading").length,
-    planned: all.filter((b) => b.status === "planned").length,
-  };
+    return {
+      completedThisMonth: completedThisMonth.length,
+      totalCompleted: all.filter((b) => b.status === "completed").length,
+      currentlyReading: all.filter((b) => b.status === "reading").length,
+      planned: all.filter((b) => b.status === "planned").length,
+    };
   } catch {
     return { completedThisMonth: 0, totalCompleted: 0, currentlyReading: 0, planned: 0 };
   }

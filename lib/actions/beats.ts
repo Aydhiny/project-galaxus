@@ -2,13 +2,15 @@
 
 import { db } from "@/lib/db";
 import { beats } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { Beat } from "@/lib/db/schema";
+import { requireUserId } from "@/lib/auth-session";
 
 export async function getBeats(): Promise<Beat[]> {
   try {
-    return await db.select().from(beats).orderBy(desc(beats.createdAt));
+    const userId = await requireUserId();
+    return await db.select().from(beats).where(eq(beats.userId, userId)).orderBy(desc(beats.createdAt));
   } catch {
     return [];
   }
@@ -25,20 +27,23 @@ export async function createBeat(data: {
   notes?: string | null;
   producedAt?: string | null;
 }): Promise<Beat> {
-  const [row] = await db.insert(beats).values(data).returning();
+  const userId = await requireUserId();
+  const [row] = await db.insert(beats).values({ ...data, userId }).returning();
   revalidatePath("/beats");
   return row;
 }
 
 export async function updateBeat(
   id: number,
-  data: Partial<Omit<Beat, "id" | "createdAt">>
+  data: Partial<Omit<Beat, "id" | "userId" | "createdAt">>
 ): Promise<void> {
-  await db.update(beats).set({ ...data, updatedAt: new Date() }).where(eq(beats.id, id));
+  const userId = await requireUserId();
+  await db.update(beats).set({ ...data, updatedAt: new Date() }).where(and(eq(beats.id, id), eq(beats.userId, userId)));
   revalidatePath("/beats");
 }
 
 export async function deleteBeat(id: number): Promise<void> {
-  await db.delete(beats).where(eq(beats.id, id));
+  const userId = await requireUserId();
+  await db.delete(beats).where(and(eq(beats.id, id), eq(beats.userId, userId)));
   revalidatePath("/beats");
 }

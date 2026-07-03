@@ -1,20 +1,27 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { beatsAudio } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { beatsAudio, beats } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { requireUserId } from "@/lib/auth-session";
 
 export async function getBeatAudio(beatId: number) {
   try {
-    const rows = await db.select().from(beatsAudio).where(eq(beatsAudio.beatId, beatId)).limit(1);
+    const userId = await requireUserId();
+    const rows = await db.select().from(beatsAudio).where(and(eq(beatsAudio.beatId, beatId), eq(beatsAudio.userId, userId))).limit(1);
     return rows[0] ?? null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export async function getAllBeatAudio() {
   try {
-    return db.select().from(beatsAudio);
-  } catch { return []; }
+    const userId = await requireUserId();
+    return db.select().from(beatsAudio).where(eq(beatsAudio.userId, userId));
+  } catch {
+    return [];
+  }
 }
 
 export async function upsertBeatAudio(data: {
@@ -23,13 +30,19 @@ export async function upsertBeatAudio(data: {
   fileName?: string;
   fileSize?: number;
 }) {
+  const userId = await requireUserId();
+
+  const owned = await db.select({ id: beats.id }).from(beats).where(and(eq(beats.id, data.beatId), eq(beats.userId, userId))).limit(1);
+  if (!owned[0]) throw new Error("Beat not found.");
+
   const existing = await getBeatAudio(data.beatId);
   if (existing) {
     await db.update(beatsAudio)
       .set({ audioUrl: data.audioUrl, fileName: data.fileName, fileSize: data.fileSize })
-      .where(eq(beatsAudio.beatId, data.beatId));
+      .where(and(eq(beatsAudio.beatId, data.beatId), eq(beatsAudio.userId, userId)));
   } else {
     await db.insert(beatsAudio).values({
+      userId,
       beatId: data.beatId,
       audioUrl: data.audioUrl,
       fileName: data.fileName,
@@ -39,5 +52,6 @@ export async function upsertBeatAudio(data: {
 }
 
 export async function deleteBeatAudio(beatId: number) {
-  await db.delete(beatsAudio).where(eq(beatsAudio.beatId, beatId));
+  const userId = await requireUserId();
+  await db.delete(beatsAudio).where(and(eq(beatsAudio.beatId, beatId), eq(beatsAudio.userId, userId)));
 }

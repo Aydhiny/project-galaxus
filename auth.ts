@@ -6,8 +6,10 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { authConfig } from "@/auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -26,29 +28,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = (credentials.email as string) ?? "";
         const password = (credentials.password as string) ?? "";
 
-        // Env-var admin fallback (single-user legacy mode)
-        if (
-          email === process.env.ADMIN_USERNAME &&
-          password === process.env.ADMIN_PASSWORD
-        ) {
-          return { id: "0", name: "Ajdin", email: process.env.ADMIN_USERNAME! };
-        }
-
-        // DB user lookup
-        try {
-          const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
-          const user = rows[0];
-          if (!user) return null;
-          const valid = await bcrypt.compare(password, user.passwordHash);
-          if (!valid) return null;
-          return { id: String(user.id), name: user.name, email: user.email };
-        } catch {
-          return null;
-        }
+        const rows = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+        const user = rows[0];
+        if (!user) return null;
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return null;
+        return { id: String(user.id), name: user.name, email: user.email };
       },
     }),
   ],
-  pages: { signIn: "/login" },
-  session: { strategy: "jwt" },
-  secret: process.env.AUTH_SECRET,
 });

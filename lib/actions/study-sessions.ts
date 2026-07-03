@@ -1,17 +1,18 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { studySessions } from "@/lib/db/schema";
-import { desc, gte } from "drizzle-orm";
+import { studySessions, courses } from "@/lib/db/schema";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { subDays, format } from "date-fns";
-import { eq } from "drizzle-orm";
+import { requireUserId } from "@/lib/auth-session";
 
 export async function getStudySessions(days = 30) {
   try {
+    const userId = await requireUserId();
     const since = format(subDays(new Date(), days), "yyyy-MM-dd");
     return db.select().from(studySessions)
-      .where(gte(studySessions.date, since))
+      .where(and(eq(studySessions.userId, userId), gte(studySessions.date, since)))
       .orderBy(desc(studySessions.date));
   } catch { return []; }
 }
@@ -23,7 +24,15 @@ export async function addStudySession(data: {
   hours: number;
   notes?: string;
 }) {
+  const userId = await requireUserId();
+
+  if (data.courseId != null) {
+    const owned = await db.select({ id: courses.id }).from(courses).where(and(eq(courses.id, data.courseId), eq(courses.userId, userId))).limit(1);
+    if (!owned[0]) throw new Error("Course not found.");
+  }
+
   const row = await db.insert(studySessions).values({
+    userId,
     date: data.date,
     topic: data.topic,
     courseId: data.courseId,
@@ -35,6 +44,7 @@ export async function addStudySession(data: {
 }
 
 export async function deleteStudySession(id: number) {
-  await db.delete(studySessions).where(eq(studySessions.id, id));
+  const userId = await requireUserId();
+  await db.delete(studySessions).where(and(eq(studySessions.id, id), eq(studySessions.userId, userId)));
   revalidatePath("/study");
 }
