@@ -21,6 +21,9 @@ export const authConfig = {
   pages: { signIn: "/login" },
   session: { strategy: "jwt" },
   secret: process.env.AUTH_SECRET,
+  // Trust the Host header from the platform's edge (Vercel, or any reverse
+  // proxy in front of `next start`) rather than requiring a static AUTH_URL.
+  trustHost: true,
   providers: [],
   callbacks: {
     jwt({ token, user }) {
