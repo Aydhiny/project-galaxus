@@ -1,25 +1,13 @@
-import { auth } from "./auth";
-import { NextResponse } from "next/server";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const { pathname } = req.nextUrl;
-
-  const isPublic =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname.startsWith("/api/auth") ||
-    pathname === "/api/register";
-
-  if (!isLoggedIn && !isPublic) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  if (isLoggedIn && (pathname === "/login" || pathname === "/register")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-});
+export default NextAuth(authConfig).auth;
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|offline.html).*)"],
+  // Skip static assets, Next internals, PWA files, and NextAuth's own API routes.
+  // Everything else — every dashboard page and /api/register/upload — passes
+  // through authConfig.callbacks.authorized above.
+  matcher: [
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|manifest.json|sw.js|offline.html|icons/).*)",
+  ],
 };

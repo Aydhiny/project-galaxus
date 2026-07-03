@@ -13,6 +13,7 @@ export async function getBeatSales(): Promise<(BeatSale & { beatName: string | n
     const rows = await db
       .select({
         id: beatSales.id,
+        userId: beatSales.userId,
         beatId: beatSales.beatId,
         beatName: beats.name,
         date: beatSales.date,
