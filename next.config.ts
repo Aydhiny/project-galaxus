@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // A real product needs a CSP. The previous "no CSP" approach broke because
 // img-src wasn't scoped to the YouTube/GitHub-chart hosts already allow-listed
@@ -16,7 +17,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://img.youtube.com https://i.ytimg.com https://ghchart.rshah.org https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.public.blob.vercel-storage.com https://va.vercel-scripts.com https://vitals.vercel-insights.com",
+  "connect-src 'self' https://*.public.blob.vercel-storage.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.sentry.io",
   "media-src 'self' blob: https://*.public.blob.vercel-storage.com",
   "frame-src 'self' https://www.youtube-nocookie.com https://*.public.blob.vercel-storage.com",
   "object-src 'none'",
@@ -51,4 +52,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  // No org/project/authToken set — source-map upload to Sentry is skipped
+  // until SENTRY_AUTH_TOKEN is provided. Error reporting itself only needs
+  // NEXT_PUBLIC_SENTRY_DSN (see instrumentation.ts / instrumentation-client.ts).
+  widenClientFileUpload: false,
+});

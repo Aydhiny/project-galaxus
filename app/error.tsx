@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    // Hook point for Sentry.captureException(error) once wired up (see components/ui/error-boundary.tsx).
+    Sentry.captureException(error);
     console.error("[app/error.tsx]", error);
   }, [error]);
 

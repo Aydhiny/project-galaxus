@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import * as Sentry from "@sentry/nextjs";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
@@ -26,8 +27,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // In production, pipe to Sentry here:
-    // Sentry.captureException(error, { extra: info });
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
     console.error("[ErrorBoundary]", error, info);
   }
 
