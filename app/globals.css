@@ -759,6 +759,14 @@ html.dark[data-room="mountain"] body {
 }
 
 /* ── View Transitions API — smooth page-to-page fade ──────────────────────── */
+/* Disabled: the old/new page snapshots crossfade on top of each other for the
+   first ~180-220ms of every navigation. That was invisible before (root "/"
+   was just a redirect, and dashboard pages share one consistent background),
+   but now that "/", "/login", and "/register" are three distinct, richly
+   animated dark scenes, navigating between them briefly overlaps two
+   different animated backgrounds — visible as a flash/flicker. Re-enable
+   scoped to just the dashboard route group if this polish is wanted back. */
+/*
 @view-transition { navigation: auto; }
 ::view-transition-old(root) {
   animation: 180ms ease-out both fade-out-vt;
@@ -768,3 +776,4 @@ html.dark[data-room="mountain"] body {
 }
 @keyframes fade-out-vt { from { opacity: 1; } to { opacity: 0; transform: translateY(4px); } }
 @keyframes fade-in-vt  { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+*/
