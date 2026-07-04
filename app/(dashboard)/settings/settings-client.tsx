@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useSession, signOut } from "next-auth/react";
 import {
-  User, Lock, Bell, Sparkles, ShieldAlert, Loader2, CheckCircle2, MailWarning,
+  User, Lock, Bell, Sparkles, ShieldAlert, Loader2, CheckCircle2, MailWarning, Download,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -23,6 +23,8 @@ import {
   updateProfile, changePassword, deleteAccount, resendVerificationEmail,
 } from "@/lib/actions/account";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/lib/actions/user-settings";
+import { exportUserData } from "@/lib/actions/export-data";
+import { TwoFactorSettings } from "@/components/two-factor-settings";
 
 interface AccountInfo {
   id: number;
@@ -30,6 +32,7 @@ interface AccountInfo {
   email: string;
   plan: string;
   emailVerified: Date | null;
+  twoFactorEnabled: boolean;
 }
 
 export function SettingsClient({ account, prefs: initialPrefs }: { account: AccountInfo | null; prefs: NotificationPrefs }) {
@@ -51,6 +54,7 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
   const [deleting, setDeleting] = useState(false);
 
   const [resending, setResending] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function handleProfileSave(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +101,24 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
     const res = await deleteAccount(deletePassword);
     if (res.error) { toast.error(res.error); setDeleting(false); return; }
     await signOut({ callbackUrl: "/" });
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const data = await exportUserData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `galaxus-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -165,6 +187,9 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
         </CardContent>
       </Card>
 
+      {/* Two-factor authentication */}
+      <TwoFactorSettings enabled={account?.twoFactorEnabled ?? false} />
+
       {/* Notifications */}
       <Card>
         <CardHeader>
@@ -222,6 +247,17 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
               disabled={savingPrefs}
             />
           </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Weekly email digest</p>
+              <p className="text-xs text-muted-foreground">A summary of your week, sent by email</p>
+            </div>
+            <Switch
+              checked={prefs.notifyWeeklyDigest}
+              onCheckedChange={(checked) => handlePrefsChange({ ...prefs, notifyWeeklyDigest: checked })}
+              disabled={savingPrefs}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -248,6 +284,19 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
               <TooltipContent>Stripe checkout coming soon</TooltipContent>
             </Tooltip>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Data */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Download className="w-4 h-4" /> Your data</CardTitle>
+          <CardDescription>Download everything in your account as a single JSON file.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={handleExport} disabled={exporting} className="w-fit">
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Download my data"}
+          </Button>
         </CardContent>
       </Card>
 

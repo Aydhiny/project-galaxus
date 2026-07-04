@@ -36,6 +36,7 @@ export interface NotificationPrefs {
   notifyPrayerMinutesBefore: number;
   notifyDailyCheckin: boolean;
   notifyDailyCheckinHour: number;
+  notifyWeeklyDigest: boolean;
 }
 
 const DEFAULT_PREFS: NotificationPrefs = {
@@ -43,6 +44,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
   notifyPrayerMinutesBefore: 10,
   notifyDailyCheckin: true,
   notifyDailyCheckinHour: 20,
+  notifyWeeklyDigest: true,
 };
 
 export async function getNotificationPrefs(): Promise<NotificationPrefs> {
@@ -56,6 +58,7 @@ export async function getNotificationPrefs(): Promise<NotificationPrefs> {
       notifyPrayerMinutesBefore: row.notifyPrayerMinutesBefore ?? DEFAULT_PREFS.notifyPrayerMinutesBefore,
       notifyDailyCheckin: row.notifyDailyCheckin ?? DEFAULT_PREFS.notifyDailyCheckin,
       notifyDailyCheckinHour: row.notifyDailyCheckinHour ?? DEFAULT_PREFS.notifyDailyCheckinHour,
+      notifyWeeklyDigest: row.notifyWeeklyDigest ?? DEFAULT_PREFS.notifyWeeklyDigest,
     };
   } catch {
     return DEFAULT_PREFS;

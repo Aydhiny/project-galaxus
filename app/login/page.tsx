@@ -46,6 +46,8 @@ const STARS = [
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -53,9 +55,18 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError("");
-    const res = await signIn("credentials", { email, password, redirect: false });
-    if (res?.ok) router.push("/dashboard");
-    else setError("Invalid email or password.");
+    const res = await signIn("credentials", { email, password, totpCode, redirect: false });
+    if (res?.ok) { router.push("/dashboard"); setLoading(false); return; }
+
+    if (res?.code === "2fa_required") {
+      setNeedsTwoFactor(true);
+      setError("");
+    } else if (res?.code === "2fa_invalid") {
+      setNeedsTwoFactor(true);
+      setError("Incorrect code. Try again or use a backup code.");
+    } else {
+      setError("Invalid email or password.");
+    }
     setLoading(false);
   }
 
@@ -95,20 +106,33 @@ export default function LoginPage() {
         <div className="rounded-2xl border border-white/[0.08] p-8"
           style={{ background:"rgba(10,14,28,0.85)", backdropFilter:"blur(32px) saturate(180%)", boxShadow:"inset 0 1px 0 rgba(255,255,255,0.08),0 32px 80px rgba(0,0,0,0.60)" }}>
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Username or Email</label>
-              <input type="text" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="Username or email" required
-                className="w-full px-4 py-3 rounded-xl border text-sm"
-                style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••" required
-                className="w-full px-4 py-3 rounded-xl border text-sm"
-                style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
-            </div>
+            {!needsTwoFactor ? (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Username or Email</label>
+                  <input type="text" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="Username or email" required
+                    className="w-full px-4 py-3 rounded-xl border text-sm"
+                    style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Password</label>
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••" required
+                    className="w-full px-4 py-3 rounded-xl border text-sm"
+                    style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Authenticator code</label>
+                <input type="text" inputMode="numeric" autoFocus value={totpCode} onChange={e => setTotpCode(e.target.value)}
+                  placeholder="123456 or a backup code" required
+                  className="w-full px-4 py-3 rounded-xl border text-sm"
+                  style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
+                <p className="text-xs text-white/30">Enter the 6-digit code from your authenticator app, or one of your backup codes.</p>
+              </div>
+            )}
             {error && (
               <div className="px-4 py-2.5 rounded-xl text-sm text-red-300 text-center"
                 style={{ background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.25)" }}>
@@ -116,8 +140,17 @@ export default function LoginPage() {
               </div>
             )}
             <MovingBorderBtn type="submit" disabled={loading} containerClassName="w-full" className="w-full h-11" innerClassName="w-full justify-center">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enter your universe"}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : needsTwoFactor ? "Verify" : "Enter your universe"}
             </MovingBorderBtn>
+            {needsTwoFactor && (
+              <button
+                type="button"
+                onClick={() => { setNeedsTwoFactor(false); setTotpCode(""); setError(""); }}
+                className="w-full text-center text-xs text-white/30 hover:text-white/60 transition-colors"
+              >
+                ← Back to sign in
+              </button>
+            )}
           </form>
         </div>
         <p className="text-center text-sm text-white/30 mt-6">

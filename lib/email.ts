@@ -62,3 +62,33 @@ export async function sendVerificationEmail(to: string, rawToken: string) {
     ),
   });
 }
+
+export interface WeeklyDigestStats {
+  daysLogged: number;
+  perfectPrayerDays: number;
+  trainingDays: number;
+  gratitudeDays: number;
+}
+
+export async function sendWeeklyDigestEmail(to: string, name: string, stats: WeeklyDigestStats) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(`[email] RESEND_API_KEY not set — weekly digest for ${to} skipped:`, stats);
+    return;
+  }
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: "Your week in Galaxus",
+    html: wrapperHtml(
+      `Hey ${name.split(" ")[0]}, here's your week`,
+      `<p>Days logged: <strong>${stats.daysLogged}/7</strong></p>
+       <p>Perfect prayer days: <strong>${stats.perfectPrayerDays}</strong></p>
+       <p>Training days: <strong>${stats.trainingDays}</strong></p>
+       <p>Gratitude entries: <strong>${stats.gratitudeDays}</strong></p>
+       <p><a href="${SITE_URL}/dashboard" style="color:#818cf8;">Open your dashboard →</a></p>
+       <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:20px;">
+         Turn this off anytime in <a href="${SITE_URL}/settings" style="color:#818cf8;">Settings</a>.
+       </p>`
+    ),
+  });
+}

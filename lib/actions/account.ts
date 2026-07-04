@@ -10,7 +10,10 @@ import { revalidatePath } from "next/cache";
 export async function getAccountInfo() {
   const userId = await requireUserId();
   const rows = await db
-    .select({ id: users.id, name: users.name, email: users.email, plan: users.plan, emailVerified: users.emailVerified })
+    .select({
+      id: users.id, name: users.name, email: users.email, plan: users.plan,
+      emailVerified: users.emailVerified, twoFactorEnabled: users.twoFactorEnabled,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);

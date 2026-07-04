@@ -1,10 +1,12 @@
 import { getLeaderboardData } from "@/lib/actions/leaderboard";
+import { getAchievements } from "@/lib/achievements";
+import { Achievements } from "@/components/achievements";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import {
   Trophy, Flame, Dumbbell, BookOpen, Moon, Music2,
-  Star, Sun, TrendingUp, Calendar, BarChart2, Heart, Sparkles, PenLine,
+  Star, Sun, TrendingUp, Calendar, BarChart2, Heart, Sparkles, PenLine, Award,
 } from "lucide-react";
 
 const HABIT_META = [
@@ -26,6 +28,7 @@ function medalColor(rank: number) {
 export default async function LeaderboardPage() {
   const data = await getLeaderboardData();
   const hasData = data.totalDays > 0;
+  const badges = getAchievements(data);
 
   return (
     <div className="page max-w-4xl">
@@ -53,6 +56,14 @@ export default async function LeaderboardPage() {
           <p className="text-sm mt-1">Head to <a href="/daily" className="text-[#173eff] hover:underline">Daily Check-in</a> and log your first day.</p>
         </div>
       )}
+
+      {/* Achievements */}
+      <div>
+        <SectionHeader title="Achievements" icon={<Award className="w-4 h-4" />} />
+        <div className="mt-3">
+          <Achievements badges={badges} />
+        </div>
+      </div>
 
       {hasData && (
         <>

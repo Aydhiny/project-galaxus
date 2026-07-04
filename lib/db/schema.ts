@@ -19,6 +19,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   plan: varchar("plan", { length: 20 }).notNull().default("free"), // 'free' | 'pro'
   emailVerified: timestamp("email_verified"),
+  twoFactorSecret: text("two_factor_secret"),
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -29,6 +31,15 @@ export const verificationTokens = pgTable("verification_tokens", {
   tokenHash: text("token_hash").notNull(),
   purpose: varchar("purpose", { length: 20 }).notNull(), // 'password_reset' | 'email_verify'
   expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── 2FA Backup Codes ──────────────────────────────────────────────────────────
+export const backupCodes = pgTable("backup_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(),
+  usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -274,6 +285,7 @@ export const userSettings = pgTable("user_settings", {
   notifyPrayerMinutesBefore: integer("notify_prayer_minutes_before").default(10),
   notifyDailyCheckin: boolean("notify_daily_checkin").default(true),
   notifyDailyCheckinHour: integer("notify_daily_checkin_hour").default(20),
+  notifyWeeklyDigest: boolean("notify_weekly_digest").default(true),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -296,3 +308,4 @@ export type StudySession = typeof studySessions.$inferSelect;
 export type BeatAudio      = typeof beatsAudio.$inferSelect;
 export type UserSettings   = typeof userSettings.$inferSelect;
 export type VerificationToken = typeof verificationTokens.$inferSelect;
+export type BackupCode = typeof backupCodes.$inferSelect;
