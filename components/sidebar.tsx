@@ -9,7 +9,7 @@ import {
   Home, CheckSquare, BookOpen, GraduationCap, Dumbbell, Moon,
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, ChevronLeft, ChevronRight, LayoutDashboard, PanelLeftClose, Sunrise, Command,
-  Disc3, Trophy, Download, Lightbulb,
+  Disc3, Trophy, Download, Lightbulb, Settings,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCommandStore } from "@/lib/store/command";
@@ -195,6 +195,33 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                 <p className="text-[10px] text-muted-foreground/60 truncate">{userEmail}</p>
               </div>
             </div>
+          )}
+
+          {/* Settings */}
+          {!collapsed && (
+            <Link
+              href="/settings"
+              className={cn(
+                "w-full flex items-center gap-3 rounded-lg text-sm px-3 py-2 transition-colors mb-0.5",
+                isActive("/settings")
+                  ? "bg-primary/[0.13] text-primary font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05]"
+              )}
+            >
+              <Settings className="w-4 h-4 shrink-0" />
+              <span className="text-xs">Settings</span>
+            </Link>
+          )}
+          {collapsed && (
+            <Tooltip>
+              <TooltipTrigger render={
+                <Link href="/settings"
+                  className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05] transition-colors">
+                  <Settings className="w-4 h-4" />
+                </Link>
+              } />
+              <TooltipContent side="right" className="text-xs">Settings</TooltipContent>
+            </Tooltip>
           )}
 
           {/* Sign out — explicit row, clearly labeled */}

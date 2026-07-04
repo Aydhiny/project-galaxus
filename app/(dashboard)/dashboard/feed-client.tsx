@@ -184,6 +184,8 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
   }
 
   const goalPct = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
+  const hour = new Date().getHours();
+  const prayerStreakAtRisk = streaks.prayers > 0 && prayersDone < 5 && hour >= 18;
 
   return (
     <div className="min-h-full page-fade-in">
@@ -213,6 +215,13 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             <StatPill icon={<Flame className="w-3 h-3" />} label={`${streaks.training}d training`} color="oklch(0.70 0.19 32)" active={streaks.training > 0} />
             <StatPill icon={<BookOpen className="w-3 h-3" />} label={`${readingStats.currentlyReading} reading`} color="oklch(0.65 0.20 290)" active={readingStats.currentlyReading > 0} />
           </div>
+
+          {prayerStreakAtRisk && (
+            <Link href="/daily" className="mt-3 flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 transition-colors w-fit">
+              <Flame className="w-3.5 h-3.5" />
+              <span>Your {streaks.prayers}-day prayer streak is at risk — {5 - prayersDone} prayer{5 - prayersDone === 1 ? "" : "s"} still needed today.</span>
+            </Link>
+          )}
         </div>
       </div>
 

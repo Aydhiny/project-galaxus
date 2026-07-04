@@ -5,12 +5,13 @@ import { NextResponse } from "next/server";
 const AUTHED_REDIRECT_PATHS = new Set(["/", "/login", "/register"]);
 
 // Routes a guest is allowed to see without a session
-const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/terms"]);
+const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/terms", "/forgot-password"]);
 
 // Guests must be able to POST here to create an account in the first place —
 // /api/auth/* is excluded from the proxy matcher entirely, but /api/register
-// isn't, so it needs an explicit allowance here.
-const GUEST_ALLOWED_PREFIXES = ["/api/register"];
+// isn't, so it needs an explicit allowance here. Reset/verify links are visited
+// by definition while logged out (or from a different device/session).
+const GUEST_ALLOWED_PREFIXES = ["/api/register", "/reset-password/", "/verify-email/"];
 
 /**
  * Edge-safe base config — no Credentials provider here (it needs bcrypt +

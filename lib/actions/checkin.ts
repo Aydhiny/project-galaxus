@@ -1,11 +1,12 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { dailyCheckins } from "@/lib/db/schema";
+import { dailyCheckins, users } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { format } from "date-fns";
 import { requireUserId } from "@/lib/auth-session";
+import { clampHistoryDays } from "@/lib/plan";
 
 export async function getTodayCheckin() {
   try {
@@ -35,12 +36,14 @@ export async function getCheckinByDate(date: string) {
 export async function getRecentCheckins(days = 30) {
   try {
     const userId = await requireUserId();
+    const [user] = await db.select({ plan: users.plan }).from(users).where(eq(users.id, userId)).limit(1);
+    const cappedDays = clampHistoryDays(user?.plan ?? "free", days);
     const rows = await db
       .select()
       .from(dailyCheckins)
       .where(eq(dailyCheckins.userId, userId))
       .orderBy(dailyCheckins.date);
-    return rows.slice(-days);
+    return rows.slice(-cappedDays);
   } catch {
     return [];
   }

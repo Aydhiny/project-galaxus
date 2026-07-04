@@ -4,6 +4,8 @@ import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { createVerificationToken } from "@/lib/tokens";
+import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,7 +25,15 @@ export async function POST(req: NextRequest) {
     if (existing[0]) return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    await db.insert(users).values({ name: name.trim(), email: email.toLowerCase(), passwordHash });
+    const [newUser] = await db
+      .insert(users)
+      .values({ name: name.trim(), email: email.toLowerCase(), passwordHash })
+      .returning({ id: users.id });
+
+    // Fire-and-forget — a slow/failed email provider shouldn't block registration.
+    createVerificationToken(newUser.id, "email_verify")
+      .then((rawToken) => sendVerificationEmail(email.toLowerCase(), rawToken))
+      .catch((err) => console.error("Failed to send verification email:", err));
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Moon, Sun, Sunrise, Clock, MapPin, Bell, BellOff } from "lucide-react";
 import {
   fetchPrayerTimes, getUserLocation, getNextPrayer, formatCountdown,
   type PrayerTimes, type NextPrayer, type PrayerName,
 } from "@/lib/prayer-times";
+import { sendBrowserNotification } from "@/lib/notify";
+import { getNotificationPrefs } from "@/lib/actions/user-settings";
 import { cn } from "@/lib/utils";
 
 const PRAYER_ICONS: Record<PrayerName, React.ReactNode> = {
@@ -16,12 +18,33 @@ const PRAYER_ICONS: Record<PrayerName, React.ReactNode> = {
   Isha:    <Moon    className="w-3.5 h-3.5" />,
 };
 
+const NOTIFIED_KEY = "galaxus-prayer-notified";
+
+function getNotifiedSet(dateStr: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(NOTIFIED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (parsed.date !== dateStr) return new Set(); // new day — reset
+    return new Set<string>(parsed.keys);
+  } catch { return new Set(); }
+}
+
+function markNotified(dateStr: string, key: string) {
+  const set = getNotifiedSet(dateStr);
+  set.add(key);
+  try { localStorage.setItem(NOTIFIED_KEY, JSON.stringify({ date: dateStr, keys: [...set] })); } catch { /* ignore */ }
+}
+
 export function PrayerCountdown({ compact = false }: { compact?: boolean }) {
   const [times,    setTimes]    = useState<PrayerTimes | null>(null);
   const [next,     setNext]     = useState<NextPrayer | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(false);
   const [notifOk,  setNotifOk]  = useState(false);
+
+  const prevNameRef = useRef<PrayerName | null>(null);
+  const prefsRef = useRef({ notifyPrayerReminders: true, notifyPrayerMinutesBefore: 10 });
 
   const computeNext = useCallback((t: PrayerTimes) => {
     setNext(getNextPrayer(t));
@@ -49,12 +72,52 @@ export function PrayerCountdown({ compact = false }: { compact?: boolean }) {
     return () => { alive = false; };
   }, [computeNext]);
 
+  // Load saved reminder preferences once.
+  useEffect(() => {
+    let alive = true;
+    getNotificationPrefs().then((prefs) => {
+      if (!alive) return;
+      prefsRef.current = {
+        notifyPrayerReminders: prefs.notifyPrayerReminders,
+        notifyPrayerMinutesBefore: prefs.notifyPrayerMinutesBefore,
+      };
+    });
+    return () => { alive = false; };
+  }, []);
+
   // Tick every second
   useEffect(() => {
     if (!times) return;
     const iv = setInterval(() => computeNext(times), 1000);
     return () => clearInterval(iv);
   }, [times, computeNext]);
+
+  // Fire local notifications: "N minutes before" and "prayer has arrived".
+  useEffect(() => {
+    if (!next || !prefsRef.current.notifyPrayerReminders) return;
+    const today = new Date().toISOString().slice(0, 10);
+
+    // The tracked "next" prayer just changed — the previous one has arrived.
+    if (prevNameRef.current && prevNameRef.current !== next.name) {
+      const key = `${prevNameRef.current}-start`;
+      const notified = getNotifiedSet(today);
+      if (!notified.has(key)) {
+        sendBrowserNotification(`${prevNameRef.current} time`, { body: "It's time to pray.", tag: key });
+        markNotified(today, key);
+      }
+    }
+    prevNameRef.current = next.name;
+
+    const minutesBefore = prefsRef.current.notifyPrayerMinutesBefore;
+    if (minutesBefore > 0 && next.minutesLeft === minutesBefore) {
+      const key = `${next.name}-before`;
+      const notified = getNotifiedSet(today);
+      if (!notified.has(key)) {
+        sendBrowserNotification(`${next.name} in ${minutesBefore} min`, { body: `${next.name} is coming up at ${next.time}.`, tag: key });
+        markNotified(today, key);
+      }
+    }
+  }, [next]);
 
   // Notification permission
   useEffect(() => {

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingHero } from "@/components/marketing/hero";
 import { MarketingPillars } from "@/components/marketing/pillars";
+import { MarketingComparison } from "@/components/marketing/comparison";
 import { MarketingProductPreview } from "@/components/marketing/product-preview";
+import { MarketingChangelog } from "@/components/marketing/changelog";
 import { MarketingPricing } from "@/components/marketing/pricing";
 import { MarketingFaq } from "@/components/marketing/faq";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
@@ -19,7 +21,9 @@ export default function MarketingHomePage() {
     <>
       <MarketingHero />
       <MarketingPillars />
+      <MarketingComparison />
       <MarketingProductPreview />
+      <MarketingChangelog />
       <MarketingPricing />
 
       <section id="faq" className="relative py-24 sm:py-32 px-4 sm:px-6">

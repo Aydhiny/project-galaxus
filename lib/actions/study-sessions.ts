@@ -1,16 +1,19 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { studySessions, courses } from "@/lib/db/schema";
+import { studySessions, courses, users } from "@/lib/db/schema";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { subDays, format } from "date-fns";
 import { requireUserId } from "@/lib/auth-session";
+import { clampHistoryDays } from "@/lib/plan";
 
 export async function getStudySessions(days = 30) {
   try {
     const userId = await requireUserId();
-    const since = format(subDays(new Date(), days), "yyyy-MM-dd");
+    const [user] = await db.select({ plan: users.plan }).from(users).where(eq(users.id, userId)).limit(1);
+    const cappedDays = clampHistoryDays(user?.plan ?? "free", days);
+    const since = format(subDays(new Date(), cappedDays), "yyyy-MM-dd");
     return db.select().from(studySessions)
       .where(and(eq(studySessions.userId, userId), gte(studySessions.date, since)))
       .orderBy(desc(studySessions.date));

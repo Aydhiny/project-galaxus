@@ -12,6 +12,7 @@ import { Screensaver } from "@/components/screensaver";
 import { FloatingPomodoro } from "@/components/pomodoro-float";
 import { ShortcutCheatsheet } from "@/components/shortcut-cheatsheet";
 import { OnboardingFlow } from "@/components/onboarding";
+import { DailyCheckinReminder } from "@/components/daily-checkin-reminder";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Menu, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* First-time onboarding — z=500, checks localStorage */}
       <OnboardingFlow />
+
+      {/* Daily check-in nudge toast — checks server prefs + today's status once */}
+      <DailyCheckinReminder />
 
       {/* Desktop sidebar — uses effectiveCollapsed (mounted guard prevents SSR mismatch) */}
       {!effectiveHidden && (
