@@ -13,11 +13,16 @@ export async function getAccountInfo() {
     .select({
       id: users.id, name: users.name, email: users.email, plan: users.plan,
       emailVerified: users.emailVerified, twoFactorEnabled: users.twoFactorEnabled,
+      passwordHash: users.passwordHash,
     })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  return rows[0] ?? null;
+
+  const row = rows[0];
+  if (!row) return null;
+  const { passwordHash, ...rest } = row;
+  return { ...rest, hasPassword: !!passwordHash };
 }
 
 export async function resendVerificationEmail() {
@@ -52,7 +57,8 @@ export async function updateProfile(data: { name: string; email: string }) {
   return { success: true };
 }
 
-export async function changePassword(data: { currentPassword: string; newPassword: string }) {
+/** currentPassword is only required if the account already has a password set (see hasPassword from getAccountInfo). */
+export async function changePassword(data: { currentPassword?: string; newPassword: string }) {
   const userId = await requireUserId();
   if (data.newPassword.length < 8) return { error: "New password must be at least 8 characters." };
 
@@ -60,22 +66,29 @@ export async function changePassword(data: { currentPassword: string; newPasswor
   const user = rows[0];
   if (!user) return { error: "Account not found." };
 
-  const valid = await bcrypt.compare(data.currentPassword, user.passwordHash);
-  if (!valid) return { error: "Current password is incorrect." };
+  if (user.passwordHash) {
+    if (!data.currentPassword) return { error: "Current password is required." };
+    const valid = await bcrypt.compare(data.currentPassword, user.passwordHash);
+    if (!valid) return { error: "Current password is incorrect." };
+  }
 
   const passwordHash = await bcrypt.hash(data.newPassword, 12);
   await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
   return { success: true };
 }
 
-export async function deleteAccount(password: string) {
+/** password is only required if the account has one set (OAuth-only accounts have nothing to verify against). */
+export async function deleteAccount(password?: string) {
   const userId = await requireUserId();
   const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const user = rows[0];
   if (!user) return { error: "Account not found." };
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return { error: "Password is incorrect." };
+  if (user.passwordHash) {
+    if (!password) return { error: "Password is required." };
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return { error: "Password is incorrect." };
+  }
 
   // Cascades to every content table via onDelete: "cascade" FKs.
   await db.delete(users).where(eq(users.id, userId));

@@ -1,5 +1,7 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import GitHub from "next-auth/providers/github";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@/lib/ratelimit";
 import { db } from "@/lib/db";
@@ -16,6 +18,9 @@ class TwoFactorRequiredError extends CredentialsSignin {
 }
 class TwoFactorInvalidError extends CredentialsSignin {
   code = "2fa_invalid";
+}
+class OAuthOnlyError extends CredentialsSignin {
+  code = "oauth_only";
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -43,6 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const rows = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
         const user = rows[0];
         if (!user) return null;
+        if (!user.passwordHash) throw new OAuthOnlyError();
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
@@ -55,5 +61,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { id: String(user.id), name: user.name, email: user.email };
       },
     }),
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+    GitHub({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    }),
   ],
+  callbacks: {
+    ...authConfig.callbacks,
+    async signIn({ user, account }) {
+      if (account?.provider === "credentials") return true;
+      if (!user.email) return false;
+
+      // OAuth: find-or-create a row in our own `users` table by email, then
+      // overwrite user.id with OUR id so the existing jwt/session callbacks
+      // (unchanged, shared with Credentials) pick it up identically.
+      const email = user.email.toLowerCase();
+      const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      let dbUser = existing[0];
+
+      if (!dbUser) {
+        const [created] = await db
+          .insert(users)
+          .values({
+            name: user.name ?? email.split("@")[0],
+            email,
+            passwordHash: null,
+            emailVerified: new Date(), // the OAuth provider already verified ownership of this email
+          })
+          .returning();
+        dbUser = created;
+      } else if (!dbUser.emailVerified) {
+        await db.update(users).set({ emailVerified: new Date() }).where(eq(users.id, dbUser.id));
+      }
+
+      user.id = String(dbUser.id);
+      return true;
+    },
+  },
 });

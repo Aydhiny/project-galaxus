@@ -16,7 +16,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // null for OAuth-only accounts (Google/GitHub sign-in)
   plan: varchar("plan", { length: 20 }).notNull().default("free"), // 'free' | 'pro'
   emailVerified: timestamp("email_verified"),
   twoFactorSecret: text("two_factor_secret"),

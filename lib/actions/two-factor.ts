@@ -53,13 +53,17 @@ export async function confirmTwoFactorEnrollment(code: string) {
   return { success: true, backupCodes: codes };
 }
 
-export async function disableTwoFactor(password: string) {
+/** password is only required if the account has one set (OAuth-only accounts have nothing to verify against). */
+export async function disableTwoFactor(password?: string) {
   const userId = await requireUserId();
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return { error: "Account not found." };
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return { error: "Password is incorrect." };
+  if (user.passwordHash) {
+    if (!password) return { error: "Password is required." };
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return { error: "Password is incorrect." };
+  }
 
   await db.update(users).set({ twoFactorEnabled: false, twoFactorSecret: null }).where(eq(users.id, userId));
   await db.delete(backupCodes).where(eq(backupCodes.userId, userId));

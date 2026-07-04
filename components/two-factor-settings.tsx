@@ -15,7 +15,7 @@ import { beginTwoFactorEnrollment, confirmTwoFactorEnrollment, disableTwoFactor 
 
 type Step = "idle" | "enrolling" | "backup-codes";
 
-export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
+export function TwoFactorSettings({ enabled, hasPassword }: { enabled: boolean; hasPassword: boolean }) {
   const [step, setStep] = useState<Step>("idle");
   const [isEnabled, setIsEnabled] = useState(enabled);
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -83,17 +83,21 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Disable two-factor authentication?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Your account will only require a password to sign in. Enter your password to confirm.
+                      {hasPassword
+                        ? "Your account will only require a password to sign in. Enter your password to confirm."
+                        : "Your account will only require your Google/GitHub sign-in going forward."}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <Input
-                    type="password" placeholder="Your password"
-                    value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)}
-                    className="my-2"
-                  />
+                  {hasPassword && (
+                    <Input
+                      type="password" placeholder="Your password"
+                      value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)}
+                      className="my-2"
+                    />
+                  )}
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDisable} disabled={loading || !disablePassword} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    <AlertDialogAction onClick={handleDisable} disabled={loading || (hasPassword && !disablePassword)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Disable"}
                     </AlertDialogAction>
                   </AlertDialogFooter>

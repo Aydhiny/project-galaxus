@@ -33,6 +33,7 @@ interface AccountInfo {
   plan: string;
   emailVerified: Date | null;
   twoFactorEnabled: boolean;
+  hasPassword: boolean;
 }
 
 export function SettingsClient({ account, prefs: initialPrefs }: { account: AccountInfo | null; prefs: NotificationPrefs }) {
@@ -42,6 +43,7 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
   const [email, setEmail] = useState(account?.email ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
 
+  const [hasPassword, setHasPassword] = useState(account?.hasPassword ?? false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -72,11 +74,15 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
     e.preventDefault();
     if (newPassword !== confirmPassword) { toast.error("New passwords don't match."); return; }
     setSavingPassword(true);
-    const res = await changePassword({ currentPassword, newPassword });
+    const res = await changePassword({
+      currentPassword: hasPassword ? currentPassword : undefined,
+      newPassword,
+    });
     if (res.error) toast.error(res.error);
     else {
-      toast.success("Password updated");
+      toast.success(hasPassword ? "Password updated" : "Password set");
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setHasPassword(true);
     }
     setSavingPassword(false);
   }
@@ -98,7 +104,7 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
 
   async function handleDelete() {
     setDeleting(true);
-    const res = await deleteAccount(deletePassword);
+    const res = await deleteAccount(hasPassword ? deletePassword : undefined);
     if (res.error) { toast.error(res.error); setDeleting(false); return; }
     await signOut({ callbackUrl: "/" });
   }
@@ -164,31 +170,37 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Lock className="w-4 h-4" /> Password</CardTitle>
-          <CardDescription>Change your account password.</CardDescription>
+          <CardDescription>
+            {hasPassword
+              ? "Change your account password."
+              : "You signed up with Google/GitHub — set a password to also enable email sign-in."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handlePasswordSave} className="flex flex-col gap-4 max-w-sm">
+            {hasPassword && (
+              <div className="space-y-1.5">
+                <Label htmlFor="current-password">Current password</Label>
+                <Input id="current-password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+              </div>
+            )}
             <div className="space-y-1.5">
-              <Label htmlFor="current-password">Current password</Label>
-              <Input id="current-password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-password">New password</Label>
+              <Label htmlFor="new-password">{hasPassword ? "New password" : "Password"}</Label>
               <Input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="confirm-password">Confirm new password</Label>
+              <Label htmlFor="confirm-password">Confirm {hasPassword ? "new " : ""}password</Label>
               <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
             </div>
             <Button type="submit" disabled={savingPassword} className="w-fit">
-              {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update password"}
+              {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : hasPassword ? "Update password" : "Set password"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       {/* Two-factor authentication */}
-      <TwoFactorSettings enabled={account?.twoFactorEnabled ?? false} />
+      <TwoFactorSettings enabled={account?.twoFactorEnabled ?? false} hasPassword={hasPassword} />
 
       {/* Notifications */}
       <Card>
@@ -315,17 +327,20 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete your account?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This permanently deletes your account and all associated data — habits, prayers, goals, journal entries, everything. Enter your password to confirm.
+                  This permanently deletes your account and all associated data — habits, prayers, goals, journal entries, everything.
+                  {hasPassword ? " Enter your password to confirm." : ""}
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <Input
-                type="password" placeholder="Your password"
-                value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)}
-                className="my-2"
-              />
+              {hasPassword && (
+                <Input
+                  type="password" placeholder="Your password"
+                  value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)}
+                  className="my-2"
+                />
+              )}
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={deleting || !deletePassword} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <AlertDialogAction onClick={handleDelete} disabled={deleting || (hasPassword && !deletePassword)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete permanently"}
                 </AlertDialogAction>
               </AlertDialogFooter>
