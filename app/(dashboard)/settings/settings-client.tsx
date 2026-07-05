@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { format } from "date-fns";
 import {
-  User, Lock, Bell, Sparkles, ShieldAlert, Loader2, CheckCircle2, MailWarning, Download,
+  User, Lock, Bell, Sparkles, ShieldAlert, Loader2, CheckCircle2, MailWarning, Download, AlertTriangle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -12,9 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -24,6 +24,7 @@ import {
 } from "@/lib/actions/account";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/lib/actions/user-settings";
 import { exportUserData } from "@/lib/actions/export-data";
+import { createCheckoutSession, createPortalSession } from "@/lib/actions/billing";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
 
 interface AccountInfo {
@@ -34,10 +35,14 @@ interface AccountInfo {
   emailVerified: Date | null;
   twoFactorEnabled: boolean;
   hasPassword: boolean;
+  subscriptionStatus: string | null;
+  currentPeriodEnd: Date | null;
 }
 
 export function SettingsClient({ account, prefs: initialPrefs }: { account: AccountInfo | null; prefs: NotificationPrefs }) {
   const { update: updateSession } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [name, setName] = useState(account?.name ?? "");
   const [email, setEmail] = useState(account?.email ?? "");
@@ -57,6 +62,31 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
 
   const [resending, setResending] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const [managingBilling, setManagingBilling] = useState(false);
+
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (!checkout) return;
+    if (checkout === "success") toast.success("You're now on Pro!");
+    else if (checkout === "cancelled") toast.info("Checkout cancelled — no changes were made.");
+    router.replace("/settings");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleUpgrade() {
+    setUpgrading(true);
+    const res = await createCheckoutSession();
+    if (res.error) { toast.error(res.error); setUpgrading(false); return; }
+    window.location.href = res.url!;
+  }
+
+  async function handleManageBilling() {
+    setManagingBilling(true);
+    const res = await createPortalSession();
+    if (res.error) { toast.error(res.error); setManagingBilling(false); return; }
+    window.location.href = res.url!;
+  }
 
   async function handleProfileSave(e: React.FormEvent) {
     e.preventDefault();
@@ -280,21 +310,34 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
           <CardDescription>Your current subscription tier.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4 max-w-md">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/25">
-              {account?.plan === "pro" ? <><CheckCircle2 className="w-3 h-3" /> Pro</> : "Free"}
-            </span>
-            {account?.plan !== "pro" && (
-              <span className="text-xs text-muted-foreground">30-day history limit</span>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/25">
+                {account?.plan === "pro" ? <><CheckCircle2 className="w-3 h-3" /> Pro</> : "Free"}
+              </span>
+              {account?.plan !== "pro" && (
+                <span className="text-xs text-muted-foreground">30-day history limit</span>
+              )}
+            </div>
+            {account?.plan === "pro" && account.subscriptionStatus === "past_due" && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
+                <AlertTriangle className="w-3 h-3" /> Payment failed — update your card
+              </span>
+            )}
+            {account?.plan === "pro" && account.subscriptionStatus !== "past_due" && account.currentPeriodEnd && (
+              <span className="text-xs text-muted-foreground">
+                Renews on {format(new Date(account.currentPeriodEnd), "MMM d, yyyy")}
+              </span>
             )}
           </div>
-          {account?.plan !== "pro" && (
-            <Tooltip>
-              <TooltipTrigger render={<Button variant="outline" disabled className="cursor-not-allowed" />}>
-                Upgrade to Pro
-              </TooltipTrigger>
-              <TooltipContent>Stripe checkout coming soon</TooltipContent>
-            </Tooltip>
+          {account?.plan === "pro" ? (
+            <Button variant="outline" onClick={handleManageBilling} disabled={managingBilling} className="w-fit shrink-0">
+              {managingBilling ? <Loader2 className="w-4 h-4 animate-spin" /> : "Manage billing"}
+            </Button>
+          ) : (
+            <Button onClick={handleUpgrade} disabled={upgrading} className="w-fit shrink-0">
+              {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Upgrade to Pro"}
+            </Button>
           )}
         </CardContent>
       </Card>

@@ -14,6 +14,7 @@ export async function getAccountInfo() {
       id: users.id, name: users.name, email: users.email, plan: users.plan,
       emailVerified: users.emailVerified, twoFactorEnabled: users.twoFactorEnabled,
       passwordHash: users.passwordHash,
+      subscriptionStatus: users.subscriptionStatus, currentPeriodEnd: users.currentPeriodEnd,
     })
     .from(users)
     .where(eq(users.id, userId))

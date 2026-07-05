@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getAccountInfo } from "@/lib/actions/account";
 import { getNotificationPrefs } from "@/lib/actions/user-settings";
 import { SettingsClient } from "./settings-client";
@@ -7,7 +8,9 @@ export default async function SettingsPage() {
 
   return (
     <div className="page">
-      <SettingsClient account={account} prefs={prefs} />
+      <Suspense>
+        <SettingsClient account={account} prefs={prefs} />
+      </Suspense>
     </div>
   );
 }

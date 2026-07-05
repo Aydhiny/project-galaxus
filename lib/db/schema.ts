@@ -22,6 +22,10 @@ export const users = pgTable("users", {
   twoFactorSecret: text("two_factor_secret"),
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  subscriptionStatus: varchar("subscription_status", { length: 30 }), // Stripe's own enum, stored verbatim
+  currentPeriodEnd: timestamp("current_period_end"),
 });
 
 // ─── Verification Tokens (password reset + email verify) ─────────────────────
