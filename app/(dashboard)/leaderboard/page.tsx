@@ -1,6 +1,8 @@
-import { getLeaderboardData } from "@/lib/actions/leaderboard";
+import { getLeaderboardData, getGlobalLeaderboard, getLeaderboardOptIn } from "@/lib/actions/leaderboard";
 import { getAchievements } from "@/lib/achievements";
 import { Achievements } from "@/components/achievements";
+import { LeaderboardTabs } from "@/components/leaderboard-tabs";
+import { GlobalLeaderboard } from "@/components/global-leaderboard";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
@@ -29,26 +31,13 @@ export default async function LeaderboardPage() {
   const data = await getLeaderboardData();
   const hasData = data.totalDays > 0;
   const badges = getAchievements(data);
+  const [{ entries, viewerEntry }, optedIn] = await Promise.all([
+    getGlobalLeaderboard(),
+    getLeaderboardOptIn(),
+  ]);
 
-  return (
-    <div className="page max-w-4xl">
-      {/* Header */}
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-[0_0_24px_#fbbf2440]"
-          style={{ background: "linear-gradient(135deg,#fbbf2420,#f5970820)", border: "1px solid #fbbf2440" }}>
-          <Trophy className="w-6 h-6 text-[#fbbf24]" />
-        </div>
-        <div>
-          <p className="section-label mb-1">Personal Records</p>
-          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Leaderboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {hasData
-              ? `${data.totalDays} days logged in the database`
-              : "No data yet — start your daily check-in to build records."}
-          </p>
-        </div>
-      </div>
-
+  const personalContent = (
+    <>
       {!hasData && (
         <div className="glass p-12 text-center text-muted-foreground">
           <Trophy className="w-12 h-12 mx-auto opacity-15 mb-4" />
@@ -190,6 +179,31 @@ export default async function LeaderboardPage() {
           </div>
         </>
       )}
+    </>
+  );
+
+  const globalContent = <GlobalLeaderboard entries={entries} viewerEntry={viewerEntry} optedIn={optedIn} />;
+
+  return (
+    <div className="page max-w-4xl">
+      {/* Header */}
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-[0_0_24px_#fbbf2440]"
+          style={{ background: "linear-gradient(135deg,#fbbf2420,#f5970820)", border: "1px solid #fbbf2440" }}>
+          <Trophy className="w-6 h-6 text-[#fbbf24]" />
+        </div>
+        <div>
+          <p className="section-label mb-1">Records</p>
+          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Leaderboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {hasData
+              ? `${data.totalDays} days logged in the database`
+              : "No data yet — start your daily check-in to build records."}
+          </p>
+        </div>
+      </div>
+
+      <LeaderboardTabs personal={personalContent} global={globalContent} />
     </div>
   );
 }

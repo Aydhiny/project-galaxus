@@ -2,7 +2,8 @@ import { db } from "@/lib/db";
 import { dailyCheckins } from "@/lib/db/schema";
 import { and, eq, gte } from "drizzle-orm";
 import type { WeeklyDigestStats } from "@/lib/email";
-import { getLeaderboardData, type LeaderboardData } from "@/lib/actions/leaderboard";
+import { getLeaderboardData } from "@/lib/actions/leaderboard";
+import type { LeaderboardData } from "@/lib/leaderboard-utils";
 
 /** Shared by app/api/cron/weekly-digest/route.ts (email) and the PDF report action — one query, not two. */
 export async function getWeeklyStats(userId: number, since: string): Promise<WeeklyDigestStats> {

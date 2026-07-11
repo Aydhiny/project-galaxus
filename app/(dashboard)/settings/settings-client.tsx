@@ -27,6 +27,7 @@ import { saveNotificationPrefs, type NotificationPrefs } from "@/lib/actions/use
 import { exportUserData } from "@/lib/actions/export-data";
 import { generateReportPdf } from "@/lib/actions/generate-report";
 import { createCheckoutSession, createPortalSession } from "@/lib/actions/billing";
+import { setLeaderboardOptIn } from "@/lib/actions/leaderboard";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
 
 interface AccountInfo {
@@ -41,7 +42,9 @@ interface AccountInfo {
   currentPeriodEnd: Date | null;
 }
 
-export function SettingsClient({ account, prefs: initialPrefs }: { account: AccountInfo | null; prefs: NotificationPrefs }) {
+export function SettingsClient({
+  account, prefs: initialPrefs, leaderboardOptIn: initialLeaderboardOptIn,
+}: { account: AccountInfo | null; prefs: NotificationPrefs; leaderboardOptIn: boolean }) {
   const { update: updateSession } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,6 +61,9 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
 
   const [prefs, setPrefs] = useState(initialPrefs);
   const [savingPrefs, setSavingPrefs] = useState(false);
+
+  const [leaderboardOptIn, setLeaderboardOptInState] = useState(initialLeaderboardOptIn);
+  const [savingLeaderboardOptIn, setSavingLeaderboardOptIn] = useState(false);
 
   const [deletePassword, setDeletePassword] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -126,6 +132,13 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
     setSavingPrefs(true);
     await saveNotificationPrefs(next);
     setSavingPrefs(false);
+  }
+
+  async function handleLeaderboardOptInChange(next: boolean) {
+    setLeaderboardOptInState(next);
+    setSavingLeaderboardOptIn(true);
+    await setLeaderboardOptIn(next);
+    setSavingLeaderboardOptIn(false);
   }
 
   async function handleResendVerification() {
@@ -322,6 +335,17 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
               checked={prefs.notifyWeeklyDigest}
               onCheckedChange={(checked) => handlePrefsChange({ ...prefs, notifyWeeklyDigest: checked })}
               disabled={savingPrefs}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Show me on the public leaderboard</p>
+              <p className="text-xs text-muted-foreground">Your name, total days, best streak, and badge count become visible to other users</p>
+            </div>
+            <Switch
+              checked={leaderboardOptIn}
+              onCheckedChange={handleLeaderboardOptInChange}
+              disabled={savingLeaderboardOptIn}
             />
           </div>
         </CardContent>

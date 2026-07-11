@@ -1,4 +1,4 @@
-import type { LeaderboardData } from "@/lib/actions/leaderboard";
+import type { LeaderboardData } from "@/lib/leaderboard-utils";
 
 export interface Achievement {
   id: string;

@@ -330,6 +330,7 @@ export const userSettings = pgTable("user_settings", {
   notifyDailyCheckin: boolean("notify_daily_checkin").default(true),
   notifyDailyCheckinHour: integer("notify_daily_checkin_hour").default(20),
   notifyWeeklyDigest: boolean("notify_weekly_digest").default(true),
+  leaderboardOptIn: boolean("leaderboard_opt_in").default(false),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getAchievements } from "@/lib/achievements";
-import type { LeaderboardData } from "@/lib/actions/leaderboard";
+import type { LeaderboardData } from "@/lib/leaderboard-utils";
 
 function baseData(overrides: Partial<LeaderboardData> = {}): LeaderboardData {
   return {
