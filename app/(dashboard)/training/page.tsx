@@ -248,12 +248,12 @@ export default function TrainingPage() {
                 </Button>
               </div>
               {exercises.map((ex, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                <div key={i} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
                   <Input
                     value={ex.name}
                     onChange={(e) => setExercises((exs) => exs.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
                     placeholder="Exercise name"
-                    className="col-span-4 bg-foreground/[0.05] border-border text-sm h-9"
+                    className="col-span-2 sm:col-span-4 bg-foreground/[0.05] border-border text-sm h-9"
                   />
                   <Input
                     value={ex.sets}
@@ -266,23 +266,23 @@ export default function TrainingPage() {
                     value={ex.reps}
                     onChange={(e) => setExercises((exs) => exs.map((x, j) => j === i ? { ...x, reps: e.target.value } : x))}
                     placeholder="Reps"
-                    className="col-span-2 bg-foreground/[0.05] border-border text-sm h-9"
+                    className="col-span-1 sm:col-span-2 bg-foreground/[0.05] border-border text-sm h-9"
                   />
                   <Input
                     value={ex.weight}
                     onChange={(e) => setExercises((exs) => exs.map((x, j) => j === i ? { ...x, weight: e.target.value } : x))}
                     placeholder="Weight"
-                    className="col-span-2 bg-foreground/[0.05] border-border text-sm h-9"
+                    className="col-span-1 sm:col-span-2 bg-foreground/[0.05] border-border text-sm h-9"
                   />
                   <select
                     value={ex.day}
                     onChange={(e) => setExercises((exs) => exs.map((x, j) => j === i ? { ...x, day: e.target.value } : x))}
-                    className="col-span-2 h-9 rounded-lg bg-foreground/[0.05] border border-border px-2 text-xs text-foreground focus:outline-none"
+                    className="col-span-1 sm:col-span-2 h-9 rounded-lg bg-foreground/[0.05] border border-border px-2 text-xs text-foreground focus:outline-none"
                   >
                     {DAYS.map((d) => <option key={d} value={d}>{d.slice(0, 3)}</option>)}
                   </select>
-                  <button type="button" onClick={() => setExercises((exs) => exs.filter((_, j) => j !== i))} className="col-span-1 text-muted-foreground hover:text-red-400 h-9 flex items-center justify-center">
-                    <Trash2 className="w-3.5 h-3.5" />
+                  <button type="button" onClick={() => setExercises((exs) => exs.filter((_, j) => j !== i))} className="col-span-2 sm:col-span-1 text-muted-foreground hover:text-red-400 h-9 flex items-center justify-center gap-1.5 text-xs">
+                    <Trash2 className="w-3.5 h-3.5" /> <span className="sm:hidden">Remove</span>
                   </button>
                 </div>
               ))}
