@@ -132,6 +132,7 @@ interface Props {
   quote: { text: string; source: string };
   dateStr: string;
   streaks: { training: number; meditation: number; music: number; writing: number; gratitude: number; prayers: number };
+  freezeStatus: { used: number; allowance: number };
   prayersDone: number;
   completedGoals: number;
   totalGoals: number;
@@ -141,7 +142,7 @@ interface Props {
 
 const SESSION_KEY = "galaxus-feed-videos-v2";
 
-export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoals, totalGoals, readingStats, focusText }: Props) {
+export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone, completedGoals, totalGoals, readingStats, focusText }: Props) {
   const [typed, setTyped] = useState("");
   const [videos, setVideos] = useState<FeedVideo[]>([]);
   const [todayMood, setTodayMood] = useState(0);
@@ -235,8 +236,15 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
 
         {/* Streaks + Mood */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <SectionHeader title="Current Streaks" icon={<Flame className="w-4 h-4" />} />
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <SectionHeader title="Current Streaks" icon={<Flame className="w-4 h-4" />} />
+              {freezeStatus.allowance > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/25">
+                  ❄️ {freezeStatus.allowance - freezeStatus.used}/{freezeStatus.allowance} freezes left
+                </span>
+              )}
+            </div>
             {/* Mood ring */}
             <div className="relative">
               <button onClick={() => setMoodOpen(o => !o)}

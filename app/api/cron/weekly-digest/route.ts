@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { users, userSettings, dailyCheckins } from "@/lib/db/schema";
-import { eq, and, gte, isNotNull } from "drizzle-orm";
+import { users, userSettings, notifications } from "@/lib/db/schema";
+import { eq, isNotNull } from "drizzle-orm";
 import { subDays, format } from "date-fns";
 import { sendWeeklyDigestEmail } from "@/lib/email";
+import { getWeeklyStats } from "@/lib/reports";
 
 /**
  * Triggered weekly by Vercel Cron (see vercel.json). Protected by a shared
@@ -29,18 +30,15 @@ export async function GET(req: NextRequest) {
   for (const user of recipients) {
     if (user.digestPref === false) continue;
 
-    const checkins = await db
-      .select()
-      .from(dailyCheckins)
-      .where(and(eq(dailyCheckins.userId, user.id), gte(dailyCheckins.date, since)));
+    const stats = await getWeeklyStats(user.id, since);
+    if (stats.daysLogged === 0) continue; // nothing to report — don't send a hollow email
 
-    if (checkins.length === 0) continue; // nothing to report — don't send a hollow email
-
-    await sendWeeklyDigestEmail(user.email, user.name, {
-      daysLogged: checkins.length,
-      perfectPrayerDays: checkins.filter((c) => c.fajr && c.dhuhr && c.asr && c.maghrib && c.isha).length,
-      trainingDays: checkins.filter((c) => c.training).length,
-      gratitudeDays: checkins.filter((c) => c.gratitude).length,
+    await sendWeeklyDigestEmail(user.email, user.name, stats);
+    await db.insert(notifications).values({
+      userId: user.id,
+      type: "digest",
+      title: "Your weekly digest is ready",
+      body: `${stats.daysLogged} days logged this week — ${stats.perfectPrayerDays} perfect prayer days, ${stats.trainingDays} training days.`,
     });
     sent++;
   }

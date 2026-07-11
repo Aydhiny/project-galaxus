@@ -49,6 +49,46 @@ export const backupCodes = pgTable("backup_codes", {
 
 const userIdCol = () => integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" });
 
+// ─── Notifications ─────────────────────────────────────────────────────────────
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: userIdCol(),
+  type: varchar("type", { length: 30 }).notNull(), // 'achievement' | 'digest' | 'billing_upgraded' | 'billing_past_due' | 'billing_canceled' | 'streak_freeze'
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Dedup ledger only — getAchievements() itself stays pure/derived, this just
+// tracks which unlocks we've already surfaced a notification for.
+export const notifiedAchievements = pgTable(
+  "notified_achievements",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    achievementId: varchar("achievement_id", { length: 50 }).notNull(),
+    notifiedAt: timestamp("notified_at").defaultNow(),
+  },
+  (t) => [unique("uq_notified_achievements_user_achievement").on(t.userId, t.achievementId)]
+);
+
+// ─── Streak Freezes ─────────────────────────────────────────────────────────────
+// Not a stored balance — "freezes used this month" is a computed count of rows
+// created since the start of the current calendar month (see lib/plan.ts /
+// lib/actions/checkin.ts). The ledger IS the balance; nothing to reset or drift.
+export const streakFreezes = pgTable(
+  "streak_freezes",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    habitField: varchar("habit_field", { length: 20 }).notNull(), // one of getStreaks()'s keys: prayers, training, meditation, music, gratitude, writing
+    coveredDate: date("covered_date").notNull(), // the day that would otherwise have broken the streak
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [unique("uq_streak_freezes_user_habit_date").on(t.userId, t.habitField, t.coveredDate)]
+);
+
 export const dailyCheckins = pgTable(
   "daily_checkins",
   {
@@ -313,3 +353,6 @@ export type BeatAudio      = typeof beatsAudio.$inferSelect;
 export type UserSettings   = typeof userSettings.$inferSelect;
 export type VerificationToken = typeof verificationTokens.$inferSelect;
 export type BackupCode = typeof backupCodes.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type NotifiedAchievement = typeof notifiedAchievements.$inferSelect;
+export type StreakFreeze = typeof streakFreezes.$inferSelect;

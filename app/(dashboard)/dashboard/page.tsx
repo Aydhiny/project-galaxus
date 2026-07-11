@@ -1,4 +1,4 @@
-import { getTodayCheckin, getStreaks } from "@/lib/actions/checkin";
+import { getTodayCheckin, getStreaks, getFreezeStatus } from "@/lib/actions/checkin";
 import { getMonthlyReadingStats } from "@/lib/actions/books";
 import { getTodayGoalCompletions } from "@/lib/actions/goals";
 import { getDashboardFocus } from "@/lib/actions/user-settings";
@@ -23,6 +23,10 @@ const QUOTES = [
 ];
 
 export default async function FeedPage() {
+  // getStreaks() can insert new streak_freezes rows as a side effect (see
+  // lib/actions/checkin.ts's tryApplyFreeze) — getFreezeStatus() must run
+  // after it settles, not in parallel, or the freeze count read here can be
+  // stale by exactly one from whatever getStreaks() just applied.
   const [checkin, streaks, readingStats, goals, focusText] = await Promise.all([
     getTodayCheckin(),
     getStreaks(),
@@ -30,6 +34,7 @@ export default async function FeedPage() {
     getTodayGoalCompletions(),
     getDashboardFocus(),
   ]);
+  const freezeStatus = await getFreezeStatus();
 
   const dayIndex = new Date().getDay();
   const quote = QUOTES[dayIndex % QUOTES.length];
@@ -45,6 +50,7 @@ export default async function FeedPage() {
       quote={quote}
       dateStr={dateStr}
       streaks={streaks}
+      freezeStatus={freezeStatus}
       prayersDone={prayersDone}
       completedGoals={completedGoals}
       totalGoals={goals.length}

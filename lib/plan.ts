@@ -3,11 +3,13 @@ export type Plan = "free" | "pro";
 export interface PlanLimits {
   /** Max days of history a plan can query. null = unlimited. */
   historyDays: number | null;
+  /** Streak freezes granted per calendar month. */
+  streakFreezesPerMonth: number;
 }
 
 const LIMITS: Record<Plan, PlanLimits> = {
-  free: { historyDays: 30 },
-  pro: { historyDays: null },
+  free: { historyDays: 30, streakFreezesPerMonth: 1 },
+  pro: { historyDays: null, streakFreezesPerMonth: 3 },
 };
 
 export function getPlanLimits(plan: string): PlanLimits {

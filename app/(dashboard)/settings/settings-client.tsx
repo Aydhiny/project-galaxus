@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/actions/account";
 import { saveNotificationPrefs, type NotificationPrefs } from "@/lib/actions/user-settings";
 import { exportUserData } from "@/lib/actions/export-data";
+import { generateReportPdf } from "@/lib/actions/generate-report";
 import { createCheckoutSession, createPortalSession } from "@/lib/actions/billing";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
 
@@ -62,6 +64,8 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
 
   const [resending, setResending] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [reportRange, setReportRange] = useState<"week" | "month" | "all">("week");
+  const [generatingReport, setGeneratingReport] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [managingBilling, setManagingBilling] = useState(false);
 
@@ -154,6 +158,26 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
       toast.error("Export failed. Please try again.");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleDownloadReport() {
+    setGeneratingReport(true);
+    try {
+      const res = await generateReportPdf(reportRange);
+      if ("error" in res) { toast.error(res.error); return; }
+      const bytes = Uint8Array.from(atob(res.base64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Report generation failed. Please try again.");
+    } finally {
+      setGeneratingReport(false);
     }
   }
 
@@ -319,6 +343,9 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
                 <span className="text-xs text-muted-foreground">30-day history limit</span>
               )}
             </div>
+            <span className="text-xs text-muted-foreground">
+              ❄️ {account?.plan === "pro" ? "3" : "1"} streak freeze{account?.plan === "pro" ? "s" : ""}/month
+            </span>
             {account?.plan === "pro" && account.subscriptionStatus === "past_due" && (
               <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
                 <AlertTriangle className="w-3 h-3" /> Payment failed — update your card
@@ -346,12 +373,27 @@ export function SettingsClient({ account, prefs: initialPrefs }: { account: Acco
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Download className="w-4 h-4" /> Your data</CardTitle>
-          <CardDescription>Download everything in your account as a single JSON file.</CardDescription>
+          <CardDescription>Download everything in your account, or a summarized report.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap items-center gap-3">
           <Button variant="outline" onClick={handleExport} disabled={exporting} className="w-fit">
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Download my data"}
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Download my data (JSON)"}
           </Button>
+          <div className="flex items-center gap-2">
+            <Select value={reportRange} onValueChange={(v) => v && setReportRange(v as "week" | "month" | "all")}>
+              <SelectTrigger className="h-9 w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week" className="text-xs">Week</SelectItem>
+                <SelectItem value="month" className="text-xs">Month</SelectItem>
+                <SelectItem value="all" className="text-xs">All-time</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={handleDownloadReport} disabled={generatingReport} className="w-fit">
+              {generatingReport ? <Loader2 className="w-4 h-4 animate-spin" /> : "Download PDF report"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

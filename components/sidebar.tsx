@@ -14,6 +14,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/notification-bell";
 import { useUIStore } from "@/lib/store/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RoomCustomizer } from "@/components/room-customizer";
@@ -124,7 +125,12 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
               <LayoutDashboard className="w-3.5 h-3.5 text-[#3758f9]" />
             </div>
           )}
-          {!collapsed && <ThemeToggle />}
+          {!collapsed && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
+          )}
         </div>
 
         {/* ── Nav ──────────────────────────────────────────────────────── */}

@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/sidebar";
 import { MusicPlayer } from "@/components/music-player";
 import { AmbientOverlay } from "@/components/ambient-overlay";
 import { RoomBackdrop } from "@/components/room-backdrop";
+import { NotificationBell } from "@/components/notification-bell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Menu, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Menu className="w-5 h-5" />
           </Button>
           <p className="font-semibold text-sm" style={{ fontFamily: "var(--font-heading)" }}>Galaxus</p>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </div>
 
         {/* Top gradient accent line */}

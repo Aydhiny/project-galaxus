@@ -6,6 +6,7 @@ import { useCommandStore } from "@/lib/store/command";
 import { useAmbientStore } from "@/lib/store/ambient";
 import { useRoomStore, type RoomTheme } from "@/lib/store/room";
 import { cn } from "@/lib/utils";
+import { searchContent, type SearchResult } from "@/lib/actions/search";
 import {
   Home, CheckSquare, BookOpen, GraduationCap, Dumbbell, Moon, Music2, NotebookPen,
   Target, HeartPulse, Sparkles, Activity, BarChart3, BookMarked, StickyNote,
@@ -15,7 +16,7 @@ import {
 
 /* ─── Command definitions ──────────────────────────────────────────────────── */
 
-type CmdKind = "navigate" | "action" | "room" | "sound";
+type CmdKind = "navigate" | "action" | "room" | "sound" | "search";
 
 interface Cmd {
   id: string;
@@ -32,6 +33,7 @@ const KIND_LABEL: Record<CmdKind, string> = {
   action:   "Action",
   room:     "Room",
   sound:    "Sound",
+  search:   "Journal & Check-ins",
 };
 
 const KIND_COLOR: Record<CmdKind, string> = {
@@ -39,6 +41,7 @@ const KIND_COLOR: Record<CmdKind, string> = {
   action:   "oklch(0.70 0.20 285)",
   room:     "oklch(0.70 0.15 155)",
   sound:    "oklch(0.72 0.18 220)",
+  search:   "oklch(0.65 0.20 25)",
 };
 
 /* fuzzy: every character in query appears in text in order */
@@ -60,8 +63,21 @@ export function CommandPalette() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  /* Debounced server-backed search over journal entries + check-in notes */
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setSearchResults([]); setSearching(false); return; }
+    setSearching(true);
+    const t = setTimeout(() => {
+      searchContent(q).then((results) => { setSearchResults(results); setSearching(false); });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   /* Sounds toggle helpers */
   const toggleRain  = useCallback(() => setRainVol(rainVol   > 0 ? 0 : 60), [rainVol,  setRainVol]);
@@ -109,9 +125,19 @@ export function CommandPalette() {
       icon:<Wind className="w-4 h-4"/>,      run:()=>{ toggleBrown(); closePalette(); } },
   ];
 
+  // Already server-filtered via ILIKE — no client-side fuzzy re-filter needed.
+  const searchCmds: Cmd[] = searchResults.map((r) => ({
+    id: `search-${r.id}`,
+    kind: "search",
+    label: r.snippet,
+    subtitle: r.kind === "journal" ? "Journal entry" : "Daily check-in",
+    icon: <NotebookPen className="w-4 h-4" />,
+    run: () => nav(r.kind === "journal" ? "/journal" : "/daily"),
+  }));
+
   const filtered = COMMANDS.filter(c =>
     fuzzy(query, c.label + " " + (c.subtitle ?? "") + " " + (c.keywords ?? ""))
-  );
+  ).concat(searchCmds);
 
   /* Group by kind, preserving order */
   const groups: { kind: CmdKind; items: Cmd[] }[] = [];
@@ -187,7 +213,11 @@ export function CommandPalette() {
         {/* Results */}
         <div ref={listRef} className="max-h-[400px] overflow-y-auto py-2">
           {flat.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">No results for &ldquo;{query}&rdquo;</div>
+            searching ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Searching…</div>
+            ) : (
+              <div className="py-12 text-center text-sm text-muted-foreground">No results for &ldquo;{query}&rdquo;</div>
+            )
           ) : (
             groups.map(({ kind, items }) => (
               <div key={kind} className="mb-1">
