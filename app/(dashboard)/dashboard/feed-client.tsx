@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 import { StreakRing } from "@/components/streak-ring";
 import { PrayerCountdown } from "@/components/prayer-countdown";
 import Link from "next/link";
@@ -351,8 +352,9 @@ export function FeedClient({ quote, dateStr, streaks, prayersDone, completedGoal
             <div>
               <SectionHeader title="GitHub Activity" icon={<GitBranch className="w-4 h-4" />} />
               <SpotlightCard elevated spotlightColor="rgba(23,62,255,0.10)" padding="p-4" className="mt-3 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- server-generated SVG chart with no fixed dimensions, not a good next/image fit */}
                 <img src="https://ghchart.rshah.org/C9A84C/Aydhiny" alt="GitHub contributions"
+                  loading="lazy" decoding="async"
                   className="w-full h-auto rounded-lg"
                   style={{ filter: "var(--gh-chart-filter, saturate(1.3))" }} />
                 <p className="text-[10px] text-muted-foreground mt-2 text-right">github.com/Aydhiny</p>
@@ -410,10 +412,9 @@ function InlineVideoCard({ id, title, channel }: FeedVideo) {
 
   return (
     <button onClick={handlePlay} className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[#173eff]/50 transition-all text-left w-full hover:shadow-[0_0_20px_#173eff20] hover:-translate-y-0.5">
-      <div className="relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`https://img.youtube.com/vi/${id}/mqdefault.jpg`} alt={title}
-          className="w-full aspect-video object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+      <div className="relative aspect-video">
+        <Image src={`https://img.youtube.com/vi/${id}/mqdefault.jpg`} alt={title} fill sizes="(max-width: 640px) 100vw, 320px"
+          className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className={cn(
             "w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-all duration-300",

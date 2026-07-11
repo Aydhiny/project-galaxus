@@ -1,18 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Sidebar } from "@/components/sidebar";
 import { MusicPlayer } from "@/components/music-player";
 import { AmbientOverlay } from "@/components/ambient-overlay";
 import { RoomBackdrop } from "@/components/room-backdrop";
-import { AmbientThree } from "@/components/ambient-three";
-import { CommandPalette } from "@/components/command-palette";
-import { QuickCapture, QuickCaptureButton } from "@/components/quick-capture";
-import { Screensaver } from "@/components/screensaver";
-import { FloatingPomodoro } from "@/components/pomodoro-float";
-import { ShortcutCheatsheet } from "@/components/shortcut-cheatsheet";
-import { OnboardingFlow } from "@/components/onboarding";
-import { DailyCheckinReminder } from "@/components/daily-checkin-reminder";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Menu, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +13,21 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useUIStore } from "@/lib/store/ui";
 import { useRoomStore } from "@/lib/store/room";
 import { cn } from "@/lib/utils";
+
+// Non-critical overlays/widgets — none of these need to block first paint or
+// hydrate eagerly, so they're split into their own chunks (loaded on the
+// client only) instead of shipping in the main dashboard layout bundle that
+// every single route pays for, including pages like /settings that never
+// touch them.
+const AmbientThree = dynamic(() => import("@/components/ambient-three").then((m) => m.AmbientThree), { ssr: false });
+const CommandPalette = dynamic(() => import("@/components/command-palette").then((m) => m.CommandPalette), { ssr: false });
+const QuickCapture = dynamic(() => import("@/components/quick-capture").then((m) => m.QuickCapture), { ssr: false });
+const QuickCaptureButton = dynamic(() => import("@/components/quick-capture").then((m) => m.QuickCaptureButton), { ssr: false });
+const Screensaver = dynamic(() => import("@/components/screensaver").then((m) => m.Screensaver), { ssr: false });
+const FloatingPomodoro = dynamic(() => import("@/components/pomodoro-float").then((m) => m.FloatingPomodoro), { ssr: false });
+const ShortcutCheatsheet = dynamic(() => import("@/components/shortcut-cheatsheet").then((m) => m.ShortcutCheatsheet), { ssr: false });
+const OnboardingFlow = dynamic(() => import("@/components/onboarding").then((m) => m.OnboardingFlow), { ssr: false });
+const DailyCheckinReminder = dynamic(() => import("@/components/daily-checkin-reminder").then((m) => m.DailyCheckinReminder), { ssr: false });
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);

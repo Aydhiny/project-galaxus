@@ -144,43 +144,48 @@ export default async function ReviewPage() {
           <h2 className="text-sm font-semibold">Week at a Glance</h2>
         </div>
 
-        {/* Day headers */}
-        <div className="grid grid-cols-8 gap-1 text-[10px] text-muted-foreground">
-          <div />
-          {days.map((d) => (
-            <div key={d.toISOString()} className="text-center font-medium">
-              {format(d, "EEE")}
-              <br />
-              <span className="opacity-60">{format(d, "d")}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Habit rows */}
-        {HABIT_KEYS.map((h) => (
-          <div key={h.key} className="grid grid-cols-8 gap-1 items-center">
-            <span className="text-[10px] text-muted-foreground truncate pr-1">{h.label}</span>
-            {days.map((d) => {
-              const row = checkinForDay(d);
-              const done = getHabitDone(row, h.key);
-              const isPast = d <= new Date();
-              return (
-                <div
-                  key={d.toISOString()}
-                  className={`h-7 rounded-lg flex items-center justify-center ${
-                    done
-                      ? `${h.color} opacity-80`
-                      : isPast
-                      ? "bg-foreground/[0.05]"
-                      : "bg-foreground/[0.02] border border-dashed border-border"
-                  }`}
-                >
-                  {done && <span className="text-white text-[10px]">✓</span>}
+        {/* Grid */}
+        <div className="overflow-x-auto pb-1">
+          <div className="min-w-[420px] space-y-3">
+            {/* Day headers */}
+            <div className="grid grid-cols-8 gap-1 text-[10px] text-muted-foreground">
+              <div />
+              {days.map((d) => (
+                <div key={d.toISOString()} className="text-center font-medium">
+                  {format(d, "EEE")}
+                  <br />
+                  <span className="opacity-60">{format(d, "d")}</span>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            {/* Habit rows */}
+            {HABIT_KEYS.map((h) => (
+              <div key={h.key} className="grid grid-cols-8 gap-1 items-center">
+                <span className="text-[10px] text-muted-foreground truncate pr-1">{h.label}</span>
+                {days.map((d) => {
+                  const row = checkinForDay(d);
+                  const done = getHabitDone(row, h.key);
+                  const isPast = d <= new Date();
+                  return (
+                    <div
+                      key={d.toISOString()}
+                      className={`h-7 rounded-lg flex items-center justify-center ${
+                        done
+                          ? `${h.color} opacity-80`
+                          : isPast
+                          ? "bg-foreground/[0.05]"
+                          : "bg-foreground/[0.02] border border-dashed border-border"
+                      }`}
+                    >
+                      {done && <span className="text-white text-[10px]">✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
 
       {/* Summary cards */}

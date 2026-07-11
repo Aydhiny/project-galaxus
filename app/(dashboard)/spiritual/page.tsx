@@ -264,18 +264,18 @@ export default function SpiritualPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="glass p-4 text-center">
-          <p className="text-3xl font-bold text-[var(--emerald)]">{prayerStreak}</p>
-          <p className="text-xs text-muted-foreground mt-1">Full-prayer streak (days)</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-xl sm:text-3xl font-bold text-[var(--emerald)]">{prayerStreak}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Full-prayer streak (days)</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-3xl font-bold text-[var(--gold)]">{prayerRate}%</p>
-          <p className="text-xs text-muted-foreground mt-1">Prayer consistency</p>
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-xl sm:text-3xl font-bold text-[var(--gold)]">{prayerRate}%</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Prayer consistency</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-3xl font-bold">{totalQuranPages}</p>
-          <p className="text-xs text-muted-foreground mt-1">Quran pages read</p>
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-xl sm:text-3xl font-bold">{totalQuranPages}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Quran pages read</p>
         </div>
       </div>
 
@@ -334,7 +334,7 @@ export default function SpiritualPage() {
           </h2>
           {pending && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
           {PRAYERS.map((prayer) => {
             const done = todayCheckin?.[prayer] ?? false;
             return (
@@ -342,23 +342,23 @@ export default function SpiritualPage() {
                 key={prayer}
                 onClick={() => togglePrayer(prayer)}
                 disabled={pending}
-                className={`flex flex-col items-center gap-2 py-5 px-2 rounded-xl border transition-all ${
+                className={`flex flex-col items-center gap-1 sm:gap-2 py-2 px-1 sm:py-5 sm:px-2 rounded-xl border transition-all ${
                   done
                     ? "prayer-done"
                     : "prayer-undone hover:border-[var(--emerald)]/30"
                 }`}
               >
-                <span className="text-2xl">
+                <span className="text-lg sm:text-2xl">
                   {prayer === "fajr" ? "🌙" : prayer === "dhuhr" ? "☀️" : prayer === "asr" ? "🌤️" : prayer === "maghrib" ? "🌅" : "🌃"}
                 </span>
                 <div className="text-center">
-                  <p className="text-xs font-medium capitalize">{prayer}</p>
-                  <p className="text-[10px] text-muted-foreground font-arabic">
+                  <p className="text-[10px] sm:text-xs font-medium capitalize">{prayer}</p>
+                  <p className="hidden sm:block text-[10px] text-muted-foreground font-arabic">
                     {PRAYER_LABELS[prayer]}
                   </p>
                 </div>
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center ${
                     done ? "border-[var(--emerald)] bg-[var(--emerald)]" : "border-muted-foreground/30"
                   }`}
                 >

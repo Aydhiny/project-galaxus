@@ -160,18 +160,18 @@ export default function ReadingPage() {
       </div>
 
       {/* Reading Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="glass p-4 text-center">
-          <p className="text-2xl font-bold text-[var(--gold)]">{totalHoursRead}h</p>
-          <p className="text-xs text-muted-foreground mt-1">Total read</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-[var(--gold)]">{totalHoursRead}h</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Total read</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-2xl font-bold">{pacePerHour}</p>
-          <p className="text-xs text-muted-foreground mt-1">Pages / hour</p>
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{pacePerHour}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Pages / hour</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-2xl font-bold text-[var(--emerald)]">{allSessions.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Sessions</p>
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-[var(--emerald)]">{allSessions.length}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Sessions</p>
         </div>
       </div>
 

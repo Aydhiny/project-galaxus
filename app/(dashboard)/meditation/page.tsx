@@ -350,22 +350,22 @@ export default function MeditationPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="glass p-4 text-center">
-          <p className="text-2xl font-bold text-[var(--emerald)]">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-[var(--emerald)]">
             {formatTime(timeRemaining)}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Remaining</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Remaining</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-2xl font-bold">{breathCycles}</p>
-          <p className="text-xs text-muted-foreground mt-1">Cycles</p>
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{breathCycles}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Cycles</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-2xl font-bold">
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">
             {PHASE_DURATION}s
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Per phase</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Per phase</p>
         </div>
       </div>
 

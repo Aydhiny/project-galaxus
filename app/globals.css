@@ -777,3 +777,18 @@ html.dark[data-room="mountain"] body {
 @keyframes fade-out-vt { from { opacity: 1; } to { opacity: 0; transform: translateY(4px); } }
 @keyframes fade-in-vt  { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
 */
+
+/* Respect the OS-level "reduce motion" accessibility setting — collapses every
+   CSS animation/transition to effectively instant. This mainly targets the
+   room-backdrop's always-on decorative loops (candle flicker, star twinkle,
+   window rain, snowfall), which had no motion-preference check at all before.
+   Interactive transitions (hover/focus states) become instant too, which is
+   the expected/correct behavior for this media query, not a side effect. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -27,12 +27,27 @@ export const authConfig = {
   trustHost: true,
   providers: [],
   callbacks: {
-    jwt({ token, user }) {
-      if (user) token.id = user.id;
+    jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.id = user.id;
+        token.name = user.name;
+        token.email = user.email;
+      }
+      // Fires when the client calls useSession().update(...) — e.g. Settings'
+      // profile-save flow. Without this branch the JWT never picks up the new
+      // name/email, so the UI keeps showing stale data until next sign-in.
+      if (trigger === "update" && session) {
+        if (session.name) token.name = session.name;
+        if (session.email) token.email = session.email;
+      }
       return token;
     },
     session({ session, token }) {
-      if (session.user) session.user.id = token.id as string;
+      if (session.user) {
+        session.user.id = token.id as string;
+        if (token.name) session.user.name = token.name as string;
+        if (token.email) session.user.email = token.email as string;
+      }
       return session;
     },
     authorized({ auth, request }) {

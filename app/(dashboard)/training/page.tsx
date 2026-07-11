@@ -137,23 +137,23 @@ export default function TrainingPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="glass p-4 text-center">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="glass p-2.5 sm:p-4 text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
             <Flame className="w-4 h-4 text-[var(--gold)]" />
           </div>
-          <p className="text-3xl font-bold text-[var(--gold)]">{streak}</p>
-          <p className="text-xs text-muted-foreground mt-1">Day streak</p>
+          <p className="text-xl sm:text-3xl font-bold text-[var(--gold)]">{streak}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Day streak</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-3xl font-bold">{totalSessions}</p>
-          <p className="text-xs text-muted-foreground mt-1">Sessions (30d)</p>
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-xl sm:text-3xl font-bold">{totalSessions}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Sessions (30d)</p>
         </div>
-        <div className="glass p-4 text-center">
-          <p className="text-3xl font-bold text-[var(--emerald)]">
+        <div className="glass p-2.5 sm:p-4 text-center">
+          <p className="text-xl sm:text-3xl font-bold text-[var(--emerald)]">
             {totalSessions > 0 ? Math.round((totalSessions / 30) * 100) : 0}%
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Consistency</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Consistency</p>
         </div>
       </div>
 

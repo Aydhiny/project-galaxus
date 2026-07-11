@@ -254,21 +254,21 @@ export default function CreativePage() {
       <SessionLogger />
 
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border bg-card p-4 text-center" style={{ borderColor: "oklch(0.65 0.20 290 / 30%)" }}>
-          <Music className="w-5 h-5 mx-auto mb-2" style={{ color: "oklch(0.65 0.20 290)" }} />
-          <p className="text-2xl font-bold" style={{ color: "oklch(0.65 0.20 290)" }}>{musicStreak}</p>
-          <p className="text-xs text-muted-foreground mt-1">Music streak (days)</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="rounded-2xl border bg-card p-2.5 sm:p-4 text-center" style={{ borderColor: "oklch(0.65 0.20 290 / 30%)" }}>
+          <Music className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 sm:mb-2" style={{ color: "oklch(0.65 0.20 290)" }} />
+          <p className="text-lg sm:text-2xl font-bold" style={{ color: "oklch(0.65 0.20 290)" }}>{musicStreak}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Music streak (days)</p>
         </div>
-        <div className="rounded-2xl border border-[var(--gold)]/30 bg-card p-4 text-center">
-          <Palette className="w-5 h-5 mx-auto mb-2 text-[var(--gold)]" />
-          <p className="text-2xl font-bold text-[var(--gold)]">{designStreak}</p>
-          <p className="text-xs text-muted-foreground mt-1">Design streak (days)</p>
+        <div className="rounded-2xl border border-[var(--gold)]/30 bg-card p-2.5 sm:p-4 text-center">
+          <Palette className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 sm:mb-2 text-[var(--gold)]" />
+          <p className="text-lg sm:text-2xl font-bold text-[var(--gold)]">{designStreak}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Design streak (days)</p>
         </div>
-        <div className="rounded-2xl border bg-card p-4 text-center" style={{ borderColor: "oklch(0.60 0.22 25 / 30%)" }}>
-          <Tv className="w-5 h-5 mx-auto mb-2" style={{ color: "oklch(0.60 0.22 25)" }} />
-          <p className="text-2xl font-bold" style={{ color: "oklch(0.60 0.22 25)" }}>{ytStreak}</p>
-          <p className="text-xs text-muted-foreground mt-1">YouTube streak (days)</p>
+        <div className="rounded-2xl border bg-card p-2.5 sm:p-4 text-center" style={{ borderColor: "oklch(0.60 0.22 25 / 30%)" }}>
+          <Tv className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 sm:mb-2" style={{ color: "oklch(0.60 0.22 25)" }} />
+          <p className="text-lg sm:text-2xl font-bold" style={{ color: "oklch(0.60 0.22 25)" }}>{ytStreak}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">YouTube streak (days)</p>
         </div>
       </div>
 

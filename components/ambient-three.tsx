@@ -23,8 +23,11 @@ export function AmbientThree() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    // Skip Three.js entirely when no ambient sound is active — saves significant GPU
-    if (!mounted || (rainVol === 0 && fireVol === 0)) return;
+    // Skip Three.js entirely when no ambient sound is active — saves significant GPU.
+    // Also skip when the OS "reduce motion" preference is on — this loop is purely
+    // decorative and has no functional purpose beyond visual ambience.
+    const reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!mounted || reducedMotion || (rainVol === 0 && fireVol === 0)) return;
     let animId = 0;
     let disposed = false;
     let cleanup: (() => void) | undefined;
