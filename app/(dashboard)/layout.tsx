@@ -79,7 +79,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {!effectiveHidden && (
         <aside suppressHydrationWarning className={cn(
           "hidden md:flex flex-col border-r border-sidebar-border shrink-0 relative z-10 overflow-hidden",
-          "bg-sidebar/90 backdrop-blur-xl",
+          // No backdrop-blur — RoomBackdrop is position:fixed inset:0 and animates
+          // continuously (candle flicker, star twinkle, etc., all on by default),
+          // so a persistent full-height blurred sidebar forces the browser to
+          // resample that animation every frame, forever, on every route. A
+          // slightly more opaque background gives a similar "solid panel" look
+          // without the per-frame resample cost.
+          "bg-sidebar/97",
           "transition-[width] duration-300 ease-in-out",
           effectiveCollapsed ? "w-[56px]" : "w-60"
         )}>
@@ -97,15 +103,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile sidebar */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="p-0 w-60 bg-sidebar/95 backdrop-blur-md border-r border-border">
+        <SheetContent
+          side="left"
+          showCloseButton={false}
+          className="p-0 w-60 bg-sidebar/95 backdrop-blur-md border-r border-border"
+        >
           <SheetTitle className="sr-only">Navigation</SheetTitle>
+          {/* No close "X" here — the mobile sidebar's own header already has icons
+              (notifications, theme toggle) right at the top-right corner, which the
+              Sheet's default close button (absolute top-3 right-3) collided with.
+              Tapping a nav link or the backdrop already closes the sheet. */}
           <Sidebar mobile onClose={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0 relative z-10">
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm">
+        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95">
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="text-muted-foreground">
             <Menu className="w-5 h-5" />
           </Button>
@@ -119,7 +133,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="top-accent w-full shrink-0" suppressHydrationWarning />
 
         <ErrorBoundary label="Page error">
-          <div className="flex-1 overflow-y-auto bg-background/88 backdrop-blur-[2px]">
+          {/* No backdrop-blur here — this wrapper covers the entire scrollable
+              viewport and sits on top of RoomBackdrop's always-animating layers
+              (candle flicker, star twinkle, etc., all on by default). A
+              backdrop-filter forces the browser to resample everything behind
+              it on every animation frame, not just on scroll — on a
+              viewport-sized element that's one of the most expensive things
+              you can do in CSS, regardless of GPU strength. The 2px blur was
+              barely visible; bg-background/88 alone gives the same tint. */}
+          <div className="flex-1 overflow-y-auto bg-background/88">
             {children}
           </div>
         </ErrorBoundary>

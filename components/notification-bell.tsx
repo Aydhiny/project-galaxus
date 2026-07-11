@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Bell, CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { getNotifications, getUnreadCount, markRead, markAllRead } from "@/lib/actions/notifications";
+import { getNotifications, markRead, markAllRead } from "@/lib/actions/notifications";
+import { useNotificationCount } from "@/lib/store/notifications";
 import { cn } from "@/lib/utils";
 
 interface NotificationRow {
@@ -20,14 +21,13 @@ interface NotificationRow {
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationRow[]>([]);
-  const [unread, setUnread] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  // Shared across both mounted <NotificationBell /> instances (desktop
+  // sidebar + mobile top bar are both always mounted, just CSS-hidden
+  // depending on viewport) so the unread count is fetched once, not twice.
+  const { unread, refresh, decrement, setUnread } = useNotificationCount();
 
-  const refreshUnread = useCallback(() => {
-    getUnreadCount().then(setUnread);
-  }, []);
-
-  useEffect(() => { refreshUnread(); }, [refreshUnread]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
     if (!open || loaded) return;
@@ -37,7 +37,7 @@ export function NotificationBell() {
   async function handleItemClick(id: number, readAt: Date | null) {
     if (readAt) return;
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date() } : n)));
-    setUnread((u) => Math.max(0, u - 1));
+    decrement();
     await markRead(id);
   }
 
