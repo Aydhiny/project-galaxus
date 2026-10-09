@@ -7,6 +7,8 @@ import { MarketingProductPreview } from "@/components/marketing/product-preview"
 import { MarketingChangelog } from "@/components/marketing/changelog";
 import { MarketingPricing } from "@/components/marketing/pricing";
 import { MarketingFaq } from "@/components/marketing/faq";
+import { MarketingGetApp } from "@/components/marketing/get-app";
+import { getDesktopDownloads } from "@/lib/desktop-release";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { ArrowRight } from "lucide-react";
 
@@ -16,7 +18,11 @@ export const metadata: Metadata = {
     "Habits, prayers, goals, deep work, and creative projects — tracked, streaked, and visualized in one calm, beautiful space. Built by Plansio.",
 };
 
-export default function MarketingHomePage() {
+// Picks up newly published desktop installers within ~10 minutes.
+export const revalidate = 600;
+
+export default async function MarketingHomePage() {
+  const downloads = await getDesktopDownloads();
   return (
     <>
       <MarketingHero />
@@ -25,6 +31,7 @@ export default function MarketingHomePage() {
       <MarketingProductPreview />
       <MarketingChangelog />
       <MarketingPricing />
+      <MarketingGetApp downloads={downloads} />
 
       <section id="faq" className="relative py-24 sm:py-32 px-4 sm:px-6">
         <div className="mx-auto max-w-3xl text-center mb-14">

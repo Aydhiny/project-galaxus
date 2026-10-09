@@ -16,8 +16,8 @@ const FAQS = [
     a: "Yes — the Free plan covers daily check-ins, goals, journaling, and spiritual tracking with no time limit. Pro adds deeper insights, unlimited history, and more customization.",
   },
   {
-    q: "Does it work on my phone?",
-    a: "Galaxus is a installable web app (PWA) — add it to your home screen on iOS or Android for an app-like experience, with offline support for your core pages.",
+    q: "Is there an app for my phone or computer?",
+    a: "Yes — Galaxus installs on iPhone, iPad, Android, Mac and Windows. On phones, add it to your home screen; on Mac and Windows, install it from your browser or download the desktop app. See “Get the app” above — it always runs the latest version.",
   },
   {
     q: "Can I cancel anytime?",

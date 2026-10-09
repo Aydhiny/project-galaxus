@@ -27,10 +27,7 @@ function tabFor(p: Platform): Tab {
 }
 
 export function InstallGuide({ downloads }: { downloads: DesktopDownloads }) {
-  const { platform, installed, canPrompt, promptInstall } = useInstall();
-  const [chosen, setChosen] = useState<Tab | null>(null);
-  const tab = chosen ?? tabFor(platform);
-  const onThisDevice = tab === tabFor(platform);
+  const { installed } = useInstall();
 
   return (
     <div className="min-h-dvh bg-background text-foreground px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
@@ -49,7 +46,30 @@ export function InstallGuide({ downloads }: { downloads: DesktopDownloads }) {
           </div>
         )}
 
-        <div className="mt-8 grid grid-cols-4 rounded-lg border border-border p-0.5 bg-muted/50" role="tablist" aria-label="Device">
+        <PlatformInstall downloads={downloads} className="mt-8" />
+
+        <div className="mt-10 text-sm text-muted-foreground">
+          <Link href="/productivity" className="hover:text-foreground">Or continue in the browser →</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Device tabs (auto-selected for the visitor) with install steps and desktop
+ * downloads. Shared by /install and the landing page's "Get the app" section,
+ * so the instructions live in exactly one place.
+ */
+export function PlatformInstall({ downloads, className }: { downloads: DesktopDownloads; className?: string }) {
+  const { platform, canPrompt, promptInstall } = useInstall();
+  const [chosen, setChosen] = useState<Tab | null>(null);
+  const tab = chosen ?? tabFor(platform);
+  const onThisDevice = tab === tabFor(platform);
+
+  return (
+    <div className={className}>
+        <div className="grid grid-cols-4 rounded-lg border border-border p-0.5 bg-muted/50" role="tablist" aria-label="Device">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -147,11 +167,6 @@ export function InstallGuide({ downloads }: { downloads: DesktopDownloads }) {
             </Option>
           )}
         </div>
-
-        <div className="mt-10 text-sm text-muted-foreground">
-          <Link href="/productivity" className="hover:text-foreground">Or continue in the browser →</Link>
-        </div>
-      </div>
     </div>
   );
 }

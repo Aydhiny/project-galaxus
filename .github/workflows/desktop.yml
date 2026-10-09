@@ -1,22 +1,63 @@
 name: Desktop apps
 
 # Builds the Tauri desktop shell for macOS (universal: Apple Silicon + Intel)
-# and Windows, then attaches the installers to a public GitHub Release.
-# Trigger: push a tag like `desktop-v0.1.0`, or run manually from the Actions tab.
+# and Windows, then publishes the installers to a public GitHub Release.
+#
+# Fully automatic: any push to master that changes the desktop shell ships a
+# new version (patch bump). Plain web changes DON'T trigger it — the desktop
+# app loads the live site, so every Vercel deploy already updates it; a new
+# installer is only needed when the native shell itself changes.
 on:
   push:
-    tags: ["desktop-v*"]
-  workflow_dispatch:
+    branches: [master]
+    paths:
+      - "desktop/**"
+      - "public/icons/desktop-1024.png"
+      - ".github/workflows/desktop.yml"
+    tags: ["desktop-v*"] # manual override: push a tag to release that exact version
+  workflow_dispatch: # or click "Run workflow" in the Actions tab
 
 permissions:
   contents: write # create the release + upload installers
 
+# Queue releases instead of running them in parallel, so two quick pushes
+# can't both compute the same next version.
 concurrency:
-  group: desktop-${{ github.ref }}
-  cancel-in-progress: true
+  group: desktop-release
+  cancel-in-progress: false
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need tags
+      - name: Work out the release version
+        id: v
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#desktop-v}"
+          else
+            latest=$(git tag -l 'desktop-v*' --sort=-v:refname | head -n1 | sed 's/^desktop-v//')
+            conf=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+            if [ -z "$latest" ]; then
+              version="$conf"
+            else
+              IFS=. read -r ma mi pa <<< "$latest"
+              bumped="$ma.$mi.$((pa + 1))"
+              # Respect a deliberate manual bump in tauri.conf.json (e.g. 0.2.0).
+              version=$(printf '%s\n%s\n' "$bumped" "$conf" | sort -V | tail -n1)
+            fi
+          fi
+          echo "Releasing desktop v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -26,12 +67,22 @@ jobs:
           - platform: windows-latest
             args: ""
     runs-on: ${{ matrix.platform }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Stamp version into the app
+        shell: bash
+        run: |
+          node -e "const f='desktop/src-tauri/tauri.conf.json';const c=require('./'+f);c.version=process.env.VERSION;require('fs').writeFileSync(f,JSON.stringify(c,null,2)+'\n')"
+          # perl, not sed: `sed 0,/re/` is GNU-only and macOS runners ship BSD sed.
+          # No /g flag → only the first `version = …` line ([package]) changes.
+          perl -0pi -e 's/^version = ".*?"/version = "$ENV{VERSION}"/m' desktop/src-tauri/Cargo.toml
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -75,16 +126,18 @@ jobs:
             echo "No Apple certificate configured — building an unsigned (ad-hoc signed) app."
           fi
 
+      # The release tag is created by this step via GITHUB_TOKEN, which by
+      # GitHub's design does NOT re-trigger workflows — so no release loop.
       - name: Build installers + publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'desktop-v__VERSION__' }}
-          releaseName: "Galaxus Desktop v__VERSION__"
+          tagName: desktop-v${{ needs.version.outputs.version }}
+          releaseName: "Galaxus Desktop v${{ needs.version.outputs.version }}"
           releaseBody: |
-            Desktop app for Galaxus — opens your account in its own window.
+            Desktop app for Galaxus — opens your account in its own window and updates with every web deploy.
 
             **Mac:** download the `.dmg`, drag Galaxus to Applications. First launch: if macOS says it can't check the app, open **System Settings → Privacy & Security → Open Anyway** (one time).
             **Windows:** download the `-setup.exe`. If SmartScreen appears, click **More info → Run anyway** (one time).

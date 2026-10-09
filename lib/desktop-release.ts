@@ -1,5 +1,5 @@
 // Finds the latest desktop installers on the public GitHub Releases page.
-// Server-side + cached for an hour, so visitors never hit GitHub's
+// Server-side + cached for 10 minutes, so visitors never hit GitHub's
 // unauthenticated API rate limit (60 req/hour per IP) themselves.
 
 const REPO = "Aydhiny/project-galaxus";
@@ -22,12 +22,16 @@ export async function getDesktopDownloads(): Promise<DesktopDownloads> {
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=10`, {
       headers: { Accept: "application/vnd.github+json" },
-      next: { revalidate: 3600 },
+      next: { revalidate: 600 },
     });
     if (!res.ok) return fallback;
     const releases = (await res.json()) as GithubRelease[];
-    // The repo may get other releases later — only look at desktop ones.
-    const rel = releases.find((r) => r.tag_name.startsWith("desktop-v") && r.assets.length > 0);
+    // Only desktop releases. Prefer the newest one with BOTH installers: while
+    // a new version is building, its release briefly has only the (faster)
+    // Windows file — keep showing the previous complete release until then.
+    const desktop = releases.filter((r) => r.tag_name.startsWith("desktop-v") && r.assets.length > 0);
+    const complete = (r: GithubRelease) => r.assets.some((a) => /\.dmg$/i.test(a.name)) && r.assets.some((a) => /-setup\.exe$/i.test(a.name));
+    const rel = desktop.find(complete) ?? desktop[0];
     if (!rel) return fallback;
     const find = (re: RegExp) => rel.assets.find((a) => re.test(a.name))?.browser_download_url ?? null;
     return {

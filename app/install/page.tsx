@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   description: "Install Galaxus on iPhone, iPad, Mac, Windows or Android.",
 };
 
-// Re-check GitHub for new desktop installers at most once an hour.
-export const revalidate = 3600;
+// Re-check GitHub for new desktop installers at most every 10 minutes.
+export const revalidate = 600;
 
 export default async function InstallPage() {
   const downloads = await getDesktopDownloads();
