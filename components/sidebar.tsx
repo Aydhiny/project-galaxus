@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone,
+  Rss, CalendarRange, Gauge, Smartphone, Send,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -30,6 +30,7 @@ const PRIMARY: NavItem[] = [
   { href: "/review",   icon: BarChart3,   label: "Weekly Review"  },
   { href: "/daily",    icon: CheckSquare, label: "Daily Check-in" },
   { href: "/goals",    icon: Target,      label: "Goals"          },
+  { href: "/outreach", icon: Send,        label: "Outreach"       },
 ];
 
 // Everything else lives in collapsible groups so the sidebar stays calm.

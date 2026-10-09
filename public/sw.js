@@ -11,7 +11,7 @@
  *  • Only immutable build assets (/_next/static, hashed) and icons are cached.
  */
 
-const VERSION = "galaxus-v2";
+const VERSION = "galaxus-v3";
 const STATIC_CACHE = `${VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/apple-touch-icon.png"];
@@ -68,4 +68,41 @@ self.addEventListener("fetch", (event) => {
     );
   }
   // Everything else (RSC payloads, API, images): let the browser handle it.
+});
+
+// ── Push notifications (outreach batches, see lib/services/outreach/push.ts) ──
+self.addEventListener("push", (event) => {
+  let msg = { title: "Galaxus", body: "", url: "/outreach" };
+  try {
+    msg = { ...msg, ...event.data.json() };
+  } catch {
+    if (event.data) msg.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(msg.title, {
+      body: msg.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: msg.tag,
+      renotify: !!msg.tag,
+      data: { url: msg.url },
+    })
+  );
+});
+
+// Tapping the notification focuses an open Galaxus window (or opens one).
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/outreach", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if (new URL(w.url).origin === self.location.origin && "focus" in w) {
+          w.navigate(url).catch(() => {});
+          return w.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
 });

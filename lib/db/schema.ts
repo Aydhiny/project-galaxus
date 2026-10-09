@@ -467,6 +467,127 @@ export const tasks = pgTable(
   ]
 );
 
+// ─── Outreach engine ───────────────────────────────────────────────────────────
+// Finds local businesses (Google Places), audits their web presence, drafts a
+// cold message, and releases small batches at random times on workdays. The
+// user sends each one personally via WhatsApp click-to-chat — nothing is sent
+// automatically (see lib/services/outreach/engine.ts).
+
+/** One row per user: campaign config + encrypted provider keys. */
+export const outreachSettings = pgTable("outreach_settings", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  active: boolean("active").notNull().default(false),
+  senderName: varchar("sender_name", { length: 100 }),
+  // What you sell, in your words — fed to the message writer.
+  offer: text("offer"),
+  dailyVolume: integer("daily_volume").notNull().default(15),
+  batches: integer("batches").notNull().default(3),
+  windowStart: integer("window_start").notNull().default(8), // local hour, inclusive
+  windowEnd: integer("window_end").notNull().default(18), // local hour, exclusive
+  timezone: varchar("timezone", { length: 50 }).notNull().default("Europe/Sarajevo"),
+  // AES-256-GCM ciphertexts (lib/crypto-box.ts) — never returned to the client.
+  googleKeyEnc: text("google_key_enc"),
+  anthropicKeyEnc: text("anthropic_key_enc"),
+  lastReview: text("last_review"),
+  lastReviewAt: timestamp("last_review_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/** A Places text query to mine, e.g. "stomatološka ordinacija" in "Sarajevo". */
+export const leadSearches = pgTable(
+  "lead_searches",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    query: varchar("query", { length: 200 }).notNull(),
+    city: varchar("city", { length: 100 }).notNull(),
+    category: varchar("category", { length: 60 }), // label, e.g. "Dentist"
+    active: boolean("active").notNull().default(true),
+    // Places paginates (max 3 pages × 20). null token + pages > 0 = exhausted.
+    nextPageToken: text("next_page_token"),
+    pagesFetched: integer("pages_fetched").notNull().default(0),
+    lastRunAt: timestamp("last_run_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_lead_searches_user").on(t.userId)]
+);
+
+export const leads = pgTable(
+  "leads",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    searchId: integer("search_id").references(() => leadSearches.id, { onDelete: "set null" }),
+    placeId: varchar("place_id", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    category: varchar("category", { length: 60 }),
+    phone: varchar("phone", { length: 32 }), // E.164, e.g. +38761123456
+    channel: varchar("channel", { length: 12 }).notNull().default("call"), // 'whatsapp' (mobile) | 'call' (landline)
+    address: text("address"),
+    city: varchar("city", { length: 100 }),
+    website: text("website"),
+    mapsUrl: text("maps_url"),
+    rating: real("rating"),
+    reviewCount: integer("review_count"),
+    gaps: jsonb("gaps").$type<string[]>().notNull().default([]),
+    score: integer("score").notNull().default(0),
+    revenueKm: integer("revenue_km"), // annual revenue (CompanyWall), entered by hand
+    // new → audited → ready → queued → sent → replied → meeting → client
+    // side exits: skipped | not_interested | do_not_contact
+    status: varchar("status", { length: 20 }).notNull().default("new"),
+    skipReason: varchar("skip_reason", { length: 40 }),
+    message: text("message"),
+    messageVariant: varchar("message_variant", { length: 40 }),
+    queuedFor: date("queued_for"),
+    batch: integer("batch"),
+    sentAt: timestamp("sent_at"),
+    repliedAt: timestamp("replied_at"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_leads_user_place").on(t.userId, t.placeId),
+    index("idx_leads_user_status").on(t.userId, t.status),
+  ]
+);
+
+/** The day's randomly drawn batch times, so every tick agrees on them. */
+export type OutreachSlot = { time: string; batch: number; releasedAt?: string; count?: number };
+export const outreachDays = pgTable(
+  "outreach_days",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    day: date("day").notNull(),
+    slots: jsonb("slots").$type<OutreachSlot[]>().notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_outreach_days_user_day").on(t.userId, t.day)]
+);
+
+/** Web Push subscriptions (one per device/browser). */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: varchar("user_agent", { length: 255 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_push_subscriptions_user").on(t.userId)]
+);
+
+/** App-wide generated secrets (VAPID keys). Values are encrypted. */
+export const appSecrets = pgTable("app_secrets", {
+  name: varchar("name", { length: 60 }).primaryKey(),
+  value: text("value").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
@@ -495,3 +616,7 @@ export type Task = typeof tasks.$inferSelect;
 export type RecurringTask = typeof recurringTasks.$inferSelect;
 export type MonthlyGoal = typeof monthlyGoals.$inferSelect;
 export type ApiToken = typeof apiTokens.$inferSelect;
+export type OutreachSettings = typeof outreachSettings.$inferSelect;
+export type LeadSearch = typeof leadSearches.$inferSelect;
+export type Lead = typeof leads.$inferSelect;
+export type OutreachDay = typeof outreachDays.$inferSelect;

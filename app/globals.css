@@ -422,6 +422,10 @@ html.dark[data-room="mountain"] body {
 
 /* ── Layout components (below utilities — lets max-w-X utilities override max-width) ── */
 @layer components {
+  /* Plain text field used by settings-style forms (Outreach setup). */
+  .input-base {
+    @apply w-full h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground;
+  }
   .page {
     padding: 2rem 1.5rem;
     max-width: 64rem;

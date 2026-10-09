@@ -1,0 +1,35 @@
+# Outreach scheduler: pings Galaxus every 15 minutes on workdays. The app
+# decides what to do (draw today's random batch times, release a due batch,
+# send the push notification, top up leads) — this just keeps the beat.
+#
+# Why GitHub Actions and not Vercel Cron: Vercel's free plan only allows
+# daily crons. Note: GitHub may delay scheduled runs by a few minutes (fine —
+# batch times are random anyway) and pauses schedules in repos with no
+# activity for 60 days.
+name: Outreach tick
+
+on:
+  schedule:
+    # 05:00–17:45 UTC = 06:00/07:00–18:45/19:45 in Sarajevo (CET/CEST). Mon–Fri.
+    - cron: "*/15 5-17 * * 1-5"
+  workflow_dispatch: {}
+
+concurrency:
+  group: outreach-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Tick
+        env:
+          TOKEN: ${{ secrets.GALAXUS_OUTREACH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "GALAXUS_OUTREACH_TOKEN secret is not set"; exit 1; fi
+          code=$(curl -sS -o body.json -w "%{http_code}" --max-time 90 \
+            -H "Authorization: Bearer $TOKEN" \
+            https://project-galaxus.vercel.app/api/cron/outreach)
+          cat body.json; echo
+          test "$code" = "200"
