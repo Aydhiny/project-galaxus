@@ -9,6 +9,9 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as goalsSvc from "@/lib/services/goals";
 import * as tasksSvc from "@/lib/services/tasks";
+import * as routinesSvc from "@/lib/services/recurring";
+import { AREAS } from "@/lib/areas";
+import { describeDays } from "@/lib/tasks";
 import { goalPace, goalProgress, groupByPhase, monthKey, monthLabel, PACE_LABEL } from "@/lib/goals";
 import type { Task } from "@/lib/db/schema";
 
@@ -44,22 +47,48 @@ function slimTask(t: Task) {
     due_time: t.dueTime,
     goal_id: t.goalId,
     phase: t.phase,
+    area: t.area,
     notes: t.notes,
+    attachments: t.attachments,
   };
 }
 
 const priority = z.enum(["none", "low", "medium", "high"]);
+const area = z.enum(AREAS).describe("Area of life: training, faith, reading, youtube, mind, sleep, study");
+const attachment = z.object({
+  type: z.enum(["link", "image"]).default("link"),
+  url: z.string().url().max(2000),
+  title: z.string().max(120).optional().describe("Short label, e.g. 'Wall walk tutorial'"),
+});
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const days = z
+  .union([z.enum(["daily", "weekdays", "weekends"]), z.array(z.enum(WEEKDAY_KEYS)).min(1).max(7)])
+  .describe('"daily", "weekdays", "weekends", or a list like ["mon","wed","fri"]');
+
+/** Friendly days → the 7-char Monday-first mask stored in the DB. */
+function daysMask(d: z.infer<typeof days>): string {
+  if (d === "daily") return "1111111";
+  if (d === "weekdays") return "1111100";
+  if (d === "weekends") return "0000011";
+  return WEEKDAY_KEYS.map((k) => (d.includes(k) ? "1" : "0")).join("");
+}
+
+function slimRoutine(r: { id: number; title: string; days: string; time: string | null; priority: string; area: string | null; active: boolean }) {
+  return { id: r.id, title: r.title, days: describeDays(r.days), time: r.time, priority: r.priority, area: r.area, active: r.active };
+}
 const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).describe('Calendar month, "YYYY-MM"');
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('"YYYY-MM-DD"');
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).describe('24h "HH:MM"');
 
 const planTask = z.object({
-  title: z.string().min(1).max(500).describe("Concrete, doable action — e.g. '3 × 30s wall plank (chest to wall)'"),
+  title: z.string().min(1).max(60).describe("SHORT title (2–5 words) — e.g. 'Wall walk-ups'. Put details in notes."),
   day: z.number().int().min(1).max(31).optional().describe("Day of the goal's month. Omit to auto-spread tasks evenly."),
   date: date.optional().describe("Exact date (overrides day)."),
   notes: z.string().max(2000).optional().describe("How-to cues, form tips, success criteria."),
   priority: priority.optional(),
   time: time.optional(),
+  area: area.optional().describe("Defaults to the goal's area"),
+  attachments: z.array(attachment).max(12).optional().describe("Helpful links (videos, docs) or images"),
 });
 
 const goalShape = z.object({
@@ -67,6 +96,7 @@ const goalShape = z.object({
   month,
   emoji: z.string().max(16).optional(),
   description: z.string().max(5000).optional().describe("Why it matters + what 'done' looks like."),
+  area: area.optional(),
 });
 
 export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
@@ -234,12 +264,13 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
         from: date.optional(),
         to: date.optional(),
         include_done: z.boolean().optional().describe("Default true."),
+        area: area.optional(),
       }),
       annotations: { readOnlyHint: true },
     },
-    async ({ goal_id, from, to, include_done }, ctx) => {
+    async ({ goal_id, from, to, include_done, area: a }, ctx) => {
       try {
-        const rows = await tasksSvc.listTasksFor(userIdOf(ctx), { goalId: goal_id, from, to, includeDone: include_done ?? true });
+        const rows = await tasksSvc.listTasksFor(userIdOf(ctx), { goalId: goal_id, from, to, includeDone: include_done ?? true, area: a });
         return ok(rows.slice(0, 300).map(slimTask));
       } catch (e) { return fail(e); }
     }
@@ -252,13 +283,15 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
       description: "Add one or more tasks (optionally linked to a goal and phase).",
       inputSchema: z.object({
         tasks: z.array(z.object({
-          title: z.string().min(1).max(500),
+          title: z.string().min(1).max(60).describe("SHORT title (2–5 words); details go in notes"),
           due_date: date.optional(),
           due_time: time.optional(),
           priority: priority.optional(),
           notes: z.string().max(2000).optional(),
           goal_id: z.number().int().optional(),
           phase: z.string().max(100).optional(),
+          area: area.optional(),
+          attachments: z.array(attachment).max(12).optional(),
         })).min(1).max(50),
       }),
     },
@@ -266,7 +299,7 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
       try {
         const rows = await tasksSvc.createTasksFor(userIdOf(ctx), tasks.map((t) => ({
           title: t.title, dueDate: t.due_date, dueTime: t.due_time, priority: t.priority,
-          notes: t.notes, goalId: t.goal_id, phase: t.phase,
+          notes: t.notes, goalId: t.goal_id, phase: t.phase, area: t.area, attachments: t.attachments,
         })));
         written();
         return ok(rows.map(slimTask));
@@ -289,6 +322,8 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
         status: z.enum(["todo", "doing", "done"]).optional(),
         goal_id: z.number().int().nullable().optional(),
         phase: z.string().max(100).nullable().optional(),
+        area: area.nullable().optional(),
+        attachments: z.array(attachment).max(12).optional().describe("REPLACES the task's attachments"),
       }),
       annotations: { idempotentHint: true },
     },
@@ -339,6 +374,90 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
         if (!done) return fail(new Error("Task not found."));
         written();
         return ok({ removed: task_id });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "list_routines",
+    {
+      title: "List routines",
+      description: "Recurring daily/weekly tasks (workout, prayer, reading…). Each active routine creates a task on its days.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async (_args, ctx) => {
+      try {
+        return ok((await routinesSvc.listRoutinesFor(userIdOf(ctx))).map(slimRoutine));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "create_routine",
+    {
+      title: "Create a routine",
+      description: "Create a recurring task (e.g. 'Read 10 pages' daily at 21:00). Pass `today` (user's local date) to create today's instance right away.",
+      inputSchema: z.object({
+        title: z.string().min(1).max(60).describe("SHORT title, e.g. 'Read 10 pages'"),
+        days,
+        time: time.optional(),
+        priority: priority.optional(),
+        area: area.optional(),
+        today: date.optional(),
+      }),
+    },
+    async ({ days: d, today: t, ...rest }, ctx) => {
+      try {
+        const userId = userIdOf(ctx);
+        const row = await routinesSvc.createRoutineFor(userId, { ...rest, days: daysMask(d) });
+        if (t) await routinesSvc.ensureRoutineInstancesFor(userId, t);
+        written();
+        return ok(slimRoutine(row));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "update_routine",
+    {
+      title: "Update a routine",
+      description: "Change a routine's title, days, time, priority or area, or pause/resume it (active).",
+      inputSchema: z.object({
+        routine_id: z.number().int(),
+        title: z.string().min(1).max(60).optional(),
+        days: days.optional(),
+        time: time.nullable().optional(),
+        priority: priority.optional(),
+        area: area.nullable().optional(),
+        active: z.boolean().optional(),
+      }),
+      annotations: { idempotentHint: true },
+    },
+    async ({ routine_id, days: d, ...rest }, ctx) => {
+      try {
+        const row = await routinesSvc.updateRoutineFor(userIdOf(ctx), routine_id, { ...rest, ...(d ? { days: daysMask(d) } : {}) });
+        if (!row) return fail(new Error("Routine not found (or nothing to change)."));
+        written();
+        return ok(slimRoutine(row));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "delete_routine",
+    {
+      title: "Delete a routine",
+      description: "Stop a routine. Tasks it already created are kept.",
+      inputSchema: z.object({ routine_id: z.number().int() }),
+      annotations: { destructiveHint: true },
+    },
+    async ({ routine_id }, ctx) => {
+      try {
+        const done = await routinesSvc.deleteRoutineFor(userIdOf(ctx), routine_id);
+        if (!done) return fail(new Error("Routine not found."));
+        written();
+        return ok({ deleted: routine_id });
       } catch (e) { return fail(e); }
     }
   );

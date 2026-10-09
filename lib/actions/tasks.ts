@@ -11,6 +11,7 @@ function revalidateTaskViews() {
   revalidatePath("/tasks");
   revalidatePath("/productivity");
   revalidatePath("/review");
+  revalidatePath("/goal/[id]", "page");
 }
 
 /** Sanitise a client-supplied id list (server actions are public endpoints). */

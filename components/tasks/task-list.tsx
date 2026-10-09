@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
-import { Calendar, Check, ChevronDown, ChevronUp, Clock, Flag, GripVertical, Repeat, Sun, Sunrise } from "lucide-react";
+import { Calendar, Check, ChevronDown, ChevronUp, Clock, Flag, GripVertical, Paperclip, Repeat, Sun, Sunrise } from "lucide-react";
+import { AREA_META, isArea } from "@/lib/areas";
 import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { formatTime, toDateKey, type TaskPriority, type TaskStatus } from "@/lib/tasks";
@@ -110,7 +111,8 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
       {dropIndicator === "above" && <div className="absolute left-0 right-0 -top-px h-0.5 rounded bg-primary" />}
       {dropIndicator === "below" && <div className="absolute left-0 right-0 -bottom-px h-0.5 rounded bg-primary" />}
 
-      {reorderable && (
+      {/* Grip column: reserved for any row in a sortable list (even a lone one) so checkboxes line up. */}
+      {(reorderable || dragProps) && (
         <span
           aria-hidden
           className="hidden [@media(hover:hover)]:flex w-4 -mr-1 shrink-0 items-center justify-center text-muted-foreground/50 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
@@ -122,8 +124,14 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
       <Checkbox done={done} onToggle={onToggle} priority={task.priority as TaskPriority} />
 
       <span className={cn("flex-1 min-w-0 truncate text-[15px]", done && "line-through text-muted-foreground")}>
+        {isArea(task.area) && <span className="mr-1.5 text-[13px]" title={AREA_META[task.area].label} aria-label={AREA_META[task.area].label}>{AREA_META[task.area].emoji}</span>}
         {task.title}
       </span>
+      {(task.attachments?.length ?? 0) > 0 && (
+        <span className="shrink-0 inline-flex items-center gap-0.5 text-xs text-muted-foreground" title={`${task.attachments.length} attachment${task.attachments.length > 1 ? "s" : ""}`}>
+          <Paperclip className="w-3 h-3" />{task.attachments.length}
+        </span>
+      )}
 
       {goal && (
         <span className="shrink-0 inline-flex items-center gap-1 max-w-[8rem] rounded-full bg-muted px-1.5 py-px text-[11px] text-muted-foreground" title={`Goal: ${goal.title}`}>

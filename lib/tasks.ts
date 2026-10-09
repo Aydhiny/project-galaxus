@@ -3,6 +3,7 @@
 // get bitten by timezone shifts from round-tripping through Date objects.
 
 import { addDays, format, nextDay, type Day } from "date-fns";
+import { areaFromTag, type Area } from "@/lib/areas";
 
 export const TASK_STATUSES = ["todo", "doing", "done"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
@@ -94,14 +95,17 @@ export function parseQuickAdd(input: string, now: Date = new Date()): {
   title: string;
   dueDate: string | null;
   priority: TaskPriority;
+  area: Area | null;
 } {
   let dueDate: string | null = null;
   let priority: TaskPriority = "none";
+  let area: Area | null = null;
   const kept: string[] = [];
 
   for (const token of input.trim().split(/\s+/)) {
     const t = token.toLowerCase();
-    if (t === "!high" || t === "!!!" || t === "!h") priority = "high";
+    if (t.startsWith("#") && areaFromTag(t)) area = areaFromTag(t);
+    else if (t === "!high" || t === "!!!" || t === "!h") priority = "high";
     else if (t === "!medium" || t === "!med" || t === "!!" || t === "!m") priority = "medium";
     else if (t === "!low" || t === "!l") priority = "low";
     else if (t === "today" || t === "tod") dueDate = toDateKey(now);
@@ -112,7 +116,7 @@ export function parseQuickAdd(input: string, now: Date = new Date()): {
     else kept.push(token);
   }
 
-  return { title: kept.join(" "), dueDate, priority };
+  return { title: kept.join(" "), dueDate, priority, area };
 }
 
 // ─── Reordering ─────────────────────────────────────────────────────────────

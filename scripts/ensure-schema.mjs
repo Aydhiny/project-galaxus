@@ -117,6 +117,12 @@ const STATEMENTS = [
   END $$`,
   `CREATE INDEX IF NOT EXISTS "idx_tasks_goal" ON "tasks" ("goal_id")`,
 
+  // ── 2026-10 · Areas of life + task attachments ───────────────────────────
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "area" varchar(20)`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "attachments" jsonb DEFAULT '[]'::jsonb NOT NULL`,
+  `ALTER TABLE "recurring_tasks" ADD COLUMN IF NOT EXISTS "area" varchar(20)`,
+  `ALTER TABLE "monthly_goals" ADD COLUMN IF NOT EXISTS "area" varchar(20)`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

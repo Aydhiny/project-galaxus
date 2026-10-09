@@ -10,7 +10,7 @@ import { createTask, updateTask, deleteTask, reorderTasks } from "@/lib/actions/
 import { ensureRecurringInstances } from "@/lib/actions/recurring";
 import { moveInList, moveTo, type TaskPriority, type TaskStatus } from "@/lib/tasks";
 
-export type TaskPatch = Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime" | "goalId" | "phase">>;
+export type TaskPatch = Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime" | "goalId" | "phase" | "area" | "attachments">>;
 
 /** How long a just-checked task stays in place (struck through) before moving to "Done". */
 export const LINGER_MS = 1800;
@@ -136,12 +136,12 @@ export function useTasks(initialTasks: Task[], today: string, opts: { goals?: Mo
     if (next !== sectionIds) applyOrder(next);
   }, [applyOrder]);
 
-  const addTask = useCallback((input: { title: string; dueDate: string | null; priority: TaskPriority; status?: TaskStatus; goalId?: number | null; phase?: string | null }) => {
+  const addTask = useCallback((input: { title: string; dueDate: string | null; priority: TaskPriority; status?: TaskStatus; goalId?: number | null; phase?: string | null; area?: string | null }) => {
     const tempId = -Date.now();
     const optimistic: Task = {
       id: tempId, userId: 0, title: input.title, notes: null, status: input.status ?? "todo",
       priority: input.priority, dueDate: input.dueDate, dueTime: null, pageId: null, recurringId: null,
-      goalId: input.goalId ?? null, phase: input.phase ?? null,
+      goalId: input.goalId ?? null, phase: input.phase ?? null, area: input.area ?? null, attachments: [],
       orderIndex: Number.MAX_SAFE_INTEGER, completedAt: input.status === "done" ? new Date() : null,
       deletedAt: null, deletionReviewedAt: null, restoredAt: null,
       createdAt: new Date(), updatedAt: new Date(),

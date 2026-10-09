@@ -22,6 +22,15 @@ vi.mock("@/lib/services/goals", () => ({
   updateGoalFor: vi.fn(),
   deleteGoalFor: vi.fn(),
 }));
+const createRoutineFor = vi.fn();
+const ensureRoutineInstancesFor = vi.fn(async (...args: unknown[]) => ({ created: 1, archived: 0, args }));
+vi.mock("@/lib/services/recurring", () => ({
+  listRoutinesFor: vi.fn(async () => []),
+  createRoutineFor: (...a: unknown[]) => createRoutineFor(...a),
+  updateRoutineFor: vi.fn(),
+  deleteRoutineFor: vi.fn(),
+  ensureRoutineInstancesFor: (...a: unknown[]) => ensureRoutineInstancesFor(...a),
+}));
 vi.mock("@/lib/services/tasks", () => ({
   listTasksFor: (...a: unknown[]) => listTasksFor(...a),
   createTasksFor: vi.fn(async () => []),
@@ -72,8 +81,8 @@ describe("MCP endpoint", () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
-      "add_tasks", "complete_task", "create_goal_plan", "delete_goal", "delete_task",
-      "get_goal", "get_overview", "list_goals", "list_tasks", "update_goal", "update_task",
+      "add_tasks", "complete_task", "create_goal_plan", "create_routine", "delete_goal", "delete_routine", "delete_task",
+      "get_goal", "get_overview", "list_goals", "list_routines", "list_tasks", "update_goal", "update_routine", "update_task",
     ]);
     const plan = tools.find((t) => t.name === "create_goal_plan")!;
     expect(JSON.stringify(plan.inputSchema)).toContain("phases");
@@ -114,6 +123,19 @@ describe("MCP endpoint", () => {
     const result = await client.callTool({ name: "list_tasks", arguments: { from: "not-a-date" } });
     expect(result.isError).toBe(true);
     expect(listTasksFor).not.toHaveBeenCalled();
+    await client.close();
+  });
+
+  it("creates routines from friendly day names and materialises today", async () => {
+    createRoutineFor.mockResolvedValue({ id: 3, title: "Workout", days: "1101011", time: "18:00", priority: "none", area: "training", active: true });
+    const client = await connect("glx_valid");
+    const result = await client.callTool({
+      name: "create_routine",
+      arguments: { title: "Workout", days: ["mon", "tue", "thu", "sat", "sun"], time: "18:00", area: "training", today: "2026-10-09" },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(createRoutineFor).toHaveBeenCalledWith(42, expect.objectContaining({ title: "Workout", days: "1101011", area: "training" }));
+    expect(ensureRoutineInstancesFor).toHaveBeenCalledWith(42, "2026-10-09");
     await client.close();
   });
 });

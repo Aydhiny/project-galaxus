@@ -15,6 +15,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import type { Block } from "@/lib/blocks";
+import type { TaskAttachment } from "@/lib/attachments";
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = pgTable("users", {
@@ -379,6 +380,7 @@ export const monthlyGoals = pgTable(
     description: text("description"), // the "why" / definition of done
     emoji: varchar("emoji", { length: 16 }),
     month: varchar("month", { length: 7 }).notNull(), // "YYYY-MM"
+    area: varchar("area", { length: 20 }), // area of life (lib/areas.ts); plan tasks inherit it
     status: varchar("status", { length: 20 }).notNull().default("active"), // 'active' | 'achieved' | 'abandoned'
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
@@ -416,6 +418,7 @@ export const recurringTasks = pgTable(
     // 7 chars, Monday→Sunday, "1" = repeats that day. "1111111" = every day.
     days: varchar("days", { length: 7 }).notNull().default("1111111"),
     time: varchar("time", { length: 5 }), // "08:00" (local), optional
+    area: varchar("area", { length: 20 }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow(),
   },
@@ -438,6 +441,10 @@ export const tasks = pgTable(
     recurringId: integer("recurring_id").references(() => recurringTasks.id, { onDelete: "set null" }),
     goalId: integer("goal_id").references(() => monthlyGoals.id, { onDelete: "set null" }),
     phase: varchar("phase", { length: 100 }), // plan stage within a goal, e.g. "Week 1 · Foundations"
+    area: varchar("area", { length: 20 }), // area of life: training | faith | reading | youtube | mind | sleep | study
+    // Links / images: [{ type: "link" | "image", url, title? }] — small, always
+    // loaded with the task, so a JSONB column beats a join table here.
+    attachments: jsonb("attachments").$type<TaskAttachment[]>().notNull().default([]),
     orderIndex: integer("order_index").notNull().default(0),
     completedAt: timestamp("completed_at"),
     // Soft delete: removed tasks keep their history (stats, weekly review)

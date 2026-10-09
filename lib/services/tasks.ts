@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 import { monthlyGoals, tasks, type Task } from "@/lib/db/schema";
 import { and, asc, eq, gte, isNull, lte, ne, sql } from "drizzle-orm";
 import { TASK_PRIORITIES, TASK_STATUSES, isValidTime, type TaskPriority, type TaskStatus } from "@/lib/tasks";
+import { isArea, type Area } from "@/lib/areas";
+import { sanitizeAttachments, type TaskAttachment } from "@/lib/attachments";
 
 export const isStatus = (v: unknown): v is TaskStatus => TASK_STATUSES.includes(v as TaskStatus);
 export const isPriority = (v: unknown): v is TaskPriority => TASK_PRIORITIES.includes(v as TaskPriority);
@@ -23,6 +25,8 @@ export interface TaskInput {
   status?: TaskStatus;
   goalId?: number | null;
   phase?: string | null;
+  area?: Area | string | null;
+  attachments?: TaskAttachment[];
 }
 
 export type TaskPatch = Partial<Omit<TaskInput, "title">> & { title?: string };
@@ -63,16 +67,19 @@ function toValues(userId: number, input: TaskInput, orderIndex: number): typeof 
     completedAt: status === "done" ? new Date() : null,
     goalId: typeof input.goalId === "number" ? input.goalId : null,
     phase: input.phase ? String(input.phase).trim().slice(0, 100) || null : null,
+    area: isArea(input.area) ? input.area : null,
+    attachments: sanitizeAttachments(input.attachments),
     orderIndex,
   };
 }
 
 export async function listTasksFor(
   userId: number,
-  opts: { goalId?: number; from?: string; to?: string; includeDone?: boolean } = {}
+  opts: { goalId?: number; from?: string; to?: string; includeDone?: boolean; area?: string } = {}
 ): Promise<Task[]> {
   const conds = [eq(tasks.userId, userId), isNull(tasks.deletedAt)];
   if (opts.goalId) conds.push(eq(tasks.goalId, opts.goalId));
+  if (isArea(opts.area)) conds.push(eq(tasks.area, opts.area));
   if (isDateKey(opts.from)) conds.push(gte(tasks.dueDate, opts.from));
   if (isDateKey(opts.to)) conds.push(lte(tasks.dueDate, opts.to));
   if (opts.includeDone === false) conds.push(ne(tasks.status, "done"));
@@ -115,6 +122,8 @@ export async function updateTaskFor(userId: number, id: number, patch: TaskPatch
   if (patch.dueDate !== undefined) values.dueDate = isDateKey(patch.dueDate) ? patch.dueDate : null;
   if (patch.dueTime !== undefined) values.dueTime = isValidTime(patch.dueTime) ? patch.dueTime : null;
   if (patch.phase !== undefined) values.phase = patch.phase ? String(patch.phase).trim().slice(0, 100) || null : null;
+  if (patch.area !== undefined) values.area = isArea(patch.area) ? patch.area : null;
+  if (patch.attachments !== undefined) values.attachments = sanitizeAttachments(patch.attachments);
   if (patch.goalId !== undefined) {
     if (typeof patch.goalId === "number") await assertGoalOwned(userId, patch.goalId);
     values.goalId = typeof patch.goalId === "number" ? patch.goalId : null;

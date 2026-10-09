@@ -3,23 +3,23 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { format, parseISO, subDays } from "date-fns";
 import {
-  Calendar, Flag, LayoutList, Columns3, Plus, Trash2, CornerDownLeft, CircleDashed, Repeat, Sun, Sunrise, X,
-} from "lucide-react";
+  Calendar, Flag, LayoutList, Columns3, Plus, CornerDownLeft, CircleDashed, Repeat, } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { GoalsPanel } from "@/components/goals/goals-panel";
-import { monthLabel } from "@/lib/goals";
 import { clearCompletedTasks } from "@/lib/actions/tasks";
 import { useTasks } from "@/components/tasks/use-tasks";
-import { SortableTaskList, TaskRow, DueChip, PRIORITY_COLOR, STATUS_DOT, tomorrowOf } from "@/components/tasks/task-list";
+import { SortableTaskList, TaskRow, DueChip, PRIORITY_COLOR, STATUS_DOT } from "@/components/tasks/task-list";
 import { RecurringSheet } from "@/components/tasks/recurring-sheet";
+import { TaskDetail } from "@/components/tasks/task-detail";
+import { AREAS, AREA_META, type Area } from "@/lib/areas";
 import { useLocalToday, useStoredValue } from "@/lib/hooks/client-values";
 import {
-  BUCKET_LABEL, PRIORITY_LABEL, STATUS_LABEL, TASK_PRIORITIES, TASK_STATUSES,
+  BUCKET_LABEL, PRIORITY_LABEL, STATUS_LABEL, TASK_STATUSES,
   compareTasks, groupByBucket, parseQuickAdd, toDateKey,
   type DueBucket, type TaskPriority, type TaskStatus,
 } from "@/lib/tasks";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 // Re-exported for existing imports (productivity dashboard).
 export { TaskRow, DueChip };
@@ -39,6 +39,10 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
   const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask, move, drop } = useTasks(initialTasks, today, { goals });
   const [recurringOpen, setRecurringOpen] = useState(false);
   const goalsById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
+  // Secondary filter by area of life — the main view stays time-based.
+  const [areaFilter, setAreaFilter] = useState<Area | null>(null);
+  const areasInUse = useMemo(() => AREAS.filter((a) => tasks.some((t) => t.area === a && t.status !== "done")), [tasks]);
+  const visibleTasks = useMemo(() => (areaFilter ? tasks.filter((t) => t.area === areaFilter) : tasks), [tasks, areaFilter]);
   const [, startTransition] = useTransition();
 
   function changeView(v: View) {
@@ -49,8 +53,8 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
   // Just-completed tasks are bucketed as if still open so they stay where you
   // clicked (struck through) for a moment, then glide into "Done today".
   const groups = useMemo(
-    () => groupByBucket(tasks.map((t) => (lingering.has(t.id) ? { ...t, status: "todo" } : t)), today),
-    [tasks, lingering, today]
+    () => groupByBucket(visibleTasks.map((t) => (lingering.has(t.id) ? { ...t, status: "todo" } : t)), today),
+    [visibleTasks, lingering, today]
   );
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
   const real = (t: Task) => byId.get(t.id) ?? t; // the un-masked task (true status)
@@ -101,12 +105,21 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
           goals={goals}
           tasks={tasks}
           today={today}
-          lingering={lingering}
-          handlers={{ toggleDone, move, drop, patchTask, addTask }}
         />
       </div>
 
       <QuickAdd onAdd={addTask} />
+
+      {view === "list" && areasInUse.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by area">
+          <AreaChip active={areaFilter === null} onClick={() => setAreaFilter(null)}>All</AreaChip>
+          {areasInUse.map((a) => (
+            <AreaChip key={a} active={areaFilter === a} onClick={() => setAreaFilter(areaFilter === a ? null : a)}>
+              {AREA_META[a].emoji} {AREA_META[a].label}
+            </AreaChip>
+          ))}
+        </div>
+      )}
 
       {view === "list" ? (
         <div className="mt-8 space-y-8">
@@ -192,7 +205,7 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
       )}
 
       <Sheet open={openTask !== null} onOpenChange={(o) => { if (!o) setOpenId(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 gap-0">
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 gap-0 overflow-y-auto">
           {openTask && (
             <TaskDetail
               key={openTask.id}
@@ -213,7 +226,7 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
 
 // ─── Quick add ──────────────────────────────────────────────────────────────
 
-function QuickAdd({ onAdd }: { onAdd: (t: { title: string; dueDate: string | null; priority: TaskPriority }) => void }) {
+function QuickAdd({ onAdd }: { onAdd: (t: { title: string; dueDate: string | null; priority: TaskPriority; area: Area | null }) => void }) {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const parsed = useMemo(() => parseQuickAdd(value), [value]);
@@ -246,7 +259,7 @@ function QuickAdd({ onAdd }: { onAdd: (t: { title: string; dueDate: string | nul
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") { setValue(""); e.currentTarget.blur(); } }}
-          placeholder="Add a task…  try “Gym tomorrow !high”"
+          placeholder="Add a task…  try “Gym tomorrow !high #training”"
           className="flex-1 h-12 bg-transparent border-0 shadow-none outline-none focus:shadow-none focus-visible:outline-none text-[15px] placeholder:text-muted-foreground/60 px-0"
         />
         {!value && <kbd className="hidden sm:block text-[10px] font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5">N</kbd>}
@@ -256,7 +269,7 @@ function QuickAdd({ onAdd }: { onAdd: (t: { title: string; dueDate: string | nul
           </button>
         )}
       </div>
-      {value && (parsed.dueDate || parsed.priority !== "none") && (
+      {value && (parsed.dueDate || parsed.priority !== "none" || parsed.area) && (
         <div className="flex items-center gap-2 px-4 pb-3 -mt-1 text-xs">
           {parsed.dueDate && (
             <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
@@ -266,6 +279,11 @@ function QuickAdd({ onAdd }: { onAdd: (t: { title: string; dueDate: string | nul
           {parsed.priority !== "none" && (
             <span className={cn("inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5", PRIORITY_COLOR[parsed.priority])}>
               <Flag className="w-3 h-3" /> {PRIORITY_LABEL[parsed.priority]}
+            </span>
+          )}
+          {parsed.area && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
+              {AREA_META[parsed.area].emoji} {AREA_META[parsed.area].label}
             </span>
           )}
         </div>
@@ -382,178 +400,17 @@ function Board({ tasks, today, onMove, onOpen, onAdd }: {
   );
 }
 
-// ─── Detail sheet ───────────────────────────────────────────────────────────
-
-function TaskDetail({ task, today, goals, onPatch, onDelete }: {
-  task: Task;
-  today: string;
-  goals: MonthlyGoal[];
-  onPatch: (p: Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime" | "goalId" | "phase">>) => void;
-  onDelete: () => void;
-}) {
-  const tomorrow = tomorrowOf(today);
-  const [title, setTitle] = useState(task.title);
-  const [notes, setNotes] = useState(task.notes ?? "");
-
-  // Text fields save on blur rather than per keystroke — one request per edit
-  // session instead of dozens.
-  const commitTitle = () => { if (title.trim() && title !== task.title) onPatch({ title: title.trim() }); };
-  const commitNotes = () => { if (notes !== (task.notes ?? "")) onPatch({ notes: notes || null }); };
-
-  return (
-    <div className="flex flex-col h-full">
-      <SheetTitle className="sr-only">Edit task</SheetTitle>
-      <div className="p-6 pb-4 pr-12">
-        <textarea
-          value={title}
-          rows={2}
-          onChange={(e) => setTitle(e.target.value.replace(/\n/g, ""))}
-          onBlur={commitTitle}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
-          className="w-full resize-none bg-transparent p-0 border-0 shadow-none outline-none focus:shadow-none focus-visible:outline-none text-xl font-semibold leading-snug"
-        />
-      </div>
-
-      <div className="px-6 space-y-4 text-sm">
-        <Field label="Status">
-          <Segmented
-            options={TASK_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s], dot: STATUS_DOT[s] }))}
-            value={task.status}
-            onChange={(v) => onPatch({ status: v as TaskStatus })}
-          />
-        </Field>
-        <Field label="Priority">
-          <Segmented
-            options={TASK_PRIORITIES.map((p) => ({ value: p, label: p === "none" ? "None" : PRIORITY_LABEL[p] }))}
-            value={task.priority}
-            onChange={(v) => onPatch({ priority: v as TaskPriority })}
-          />
-        </Field>
-        <Field label="Do it">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <ScheduleChip active={task.dueDate === today} onClick={() => onPatch({ dueDate: today })} icon={Sun} label="Today" />
-            <ScheduleChip active={task.dueDate === tomorrow} onClick={() => onPatch({ dueDate: tomorrow })} icon={Sunrise} label="Tomorrow" />
-            <input
-              type="date"
-              value={task.dueDate ?? ""}
-              onChange={(e) => onPatch({ dueDate: e.target.value || null })}
-              className="h-8 rounded-md border border-border bg-transparent px-2 text-sm"
-              aria-label="Pick a date"
-            />
-            {task.dueDate && (
-              <button onClick={() => onPatch({ dueDate: null })} className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent" aria-label="Clear date">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </Field>
-        <Field label="Goal">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={task.goalId ?? ""}
-              onChange={(e) => onPatch({ goalId: e.target.value ? Number(e.target.value) : null })}
-              className="h-8 max-w-[14rem] rounded-md border border-border bg-transparent px-2 text-sm"
-              aria-label="Monthly goal"
-            >
-              <option value="">No goal</option>
-              {goals.filter((g) => g.status !== "abandoned" || g.id === task.goalId).map((g) => (
-                <option key={g.id} value={g.id}>{g.emoji ?? "🎯"} {g.title} · {monthLabel(g.month).split(" ")[0]}</option>
-              ))}
-            </select>
-            {task.goalId && (
-              <input
-                key={task.id}
-                defaultValue={task.phase ?? ""}
-                onBlur={(e) => { if ((e.target.value || null) !== task.phase) onPatch({ phase: e.target.value.trim() || null }); }}
-                placeholder="Phase"
-                className="h-8 w-36 rounded-md border border-border bg-transparent px-2 text-sm"
-                aria-label="Phase"
-              />
-            )}
-          </div>
-        </Field>
-        <Field label="Time">
-          <div className="flex items-center gap-2">
-            <input
-              type="time"
-              value={task.dueTime ?? ""}
-              onChange={(e) => onPatch({ dueTime: e.target.value || null })}
-              className="h-8 rounded-md border border-border bg-transparent px-2 text-sm"
-            />
-            {task.recurringId && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Repeat className="w-3 h-3" /> From a routine</span>}
-          </div>
-        </Field>
-      </div>
-
-      <div className="px-6 pt-6 flex-1 flex flex-col min-h-0">
-        <p className="text-xs font-medium text-muted-foreground mb-2">Notes</p>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={commitNotes}
-          placeholder="Add details, links, sub-steps…"
-          className="flex-1 min-h-40 w-full resize-none rounded-lg border border-border bg-transparent p-3 text-sm leading-6"
-        />
-      </div>
-
-      <div className="p-6 flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {task.createdAt ? `Created ${format(new Date(task.createdAt), "MMM d, yyyy")}` : ""}
-        </span>
-        <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-destructive/10 hover:text-destructive">
-          <Trash2 className="w-3.5 h-3.5" /> Delete
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ScheduleChip({ active, onClick, icon: Icon, label }: {
-  active: boolean; onClick: () => void; icon: React.ComponentType<{ className?: string }>; label: string;
-}) {
+function AreaChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs transition-colors",
-        active ? "border-primary bg-primary/10 text-foreground font-medium" : "border-border text-muted-foreground hover:text-foreground"
+        "h-7 px-2.5 rounded-full text-xs transition-colors whitespace-nowrap",
+        active ? "bg-foreground text-background font-medium" : "bg-muted text-muted-foreground hover:text-foreground"
       )}
     >
-      <Icon className="w-3.5 h-3.5" /> {label}
+      {children}
     </button>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[5.5rem_1fr] items-center gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function Segmented({ options, value, onChange }: {
-  options: { value: string; label: string; dot?: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="inline-flex flex-wrap rounded-lg border border-border p-0.5 bg-muted/50">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          className={cn(
-            "flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs transition-colors",
-            value === o.value ? "bg-background shadow-xs text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {o.dot && <span className={cn("w-1.5 h-1.5 rounded-full", o.dot)} />}
-          {o.label}
-        </button>
-      ))}
-    </div>
   );
 }

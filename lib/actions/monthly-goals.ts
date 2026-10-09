@@ -11,6 +11,7 @@ function revalidateGoalViews() {
   revalidatePath("/tasks");
   revalidatePath("/productivity");
   revalidatePath("/review");
+  revalidatePath("/goal/[id]", "page");
 }
 
 /** Goals for the given months (the UI asks for this month + neighbours). */

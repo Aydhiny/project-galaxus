@@ -10,7 +10,10 @@ describe("parseQuickAdd", () => {
       title: "Call mom",
       dueDate: "2026-10-09",
       priority: "high",
+      area: null,
     });
+    expect(parseQuickAdd("100 push-ups #gym", NOW)).toMatchObject({ title: "100 push-ups", area: "training" });
+    expect(parseQuickAdd("Read tafsir #deen", NOW).area).toBe("faith");
   });
 
   it("understands weekdays as the next occurrence", () => {
@@ -19,7 +22,8 @@ describe("parseQuickAdd", () => {
   });
 
   it("leaves plain titles untouched", () => {
-    expect(parseQuickAdd("Finish chapter 3", NOW)).toEqual({ title: "Finish chapter 3", dueDate: null, priority: "none" });
+    expect(parseQuickAdd("Finish chapter 3", NOW)).toEqual({ title: "Finish chapter 3", dueDate: null, priority: "none", area: null });
+    expect(parseQuickAdd("Fix bug #42", NOW).title).toBe("Fix bug #42"); // unknown tags stay in the title
   });
 });
 

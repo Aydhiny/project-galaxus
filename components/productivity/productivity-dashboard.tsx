@@ -116,8 +116,6 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
         goals={goals}
         tasks={tasks}
         today={today}
-        lingering={lingering}
-        handlers={{ toggleDone, move, drop, patchTask, addTask }}
       />
 
       <div className="grid gap-6 @3xl:grid-cols-[1.1fr_1fr]">

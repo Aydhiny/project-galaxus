@@ -6,6 +6,8 @@ import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { GOAL_STATUSES, dayInMonth, daysInMonth, goalProgress, isValidMonth, type GoalStatus } from "@/lib/goals";
 import { createTasksFor, isDateKey, type TaskInput } from "@/lib/services/tasks";
 import type { TaskPriority } from "@/lib/tasks";
+import { isArea, type Area } from "@/lib/areas";
+import type { TaskAttachment } from "@/lib/attachments";
 
 const isGoalStatus = (v: unknown): v is GoalStatus => GOAL_STATUSES.includes(v as GoalStatus);
 
@@ -14,6 +16,7 @@ export interface GoalInput {
   month: string;
   emoji?: string | null;
   description?: string | null;
+  area?: Area | string | null;
 }
 
 export async function listGoalsFor(
@@ -47,6 +50,7 @@ export async function createGoalFor(userId: number, input: GoalInput): Promise<M
       month: input.month,
       emoji: input.emoji ? String(input.emoji).slice(0, 16) : null,
       description: input.description ? String(input.description).slice(0, 5_000) : null,
+      area: isArea(input.area) ? input.area : null,
     })
     .returning();
   return row;
@@ -63,6 +67,7 @@ export async function updateGoalFor(
   if (patch.emoji !== undefined) values.emoji = patch.emoji ? String(patch.emoji).slice(0, 16) : null;
   if (patch.description !== undefined) values.description = patch.description ? String(patch.description).slice(0, 5_000) : null;
   if (patch.status !== undefined && isGoalStatus(patch.status)) values.status = patch.status;
+  if (patch.area !== undefined) values.area = isArea(patch.area) ? patch.area : null;
   const [row] = await db
     .update(monthlyGoals)
     .set(values)
@@ -115,6 +120,8 @@ export interface PlanTaskInput {
   notes?: string;
   priority?: TaskPriority;
   time?: string;
+  area?: Area | string;
+  attachments?: TaskAttachment[];
 }
 
 export interface PlanPhaseInput {
@@ -163,6 +170,8 @@ export async function createGoalPlanFor(
     dueDate,
     goalId: goal.id,
     phase: phase || null,
+    area: task.area ?? goal.area, // plan steps inherit the goal's area
+    attachments: task.attachments,
   }));
   const created = await createTasksFor(userId, rows);
   return { goal, tasks: created };

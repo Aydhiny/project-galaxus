@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { Switch } from "@/components/ui/switch";
 import { createRecurring, deleteRecurring, listRecurring, updateRecurring, ensureRecurringInstances } from "@/lib/actions/recurring";
 import { PRIORITY_LABEL, TASK_PRIORITIES, WEEKDAY_SHORT, describeDays, formatTime, type TaskPriority } from "@/lib/tasks";
+import { AREAS, AREA_META, isArea, type Area } from "@/lib/areas";
 
 const PRESETS: { label: string; days: string }[] = [
   { label: "Every day", days: "1111111" },
@@ -22,6 +23,7 @@ export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; o
   const [time, setTime] = useState("08:00");
   const [days, setDays] = useState("1111111");
   const [priority, setPriority] = useState<TaskPriority>("none");
+  const [area, setArea] = useState<Area | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Load when opened (cheap, and keeps the Tasks page payload small).
@@ -43,7 +45,7 @@ export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; o
     if (!title.trim()) return;
     startTransition(async () => {
       try {
-        const row = await createRecurring({ title, time: time || null, days, priority });
+        const row = await createRecurring({ title, time: time || null, days, priority, area });
         setItems((xs) => [...(xs ?? []), row]);
         setTitle("");
         // Create today's instance right away if the routine applies today.
@@ -123,6 +125,14 @@ export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; o
               ))}
             </div>
           </div>
+          <div className="flex flex-wrap gap-1" role="group" aria-label="Area of life">
+            {AREAS.map((a) => (
+              <button key={a} type="button" onClick={() => setArea(area === a ? null : a)} aria-pressed={area === a} title={AREA_META[a].label}
+                className={cn("h-8 rounded-md text-sm inline-flex items-center gap-1", area === a ? "px-2 bg-accent ring-1 ring-primary" : "w-8 justify-center hover:bg-accent")}>
+                {AREA_META[a].emoji}{area === a && <span className="text-xs">{AREA_META[a].label}</span>}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={add}
@@ -145,7 +155,7 @@ export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; o
               {items.map((r) => (
                 <li key={r.id} className={cn("flex items-center gap-3 rounded-lg border border-border px-3 py-2.5", !r.active && "opacity-55")}>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{r.title}</p>
+                    <p className="text-sm font-medium truncate">{isArea(r.area) && <span className="mr-1.5">{AREA_META[r.area].emoji}</span>}{r.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {describeDays(r.days)}{r.time ? ` · ${formatTime(r.time)}` : ""}{r.active ? "" : " · paused"}
                     </p>
