@@ -436,7 +436,7 @@ export function RoomBackdrop() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // Only suppress in explicit light mode — undefined/system fall through so dark rooms still render
-  if (!mounted || resolvedTheme === "light") return null;
+  if (!mounted || resolvedTheme === "light" || theme === "minimal") return null;
 
   const layers = (() => {
     if (theme === "cabin")    return getCabinLayers(decorations, rainVol, fireVol);

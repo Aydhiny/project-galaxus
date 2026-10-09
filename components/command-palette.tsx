@@ -12,6 +12,7 @@ import {
   Target, HeartPulse, Sparkles, Activity, BarChart3, BookMarked, StickyNote,
   LayoutDashboard, CloudRain, Flame, Wind, Timer, Plus, Sunrise, Search, X,
   Leaf, Mountain,
+  Square, ListTodo, FileText,
 } from "lucide-react";
 
 /* ─── Command definitions ──────────────────────────────────────────────────── */
@@ -99,6 +100,8 @@ export function CommandPalette() {
     { id:"metrics",  kind:"navigate", label:"Body Metrics",   icon:<Activity className="w-4 h-4"/>,      run:()=>nav("/metrics")    },
     { id:"study",    kind:"navigate", label:"Study",          icon:<GraduationCap className="w-4 h-4"/>, run:()=>nav("/study"),     keywords:"courses learn" },
     { id:"reading",  kind:"navigate", label:"Reading",        icon:<BookOpen className="w-4 h-4"/>,      run:()=>nav("/reading"),   keywords:"books library" },
+    { id:"tasks",    kind:"navigate", label:"Tasks",          icon:<ListTodo className="w-4 h-4"/>,      run:()=>nav("/tasks"),     keywords:"todo kanban board productivity" },
+    { id:"pages",    kind:"navigate", label:"Pages",          icon:<FileText className="w-4 h-4"/>,      run:()=>nav("/pages"),     keywords:"docs notion write notes" },
     { id:"notes",    kind:"navigate", label:"Notes",          icon:<StickyNote className="w-4 h-4"/>,    run:()=>nav("/notes"),     keywords:"brain dump write" },
     { id:"heatmap",  kind:"navigate", label:"Habit Map",      icon:<LayoutDashboard className="w-4 h-4"/>, run:()=>nav("/heatmap") },
     { id:"spiritual",kind:"navigate", label:"Spiritual",      icon:<Moon className="w-4 h-4"/>,           run:()=>nav("/spiritual"), keywords:"prayers islam" },
@@ -111,6 +114,7 @@ export function CommandPalette() {
     { id:"pomodoro", kind:"action",   label:"Start Pomodoro", subtitle:"25-minute focus session",
       icon:<Timer className="w-4 h-4"/>, run:()=>nav("/study"), keywords:"focus timer work" },
     // Room themes
+    { id:"minimal",  kind:"room", label:"Minimal",       icon:<Square className="w-4 h-4"/>,   run:()=>{ setTheme("minimal");  closePalette(); } },
     { id:"cabin",    kind:"room", label:"Cozy Cabin",    icon:<Flame className="w-4 h-4"/>,    run:()=>{ setTheme("cabin");    closePalette(); } },
     { id:"bamboo",   kind:"room", label:"Bamboo Zen",    icon:<Leaf className="w-4 h-4"/>,     run:()=>{ setTheme("bamboo");   closePalette(); } },
     { id:"lofi",     kind:"room", label:"Lofi Night",    icon:<Moon className="w-4 h-4"/>,     run:()=>{ setTheme("lofi");     closePalette(); } },

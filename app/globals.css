@@ -56,74 +56,79 @@
 .dark { --gh-chart-filter: invert(1) hue-rotate(175deg) saturate(1.4) brightness(0.85); }
 
 /* ── TOKENS ───────────────────────────────────────────────────────── */
+/* Neutral, Notion/Linear-style palette. One accent colour, everything else is
+   greys — colour is reserved for meaning (status, priority, progress). */
 :root {
-  --background: #f2f5ff;
-  --foreground: #0a0e1a;
+  --background: #fbfbfa;
+  --foreground: #1f1f1e;
   --card: #ffffff;
-  --card-foreground: #0a0e1a;
+  --card-foreground: #1f1f1e;
   --popover: #ffffff;
-  --popover-foreground: #0a0e1a;
-  --primary: #173eff;
+  --popover-foreground: #1f1f1e;
+  --primary: #3b5bdb;
   --primary-foreground: #ffffff;
-  --secondary: #eef0ff;
-  --secondary-foreground: #0a0e1a;
-  --muted: #eef0ff;
-  --muted-foreground: #6b7280;
-  --accent: #e8ebff;
-  --accent-foreground: #0a0e1a;
+  --secondary: #f1f1ef;
+  --secondary-foreground: #1f1f1e;
+  --muted: #f1f1ef;
+  --muted-foreground: #73726e;
+  --accent: #ececea;
+  --accent-foreground: #1f1f1e;
   --destructive: #dc2626;
-  --border: rgba(0,0,0,0.08);
-  --input: rgba(0,0,0,0.06);
-  --ring: #173eff;
-  --gold: #f59e0b;
-  --gold-muted: rgba(245,158,11,0.12);
+  --border: rgba(0,0,0,0.085);
+  --input: rgba(0,0,0,0.10);
+  --ring: #3b5bdb;
+  --gold: #d97706;
+  --gold-muted: rgba(217,119,6,0.12);
   --emerald: #10b981;
-  --radius: 0.75rem;
-  --sidebar: #ebeeff;
-  --sidebar-foreground: #0a0e1a;
-  --sidebar-primary: #173eff;
+  --radius: 0.625rem;
+  --sidebar: #f5f5f3;
+  --sidebar-foreground: #37352f;
+  --sidebar-primary: #3b5bdb;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #dde1ff;
-  --sidebar-accent-foreground: #0a0e1a;
-  --sidebar-border: rgba(0,0,0,0.07);
-  --sidebar-ring: #173eff;
-  --chart-1: #173eff; --chart-2: #10b981; --chart-3: #7c3aed;
+  --sidebar-accent: #e9e9e6;
+  --sidebar-accent-foreground: #1f1f1e;
+  --sidebar-border: rgba(0,0,0,0.06);
+  --sidebar-ring: #3b5bdb;
+  --chart-1: #3b5bdb; --chart-2: #10b981; --chart-3: #7c3aed;
   --chart-4: #f59e0b; --chart-5: #dc2626;
 }
 
+/* Dark: soft graphite instead of near-black navy. Surfaces step UP in
+   lightness (background -> card -> popover) so depth comes from tone, not
+   from heavy shadows or glows. */
 .dark {
-  --background: #070b18;
-  --foreground: rgba(255,255,255,0.92);
-  --card: rgba(10,14,28,0.80);
-  --card-foreground: rgba(255,255,255,0.92);
-  --popover: #0f1525;
-  --popover-foreground: rgba(255,255,255,0.92);
-  --primary: #173eff;
-  --primary-foreground: #ffffff;
-  --secondary: rgba(255,255,255,0.06);
-  --secondary-foreground: rgba(255,255,255,0.92);
-  --muted: rgba(255,255,255,0.06);
-  --muted-foreground: rgba(255,255,255,0.45);
-  --accent: rgba(255,255,255,0.08);
-  --accent-foreground: rgba(255,255,255,0.92);
-  --destructive: #ef4444;
-  --border: rgba(255,255,255,0.07);
-  --input: rgba(255,255,255,0.08);
-  --ring: #173eff;
-  --gold: #f59e0b;
-  --gold-muted: rgba(245,158,11,0.13);
-  --emerald: #10b981;
-  --radius: 0.75rem;
-  --sidebar: rgba(5,8,20,0.97);
-  --sidebar-foreground: rgba(255,255,255,0.85);
-  --sidebar-primary: #173eff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255,255,255,0.07);
-  --sidebar-accent-foreground: rgba(255,255,255,0.92);
+  --background: #1e1f22;
+  --foreground: #e8e8e6;
+  --card: #26272b;
+  --card-foreground: #e8e8e6;
+  --popover: #2b2c30;
+  --popover-foreground: #e8e8e6;
+  --primary: #6b8afd;
+  --primary-foreground: #0f1222;
+  --secondary: #2c2d31;
+  --secondary-foreground: #e8e8e6;
+  --muted: #2a2b2f;
+  --muted-foreground: #9b9ba0;
+  --accent: #303136;
+  --accent-foreground: #f0f0ee;
+  --destructive: #f05252;
+  --border: rgba(255,255,255,0.085);
+  --input: rgba(255,255,255,0.12);
+  --ring: #6b8afd;
+  --gold: #f5a524;
+  --gold-muted: rgba(245,165,36,0.14);
+  --emerald: #34d399;
+  --radius: 0.625rem;
+  --sidebar: #1a1b1e;
+  --sidebar-foreground: #d4d4d2;
+  --sidebar-primary: #6b8afd;
+  --sidebar-primary-foreground: #0f1222;
+  --sidebar-accent: #2a2b2f;
+  --sidebar-accent-foreground: #f0f0ee;
   --sidebar-border: rgba(255,255,255,0.06);
-  --sidebar-ring: #173eff;
-  --chart-1: #173eff; --chart-2: #10b981; --chart-3: #7c3aed;
-  --chart-4: #f59e0b; --chart-5: #ef4444;
+  --sidebar-ring: #6b8afd;
+  --chart-1: #6b8afd; --chart-2: #34d399; --chart-3: #a78bfa;
+  --chart-4: #f5a524; --chart-5: #f05252;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -132,19 +137,19 @@
 
 /* ── Bamboo Zen ─────────────────────────────────────────────────────────── */
 html.dark[data-room="bamboo"] {
-  --background:        oklch(0.088 0.040 148);
+  --background:        oklch(0.188 0.040 148);
   --foreground:        oklch(0.930 0.028 130);
-  --card:              oklch(0.134 0.045 150);
+  --card:              oklch(0.234 0.045 150);
   --card-foreground:   oklch(0.930 0.028 130);
-  --popover:           oklch(0.142 0.046 150);
+  --popover:           oklch(0.242 0.046 150);
   --popover-foreground:oklch(0.930 0.028 130);
   --primary:           oklch(0.70 0.17 155);
   --primary-foreground:oklch(0.08 0.015 148);
-  --secondary:         oklch(0.192 0.040 148);
+  --secondary:         oklch(0.292 0.040 148);
   --secondary-foreground:oklch(0.930 0.028 130);
-  --muted:             oklch(0.192 0.040 148);
+  --muted:             oklch(0.292 0.040 148);
   --muted-foreground:  oklch(0.560 0.055 148);
-  --accent:            oklch(0.210 0.042 150);
+  --accent:            oklch(0.310 0.042 150);
   --accent-foreground: oklch(0.930 0.028 130);
   --destructive:       oklch(0.63 0.23 26);
   --border:            oklch(1 0 0 / 9%);
@@ -153,11 +158,11 @@ html.dark[data-room="bamboo"] {
   --gold:              oklch(0.70 0.17 155);
   --gold-muted:        oklch(0.70 0.14 155 / 16%);
   --emerald:           oklch(0.65 0.20 145);
-  --sidebar:           oklch(0.098 0.032 148);
+  --sidebar:           oklch(0.198 0.032 148);
   --sidebar-foreground:oklch(0.930 0.028 130);
   --sidebar-primary:   oklch(0.70 0.17 155);
   --sidebar-primary-foreground:oklch(0.08 0.015 148);
-  --sidebar-accent:    oklch(0.192 0.040 148);
+  --sidebar-accent:    oklch(0.292 0.040 148);
   --sidebar-accent-foreground:oklch(0.930 0.028 130);
   --sidebar-border:    oklch(1 0 0 / 7%);
   --sidebar-ring:      oklch(0.70 0.17 155);
@@ -170,19 +175,19 @@ html.dark[data-room="bamboo"] body {
 
 /* ── Lofi Night ─────────────────────────────────────────────────────────── */
 html.dark[data-room="lofi"] {
-  --background:        oklch(0.090 0.042 268);
+  --background:        oklch(0.190 0.042 268);
   --foreground:        oklch(0.930 0.025 260);
-  --card:              oklch(0.134 0.048 270);
+  --card:              oklch(0.234 0.048 270);
   --card-foreground:   oklch(0.930 0.025 260);
-  --popover:           oklch(0.142 0.050 270);
+  --popover:           oklch(0.242 0.050 270);
   --popover-foreground:oklch(0.930 0.025 260);
   --primary:           oklch(0.72 0.20 285);
   --primary-foreground:oklch(0.08 0.015 268);
-  --secondary:         oklch(0.190 0.046 268);
+  --secondary:         oklch(0.290 0.046 268);
   --secondary-foreground:oklch(0.930 0.025 260);
-  --muted:             oklch(0.190 0.046 268);
+  --muted:             oklch(0.290 0.046 268);
   --muted-foreground:  oklch(0.560 0.050 268);
-  --accent:            oklch(0.210 0.050 270);
+  --accent:            oklch(0.310 0.050 270);
   --accent-foreground: oklch(0.930 0.025 260);
   --destructive:       oklch(0.63 0.23 26);
   --border:            oklch(1 0 0 / 9%);
@@ -191,11 +196,11 @@ html.dark[data-room="lofi"] {
   --gold:              oklch(0.72 0.20 285);
   --gold-muted:        oklch(0.72 0.17 285 / 16%);
   --emerald:           oklch(0.66 0.18 220);
-  --sidebar:           oklch(0.098 0.035 268);
+  --sidebar:           oklch(0.198 0.035 268);
   --sidebar-foreground:oklch(0.930 0.025 260);
   --sidebar-primary:   oklch(0.72 0.20 285);
   --sidebar-primary-foreground:oklch(0.08 0.015 268);
-  --sidebar-accent:    oklch(0.190 0.046 268);
+  --sidebar-accent:    oklch(0.290 0.046 268);
   --sidebar-accent-foreground:oklch(0.930 0.025 260);
   --sidebar-border:    oklch(1 0 0 / 7%);
   --sidebar-ring:      oklch(0.72 0.20 285);
@@ -209,19 +214,19 @@ html.dark[data-room="lofi"] body {
 
 /* ── Reading Nook ───────────────────────────────────────────────────────── */
 html.dark[data-room="nook"] {
-  --background:        oklch(0.092 0.038 52);
+  --background:        oklch(0.192 0.038 52);
   --foreground:        oklch(0.935 0.030 76);
-  --card:              oklch(0.138 0.042 52);
+  --card:              oklch(0.238 0.042 52);
   --card-foreground:   oklch(0.935 0.030 76);
-  --popover:           oklch(0.146 0.044 52);
+  --popover:           oklch(0.246 0.044 52);
   --popover-foreground:oklch(0.935 0.030 76);
   --primary:           oklch(0.74 0.19 52);
   --primary-foreground:oklch(0.08 0.015 50);
-  --secondary:         oklch(0.196 0.038 50);
+  --secondary:         oklch(0.296 0.038 50);
   --secondary-foreground:oklch(0.935 0.030 76);
-  --muted:             oklch(0.196 0.038 50);
+  --muted:             oklch(0.296 0.038 50);
   --muted-foreground:  oklch(0.568 0.055 54);
-  --accent:            oklch(0.218 0.040 52);
+  --accent:            oklch(0.318 0.040 52);
   --accent-foreground: oklch(0.935 0.030 76);
   --destructive:       oklch(0.63 0.23 26);
   --border:            oklch(1 0 0 / 9%);
@@ -230,11 +235,11 @@ html.dark[data-room="nook"] {
   --gold:              oklch(0.74 0.19 52);
   --gold-muted:        oklch(0.74 0.16 52 / 16%);
   --emerald:           oklch(0.68 0.16 140);
-  --sidebar:           oklch(0.102 0.030 50);
+  --sidebar:           oklch(0.202 0.030 50);
   --sidebar-foreground:oklch(0.935 0.030 76);
   --sidebar-primary:   oklch(0.74 0.19 52);
   --sidebar-primary-foreground:oklch(0.08 0.015 50);
-  --sidebar-accent:    oklch(0.196 0.038 50);
+  --sidebar-accent:    oklch(0.296 0.038 50);
   --sidebar-accent-foreground:oklch(0.935 0.030 76);
   --sidebar-border:    oklch(1 0 0 / 7%);
   --sidebar-ring:      oklch(0.74 0.19 52);
@@ -247,19 +252,19 @@ html.dark[data-room="nook"] body {
 
 /* ── Mountain Hut ───────────────────────────────────────────────────────── */
 html.dark[data-room="mountain"] {
-  --background:        oklch(0.090 0.028 220);
+  --background:        oklch(0.190 0.028 220);
   --foreground:        oklch(0.930 0.022 210);
-  --card:              oklch(0.134 0.032 222);
+  --card:              oklch(0.234 0.032 222);
   --card-foreground:   oklch(0.930 0.022 210);
-  --popover:           oklch(0.142 0.034 222);
+  --popover:           oklch(0.242 0.034 222);
   --popover-foreground:oklch(0.930 0.022 210);
   --primary:           oklch(0.68 0.16 220);
   --primary-foreground:oklch(0.08 0.015 220);
-  --secondary:         oklch(0.188 0.030 220);
+  --secondary:         oklch(0.288 0.030 220);
   --secondary-foreground:oklch(0.930 0.022 210);
-  --muted:             oklch(0.188 0.030 220);
+  --muted:             oklch(0.288 0.030 220);
   --muted-foreground:  oklch(0.555 0.045 220);
-  --accent:            oklch(0.208 0.032 220);
+  --accent:            oklch(0.308 0.032 220);
   --accent-foreground: oklch(0.930 0.022 210);
   --destructive:       oklch(0.63 0.23 26);
   --border:            oklch(1 0 0 / 9%);
@@ -268,11 +273,11 @@ html.dark[data-room="mountain"] {
   --gold:              oklch(0.68 0.16 220);
   --gold-muted:        oklch(0.68 0.13 220 / 16%);
   --emerald:           oklch(0.64 0.14 180);
-  --sidebar:           oklch(0.098 0.022 220);
+  --sidebar:           oklch(0.198 0.022 220);
   --sidebar-foreground:oklch(0.930 0.022 210);
   --sidebar-primary:   oklch(0.68 0.16 220);
   --sidebar-primary-foreground:oklch(0.08 0.015 220);
-  --sidebar-accent:    oklch(0.188 0.030 220);
+  --sidebar-accent:    oklch(0.288 0.030 220);
   --sidebar-accent-foreground:oklch(0.930 0.022 210);
   --sidebar-border:    oklch(1 0 0 / 7%);
   --sidebar-ring:      oklch(0.68 0.16 220);
@@ -289,22 +294,8 @@ html.dark[data-room="mountain"] body {
   html { @apply font-sans; }
   body { @apply bg-background text-foreground antialiased; background-attachment: fixed; }
 
-  /* DARK body — clean deep navy, subtle top bloom only */
-  .dark body {
-    background: #070b18;
-    background-image:
-      radial-gradient(ellipse 90% 45% at 50% -5%, rgba(23,62,255,0.22) 0%, transparent 60%),
-      radial-gradient(ellipse 40% 30% at 95% 95%, rgba(79,70,229,0.10) 0%, transparent 50%);
-    background-attachment: fixed;
-  }
-
-  /* LIGHT body — clean white, barely-there blue tint */
-  body {
-    background: #ffffff;
-    background-image:
-      radial-gradient(ellipse 70% 40% at 50% -5%, rgba(23,62,255,0.05) 0%, transparent 55%);
-    background-attachment: fixed;
-  }
+  /* Flat, calm page background — no gradient blooms. */
+  body { background: var(--background); }
 
   /* NO dot grid, NO bottom glow line — they were distracting */
   /* Film grain only when explicitly enabled by user */
@@ -321,47 +312,32 @@ html.dark[data-room="mountain"] body {
     border-radius: var(--radius);
     transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .dark input, .dark textarea, .dark select {
-    background: rgba(255,255,255,0.05);
-    border-color: rgba(255,255,255,0.10);
-    color: rgba(255,255,255,0.90);
-  }
-  .dark input:focus, .dark textarea:focus, .dark select:focus {
-    background: rgba(255,255,255,0.07);
-    border-color: rgba(23,62,255,0.65);
-    box-shadow: 0 0 0 3px rgba(23,62,255,0.15);
-    outline: none;
-  }
   input:focus, textarea:focus {
-    border-color: rgba(23,62,255,0.55);
-    box-shadow: 0 0 0 3px rgba(23,62,255,0.10);
+    border-color: color-mix(in oklab, var(--ring) 55%, transparent);
     outline: none;
   }
 
   /* Selection */
-  ::selection { background: rgba(23,62,255,0.22); color: white; }
+  ::selection { background: color-mix(in oklab, var(--primary) 28%, transparent); }
 
   /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(23,62,255,0.30); border-radius: 9999px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(23,62,255,0.55); }
+  ::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--foreground) 14%, transparent); border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--foreground) 26%, transparent); background-clip: padding-box; }
 
   /* Button active */
   button:active:not(:disabled) { transform: scale(0.97); }
-  input[type="range"] { accent-color: #173eff; border-radius: 9999px; }
+  input[type="range"] { accent-color: var(--primary); border-radius: 9999px; }
 
   /* Popover/select surface */
-  .dark [data-slot="select-content"],
-  .dark [role="listbox"] {
-    background: #0f1525 !important;
-    border-color: rgba(255,255,255,0.09) !important;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.60) !important;
-    backdrop-filter: blur(24px);
+  .dark [data-slot="select-content"] {
+    background: var(--popover) !important;
+    border-color: var(--border) !important;
   }
 
   /* Focus rings */
-  :focus-visible { outline: 2px solid rgba(23,62,255,0.60); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid color-mix(in oklab, var(--ring) 60%, transparent); outline-offset: 2px; }
 
   /* Production-grade global transitions */
   button, a, input, textarea, select {
@@ -447,7 +423,7 @@ html.dark[data-room="mountain"] body {
 /* ── Layout components (below utilities — lets max-w-X utilities override max-width) ── */
 @layer components {
   .page {
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
     max-width: 64rem;
     margin-left: auto;
     margin-right: auto;
@@ -464,37 +440,23 @@ html.dark[data-room="mountain"] body {
   /* PRIMARY BUTTON */
   .btn-primary {
     display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
-    padding: 0.55rem 1.25rem; border-radius: 0.75rem;
-    background: linear-gradient(135deg, #173eff 0%, #3758f9 50%, #6366f1 100%);
-    background-size: 200% auto;
-    color: white; font-weight: 600; font-size: 0.875rem;
-    border: none; cursor: pointer; position: relative; overflow: hidden;
-    box-shadow: 0 4px 15px rgba(23,62,255,0.35), inset 0 1px 0 rgba(255,255,255,0.20);
-    transition: all 0.3s ease;
+    padding: 0.5rem 1rem; border-radius: var(--radius);
+    background: var(--primary);
+    color: var(--primary-foreground); font-weight: 500; font-size: 0.875rem;
+    border: none; cursor: pointer;
+    transition: background-color 0.15s ease;
   }
-  .btn-primary::after {
-    content: ""; position: absolute; top: 0; left: -100%;
-    width: 60%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent);
-    transform: skewX(-20deg);
-    animation: shimmer 3s ease infinite;
-  }
-  .btn-primary:hover {
-    background-position: right center;
-    box-shadow: 0 6px 25px rgba(23,62,255,0.55), inset 0 1px 0 rgba(255,255,255,0.20);
-    transform: translateY(-1px);
-  }
-  .btn-primary:active { transform: scale(0.97) translateY(0); }
+  .btn-primary:hover { background: color-mix(in oklab, var(--primary) 88%, var(--foreground)); }
 
   /* SECONDARY BUTTON */
   .btn-ghost {
     display: inline-flex; align-items: center; gap: 0.375rem;
-    padding: 0.5rem 1rem; border-radius: 0.65rem;
-    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75);
-    border: 1px solid rgba(255,255,255,0.10); font-size: 0.8125rem; font-weight: 500;
-    cursor: pointer; transition: all 0.2s;
+    padding: 0.5rem 1rem; border-radius: var(--radius);
+    background: transparent; color: var(--muted-foreground);
+    border: 1px solid var(--border); font-size: 0.8125rem; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
   }
-  .btn-ghost:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18); color: white; }
+  .btn-ghost:hover { background: var(--accent); color: var(--foreground); }
 
   /* Legacy secondary */
   .btn-secondary {
@@ -554,17 +516,10 @@ html.dark[data-room="mountain"] body {
 
   /* PROGRESS BAR */
   /* Progress bar — blue → indigo, 2 colors, animated left to right */
-  .progress-bar {
-    background: linear-gradient(90deg, #173eff, #4f46e5, #173eff);
-    background-size: 200% 100%;
-    animation: gradient-x 4s ease infinite;
-  }
+  .progress-bar { background: var(--primary); }
 
   /* TOP ACCENT LINE */
-  .top-accent {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #173eff 30%, #4f46e5 70%, transparent);
-  }
+  .top-accent { display: none; }
 
   /* Legacy aliases */
   .lw-top-accent { height: 1px; background: linear-gradient(90deg, transparent, #173eff 30%, #4f46e5 70%, transparent); }
@@ -578,14 +533,11 @@ html.dark[data-room="mountain"] body {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.18em;
-    color: rgba(255,255,255,0.35);
+    color: var(--muted-foreground);
   }
-  :root .section-label { color: rgba(0,0,0,0.35); }
   .glass {
-    background: rgba(11,16,30,0.82);
-    backdrop-filter: blur(24px) saturate(160%);
-    border: 1px solid rgba(255,255,255,0.07);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 4px 24px rgba(0,0,0,0.50);
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
   }
   :root:not(.dark) .glass {
@@ -598,17 +550,13 @@ html.dark[data-room="mountain"] body {
     transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
   }
   .card-interactive:hover {
-    border-color: rgba(23,62,255,0.25) !important;
-    box-shadow: 0 0 0 1px rgba(23,62,255,0.12), 0 8px 32px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.09) !important;
-    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--foreground) 18%, transparent) !important;
   }
   .lw-card-glow {
     transition: box-shadow 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
   }
   .lw-card-glow:hover {
-    box-shadow: 0 0 0 1px rgba(23,62,255,0.25), 0 8px 32px rgba(23,62,255,0.12);
-    transform: translateY(-2px);
-    border-color: rgba(23,62,255,0.25) !important;
+    border-color: color-mix(in oklab, var(--foreground) 18%, transparent) !important;
   }
   .lw-btn-primary {
     background: linear-gradient(135deg, #173eff 0%, #3758f9 100%);
@@ -631,22 +579,16 @@ html.dark[data-room="mountain"] body {
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent);
     margin: 1.5rem 0;
   }
-  .lw-glow-blue { box-shadow: 0 0 30px rgba(23,62,255,0.25), 0 0 60px rgba(23,62,255,0.10); }
+  .lw-glow-blue { box-shadow: none; }
   .gold-text { color: var(--gold); }
-  .gold-glow { box-shadow: 0 0 28px rgba(23,62,255,0.22); }
-  /* Global dark card depth — all bg-card elements get the 3D inset look */
-  .dark .bg-card {
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.50);
-  }
+  .gold-glow { box-shadow: none; }
   .warm-card { border-color: var(--border); box-shadow: 0 1px 5px rgba(0,0,0,0.10); }
-  .dark .warm-card { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 14px rgba(0,0,0,0.32); }
+  .dark .warm-card { box-shadow: none; }
   .cozy-card { border-color: var(--border); }
-  .dark .cozy-card { box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.20), 0 4px 20px rgba(0,0,0,0.35); }
+  .dark .cozy-card { box-shadow: none; }
   .card-hover { transition: all 0.25s ease; }
   .card-hover:hover {
-    border-color: rgba(255,255,255,0.14);
-    transform: translateY(-1px);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 24px rgba(0,0,0,0.42);
+    border-color: color-mix(in oklab, var(--foreground) 16%, transparent);
   }
   .animate-fade-slide-up { animation: fade-slide-up 0.4s ease both; }
   .animate-card-enter    { animation: card-enter 0.35s cubic-bezier(0.16,1,0.3,1) both; }
@@ -672,8 +614,8 @@ html.dark[data-room="mountain"] body {
     box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.06);
   }
   .dark [data-slot="select-content"] {
-    background: #0f1525;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.50), 0 2px 12px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08);
+    background: var(--popover);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
   }
   [data-slot="select-item"]:focus,
   [data-slot="select-item"][data-highlighted] {

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Palette, X, Check, Flame, Leaf, Moon, BookOpen, Mountain } from "lucide-react";
+import { Palette, X, Check, Flame, Leaf, Moon, BookOpen, Mountain, Square } from "lucide-react";
 import { useRoomStore, ROOM_THEMES, type RoomTheme, type Decorations } from "@/lib/store/room";
 
 const ROOM_ICONS: Record<RoomTheme, React.ComponentType<{ className?: string }>> = {
-  cabin: Flame, bamboo: Leaf, lofi: Moon, nook: BookOpen, mountain: Mountain,
+  minimal: Square, cabin: Flame, bamboo: Leaf, lofi: Moon, nook: BookOpen, mountain: Mountain,
 };
 import { cn } from "@/lib/utils";
 

@@ -9,7 +9,11 @@ import {
   timestamp,
   unique,
   real,
+  jsonb,
+  index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import type { Block } from "@/lib/blocks";
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = pgTable("users", {
@@ -334,6 +338,47 @@ export const userSettings = pgTable("user_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ─── Workspace Pages (Notion-style docs) ──────────────────────────────────────
+// A page's content is one JSONB array of blocks rather than a row per block.
+// The editor always saves the whole document at once (debounced autosave), so
+// one row = one write, and reordering blocks is just reordering an array.
+export const workspacePages = pgTable(
+  "workspace_pages",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    parentId: integer("parent_id").references((): AnyPgColumn => workspacePages.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 255 }).notNull().default(""),
+    icon: varchar("icon", { length: 16 }),
+    blocks: jsonb("blocks").$type<Block[]>().notNull().default([]),
+    isFavorite: boolean("is_favorite").notNull().default(false),
+    orderIndex: integer("order_index").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("idx_workspace_pages_user").on(t.userId)]
+);
+
+// ─── Tasks ─────────────────────────────────────────────────────────────────────
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    title: varchar("title", { length: 500 }).notNull(),
+    notes: text("notes"),
+    status: varchar("status", { length: 20 }).notNull().default("todo"), // 'todo' | 'doing' | 'done'
+    priority: varchar("priority", { length: 10 }).notNull().default("none"), // 'none' | 'low' | 'medium' | 'high'
+    dueDate: date("due_date"),
+    pageId: integer("page_id").references(() => workspacePages.id, { onDelete: "set null" }),
+    orderIndex: integer("order_index").notNull().default(0),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("idx_tasks_user_status").on(t.userId, t.status)]
+);
+
 export type User = typeof users.$inferSelect;
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
@@ -357,3 +402,5 @@ export type BackupCode = typeof backupCodes.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NotifiedAchievement = typeof notifiedAchievements.$inferSelect;
 export type StreakFreeze = typeof streakFreezes.$inferSelect;
+export type WorkspacePage = typeof workspacePages.$inferSelect;
+export type Task = typeof tasks.$inferSelect;

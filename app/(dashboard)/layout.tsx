@@ -85,8 +85,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           // resample that animation every frame, forever, on every route. A
           // slightly more opaque background gives a similar "solid panel" look
           // without the per-frame resample cost.
-          "bg-sidebar/97",
-          "transition-[width] duration-300 ease-in-out",
+          "bg-sidebar",
+          "transition-[width] duration-200 ease-in-out",
           effectiveCollapsed ? "w-[56px]" : "w-60"
         )}>
           <Sidebar />
@@ -106,7 +106,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="p-0 w-60 bg-sidebar/95 backdrop-blur-md border-r border-border"
+          className="p-0 w-64 bg-sidebar border-r border-border"
         >
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           {/* No close "X" here — the mobile sidebar's own header already has icons
@@ -119,18 +119,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0 relative z-10">
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95">
+        <div className="md:hidden flex items-center gap-2 px-3 h-12 border-b border-border bg-background">
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="text-muted-foreground">
             <Menu className="w-5 h-5" />
           </Button>
-          <p className="font-semibold text-sm" style={{ fontFamily: "var(--font-heading)" }}>Galaxus</p>
+          <p className="font-semibold text-sm">Galaxus</p>
           <div className="ml-auto">
             <NotificationBell />
           </div>
         </div>
-
-        {/* Top gradient accent line */}
-        <div className="top-accent w-full shrink-0" suppressHydrationWarning />
 
         <ErrorBoundary label="Page error">
           {/* No backdrop-blur here — this wrapper covers the entire scrollable
@@ -141,7 +138,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               viewport-sized element that's one of the most expensive things
               you can do in CSS, regardless of GPU strength. The 2px blur was
               barely visible; bg-background/88 alone gives the same tint. */}
-          <div className="flex-1 overflow-y-auto bg-background/88">
+          <div className={cn("flex-1 overflow-y-auto", theme === "minimal" ? "bg-background" : "bg-background/88")}>
             {children}
           </div>
         </ErrorBoundary>

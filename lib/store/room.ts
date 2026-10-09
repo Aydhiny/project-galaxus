@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type RoomTheme = "cabin" | "bamboo" | "lofi" | "nook" | "mountain";
+export type RoomTheme = "minimal" | "cabin" | "bamboo" | "lofi" | "nook" | "mountain";
 
 export interface RoomInfo {
   label: string;
@@ -11,6 +11,7 @@ export interface RoomInfo {
 }
 
 export const ROOM_THEMES: Record<RoomTheme, RoomInfo> = {
+  minimal:  { label: "Minimal",      emoji: "◻️", desc: "Clean and calm, no decorations",       accent: "#8b8b90" },
   cabin:    { label: "Cozy Cabin",   emoji: "🪵", desc: "Dark oak, firelight, stone hearth",   accent: "#C9852A" },
   bamboo:   { label: "Bamboo Zen",   emoji: "🎋", desc: "Forest deep, jade calm, bamboo light", accent: "#5DBD8C" },
   lofi:     { label: "Lofi Night",   emoji: "🌙", desc: "Indigo dusk, city rain, cassette glow", accent: "#9B7FE8" },
@@ -36,18 +37,28 @@ interface RoomState {
 export const useRoomStore = create<RoomState>()(
   persist(
     (set) => ({
-      theme: "cabin",
+      theme: "minimal",
       decorations: {
         candles: true,
         window: true,
         plants: true,
         artwork: true,
-        grain: true,
+        grain: false,
       },
       setTheme: (theme) => set({ theme }),
       toggleDecoration: (key) =>
         set((s) => ({ decorations: { ...s.decorations, [key]: !s.decorations[key] } })),
     }),
-    { name: "galaxus-room-v1" }
+    {
+      name: "galaxus-room-v1",
+      // v2 = sleek redesign: move everyone onto the new Minimal default once.
+      // Rooms are still one click away in the sidebar's Room Theme picker.
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<RoomState>;
+        if (version < 2) return { ...state, theme: "minimal", decorations: { ...state.decorations!, grain: false } } as RoomState;
+        return state as RoomState;
+      },
+    }
   )
 );
