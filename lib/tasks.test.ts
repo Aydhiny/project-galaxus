@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseQuickAdd, bucketFor, groupByBucket } from "./tasks";
+import { parseQuickAdd, bucketFor, groupByBucket, moveInList, moveTo, taskPoints, repeatsOn, describeDays, isValidDaysMask, isValidTime } from "./tasks";
 
 // Thursday 2026-10-08, local time
 const NOW = new Date(2026, 9, 8, 12, 0, 0);
@@ -37,8 +37,43 @@ describe("bucketFor / groupByBucket", () => {
     expect(bucketFor(t(6, "2026-10-01", "done"), today)).toBe("done");
   });
 
-  it("sorts high priority first within a bucket", () => {
-    const groups = groupByBucket([t(1, today, "todo", "low"), t(2, today, "todo", "high")], today);
-    expect(groups.today.map((x) => x.id)).toEqual([2, 1]);
+  it("keeps the manual order within a bucket (priority no longer reshuffles)", () => {
+    const a = { ...t(1, today, "todo", "low"), orderIndex: 1 };
+    const b = { ...t(2, today, "todo", "high"), orderIndex: 2 };
+    expect(groupByBucket([b, a], today).today.map((x) => x.id)).toEqual([1, 2]);
+  });
+});
+
+describe("reordering", () => {
+  it("moves up/down and stops at the edges", () => {
+    expect(moveInList([1, 2, 3], 2, -1)).toEqual([2, 1, 3]);
+    expect(moveInList([1, 2, 3], 3, 1)).toEqual([1, 2, 3]);
+  });
+  it("drops above or below a target", () => {
+    expect(moveTo([1, 2, 3, 4], 4, 2, "above")).toEqual([1, 4, 2, 3]);
+    expect(moveTo([1, 2, 3, 4], 1, 3, "below")).toEqual([2, 3, 1, 4]);
+  });
+});
+
+describe("points", () => {
+  it("scales by priority and doubles for brought-back tasks", () => {
+    expect(taskPoints({ priority: "none" })).toBe(1);
+    expect(taskPoints({ priority: "high" })).toBe(5);
+    expect(taskPoints({ priority: "medium", restoredAt: new Date() })).toBe(6);
+  });
+});
+
+describe("recurrence", () => {
+  it("matches days by Monday-first mask", () => {
+    expect(repeatsOn("1111100", "2026-10-09")).toBe(true); // Friday
+    expect(repeatsOn("1111100", "2026-10-10")).toBe(false); // Saturday
+    expect(repeatsOn("0000011", "2026-10-11")).toBe(true); // Sunday
+  });
+  it("describes and validates masks/times", () => {
+    expect(describeDays("1111111")).toBe("Every day");
+    expect(describeDays("1010100")).toBe("Mon, Wed, Fri");
+    expect(isValidDaysMask("0000000")).toBe(false);
+    expect(isValidTime("08:30")).toBe(true);
+    expect(isValidTime("24:00")).toBe(false);
   });
 });

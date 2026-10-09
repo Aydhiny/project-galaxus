@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 const AUTHED_REDIRECT_PATHS = new Set(["/", "/login", "/register"]);
 
 // Routes a guest is allowed to see without a session
-const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/terms", "/forgot-password"]);
+const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/terms", "/forgot-password", "/install"]);
 
 // Guests must be able to POST here to create an account in the first place —
 // /api/auth/* is excluded from the proxy matcher entirely, but /api/register

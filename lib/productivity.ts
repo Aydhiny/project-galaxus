@@ -3,10 +3,13 @@
 // on the client where the browser knows the user's timezone.
 
 import { addDays, format, startOfDay, subDays } from "date-fns";
+import { taskPoints } from "@/lib/tasks";
 
 export interface CompletableTask {
   status: string;
   completedAt: Date | string | null;
+  priority?: string;
+  restoredAt?: Date | string | null;
 }
 
 export interface DayCount {
@@ -93,4 +96,31 @@ export function heatmapWeeks(tasks: CompletableTask[], weeks: number, now: Date 
       return { date: k, label: format(day, "EEE, MMM d"), count: day > today ? -1 : counts.get(k) ?? 0 };
     })
   );
+}
+
+/** Points earned today, and in the last 7 days vs the 7 before. */
+export function pointsSummary(tasks: CompletableTask[], now: Date = new Date()): { today: number; thisWeek: number; lastWeek: number } {
+  const today = startOfDay(now);
+  const todayKey = dayKey(today);
+  const weekStart = dayKey(subDays(today, 6));
+  const prevStart = dayKey(subDays(today, 13));
+  let t = 0, w = 0, p = 0;
+  for (const task of tasks) {
+    const k = completedDayKey(task);
+    if (!k) continue;
+    const pts = taskPoints({ priority: task.priority ?? "none", restoredAt: task.restoredAt });
+    if (k === todayKey) t += pts;
+    if (k >= weekStart && k <= todayKey) w += pts;
+    else if (k >= prevStart && k < weekStart) p += pts;
+  }
+  return { today: t, thisWeek: w, lastWeek: p };
+}
+
+/**
+ * Merge live tasks (fresh, optimistic) with completion history (includes
+ * removed/cleared tasks). Live wins for any id present in both.
+ */
+export function mergeHistory<T extends CompletableTask & { id: number }>(live: T[], history: (CompletableTask & { id: number })[]): CompletableTask[] {
+  const liveIds = new Set(live.map((t) => t.id));
+  return [...live, ...history.filter((h) => !liveIds.has(h.id))];
 }

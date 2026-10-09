@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { Loader2 } from "lucide-react";
-import { AuthShell } from "@/components/auth-shell";
-import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
+import { AuthShell, AuthField, AuthError, AuthSubmit, AuthSuccess, AuthLink } from "@/components/auth-shell";
 import { resetPassword } from "@/lib/actions/password-reset";
 
 export default function ResetPasswordPage() {
@@ -32,49 +29,21 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <AuthShell title="Set a new password" subtitle="Choose a new password">
+    <AuthShell
+      title="Choose a new password"
+      subtitle="You'll be signed out on every other device for safety."
+      footer={<AuthLink href="/login">← Back to sign in</AuthLink>}
+    >
       {done ? (
-        <div className="text-center space-y-3 py-4">
-          <div className="text-4xl">✓</div>
-          <p className="text-white/80 font-semibold">Password updated!</p>
-          <p className="text-white/40 text-sm">Redirecting to sign in…</p>
-        </div>
+        <AuthSuccess title="Password updated">Taking you to sign in…</AuthSuccess>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">New password</label>
-            <input
-              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 8 characters" required minLength={8}
-              className="w-full px-4 py-3 rounded-xl border text-sm"
-              style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.9)" }}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Confirm password</label>
-            <input
-              type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Repeat password" required
-              className="w-full px-4 py-3 rounded-xl border text-sm"
-              style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.9)" }}
-            />
-          </div>
-          {error && (
-            <div className="px-4 py-2.5 rounded-xl text-sm text-red-300 text-center"
-              style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)" }}>
-              {error}
-            </div>
-          )}
-          <MovingBorderBtn type="submit" disabled={loading} containerClassName="w-full" className="w-full h-11" innerClassName="w-full justify-center">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update password"}
-          </MovingBorderBtn>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <AuthField id="reset-password" label="New password" type="password" autoComplete="new-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" required minLength={8} />
+          <AuthField id="reset-confirm" label="Confirm password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repeat password" required />
+          {error && <AuthError>{error}</AuthError>}
+          <AuthSubmit loading={loading}>Update password</AuthSubmit>
         </form>
       )}
-      <p className="text-center text-sm text-white/30 mt-6">
-        <Link href="/login" className="text-white/60 hover:text-white transition-colors underline underline-offset-2">
-          Back to sign in
-        </Link>
-      </p>
     </AuthShell>
   );
 }

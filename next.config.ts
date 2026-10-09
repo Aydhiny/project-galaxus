@@ -42,6 +42,15 @@ const nextConfig: NextConfig = {
       source: "/(.*)",
       headers: securityHeaders,
     },
+    {
+      // The service worker must never be HTTP-cached, or phones keep running
+      // an old worker for up to a day after a deploy.
+      source: "/sw.js",
+      headers: [
+        { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        { key: "Service-Worker-Allowed", value: "/" },
+      ],
+    },
   ],
   images: {
     remotePatterns: [

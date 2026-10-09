@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useUIStore } from "@/lib/store/ui";
 import { useRoomStore } from "@/lib/store/room";
 import { cn } from "@/lib/utils";
+import { useHydrated } from "@/lib/hooks/client-values";
 
 // Non-critical overlays/widgets — none of these need to block first paint or
 // hydrate eagerly, so they're split into their own chunks (loaded on the
@@ -28,17 +29,18 @@ const Screensaver = dynamic(() => import("@/components/screensaver").then((m) =>
 const FloatingPomodoro = dynamic(() => import("@/components/pomodoro-float").then((m) => m.FloatingPomodoro), { ssr: false });
 const ShortcutCheatsheet = dynamic(() => import("@/components/shortcut-cheatsheet").then((m) => m.ShortcutCheatsheet), { ssr: false });
 const OnboardingFlow = dynamic(() => import("@/components/onboarding").then((m) => m.OnboardingFlow), { ssr: false });
+const InstallHint = dynamic(() => import("@/components/install/install-hint").then((m) => m.InstallHint), { ssr: false });
+const ComebackPrompt = dynamic(() => import("@/components/tasks/comeback-prompt").then((m) => m.ComebackPrompt), { ssr: false });
 const DailyCheckinReminder = dynamic(() => import("@/components/daily-checkin-reminder").then((m) => m.DailyCheckinReminder), { ssr: false });
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const { sidebarCollapsed, sidebarHidden, toggleHidden } = useUIStore();
   const { theme, decorations } = useRoomStore();
+  const mounted = useHydrated();
   // Only read localStorage-backed state after mount so SSR and first paint agree
   const effectiveCollapsed = mounted ? sidebarCollapsed : false;
   const effectiveHidden   = mounted ? sidebarHidden   : false;
-  useEffect(() => setMounted(true), []);
 
   // Sync room theme + grain onto <html> for CSS custom properties + body gradients
   useEffect(() => {
@@ -71,6 +73,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* First-time onboarding — z=500, checks localStorage */}
       <OnboardingFlow />
+
+      {/* "Bring removed tasks back?" — once a day, only if there's something to ask */}
+      <ComebackPrompt />
+
+      {/* iPhone Safari only: one-time "Add to Home Screen" nudge */}
+      <InstallHint />
 
       {/* Daily check-in nudge toast — checks server prefs + today's status once */}
       <DailyCheckinReminder />
@@ -119,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0 relative z-10">
-        <div className="md:hidden flex items-center gap-2 px-3 h-12 border-b border-border bg-background">
+        <div className="md:hidden flex items-center gap-2 px-3 h-[calc(3rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] border-b border-border bg-background">
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="text-muted-foreground">
             <Menu className="w-5 h-5" />
           </Button>
@@ -138,7 +146,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               viewport-sized element that's one of the most expensive things
               you can do in CSS, regardless of GPU strength. The 2px blur was
               barely visible; bg-background/88 alone gives the same tint. */}
-          <div className={cn("flex-1 overflow-y-auto", theme === "minimal" ? "bg-background" : "bg-background/88")}>
+          <div className={cn("flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]", theme === "minimal" ? "bg-background" : "bg-background/88")}>
             {children}
           </div>
         </ErrorBoundary>

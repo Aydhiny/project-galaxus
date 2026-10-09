@@ -53,12 +53,39 @@ const STATEMENTS = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "session_version" integer DEFAULT 0 NOT NULL`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "totp_last_step" integer`,
 
+  // ── 2026-10 · Recurring tasks, soft delete, points ───────────────────────
+  `CREATE TABLE IF NOT EXISTS "recurring_tasks" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "title" varchar(500) NOT NULL,
+    "priority" varchar(10) DEFAULT 'none' NOT NULL,
+    "days" varchar(7) DEFAULT '1111111' NOT NULL,
+    "time" varchar(5),
+    "active" boolean DEFAULT true NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "recurring_tasks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_recurring_tasks_user" ON "recurring_tasks" ("user_id")`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "due_time" varchar(5)`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "recurring_id" integer`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "deletion_reviewed_at" timestamp`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "restored_at" timestamp`,
+  // ADD CONSTRAINT has no IF NOT EXISTS in Postgres — guard via the catalog.
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tasks_recurring_id_recurring_tasks_id_fk') THEN
+      ALTER TABLE "tasks" ADD CONSTRAINT "tasks_recurring_id_recurring_tasks_id_fk"
+        FOREIGN KEY ("recurring_id") REFERENCES "recurring_tasks"("id") ON DELETE set null;
+    END IF;
+  END $$`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_tasks_recurring_due" ON "tasks" ("recurring_id", "due_date")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];
 
 async function main() {
-  if (process.env.VERCEL_ENV !== "production") {
+  if (process.env.VERCEL_ENV !== "production" && process.env.ENSURE_SCHEMA !== "1") {
     console.log(`[ensure-schema] skipped (VERCEL_ENV=${process.env.VERCEL_ENV ?? "unset"})`);
     return;
   }

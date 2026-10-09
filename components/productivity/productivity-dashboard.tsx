@@ -3,56 +3,69 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowRight, Flame, CheckCircle2, CalendarCheck2, ListTodo, Plus, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowRight, Flame, CheckCircle2, Sparkles, ListTodo, Plus, TrendingUp, TrendingDown, Minus, CalendarRange } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/lib/db/schema";
 import { useTasks } from "@/components/tasks/use-tasks";
-import { TaskRow } from "@/components/tasks/tasks-view";
+import { SortableTaskList, TaskRow, tomorrowOf } from "@/components/tasks/task-list";
 import { compareTasks, parseQuickAdd } from "@/lib/tasks";
 import { useHydrated, useLocalToday } from "@/lib/hooks/client-values";
-import { bestDay, completionStreak, completionsByDay, heatmapWeeks, weekOverWeek, dayKey } from "@/lib/productivity";
+import { bestDay, completionStreak, completionsByDay, heatmapWeeks, mergeHistory, pointsSummary, dayKey, type CompletableTask } from "@/lib/productivity";
 import { CompletionsChart } from "@/components/productivity/completions-chart";
 import { CompletionHeatmap } from "@/components/productivity/completion-heatmap";
 
 const RANGES = [7, 14, 30] as const;
 type Range = (typeof RANGES)[number];
 
-export function ProductivityDashboard({ initialTasks, serverToday }: { initialTasks: Task[]; serverToday: string }) {
-  const { tasks, lingering, toggleDone, addTask } = useTasks(initialTasks);
+type HistoryItem = CompletableTask & { id: number };
+type PlanDay = "today" | "tomorrow";
+
+export function ProductivityDashboard({ initialTasks, history, serverToday }: {
+  initialTasks: Task[];
+  history: HistoryItem[];
+  serverToday: string;
+}) {
   const today = useLocalToday(serverToday);
+  const tomorrow = tomorrowOf(today);
+  const { tasks, lingering, toggleDone, addTask, patchTask, move, drop } = useTasks(initialTasks, today);
   const hydrated = useHydrated();
   const [range, setRange] = useState<Range>(14);
+  const [planDay, setPlanDay] = useState<PlanDay>("today");
   const [draft, setDraft] = useState("");
 
   // All stats are day-granular, so a midday Date for the local "today" is
   // enough (and keeps render pure — no new Date() per render).
   const ref = useMemo(() => new Date(today + "T12:00:00"), [today]);
-  const series = useMemo(() => completionsByDay(tasks, range, ref), [tasks, range, ref]);
-  const heat = useMemo(() => heatmapWeeks(tasks, 18, ref), [tasks, ref]);
-  const streak = useMemo(() => completionStreak(tasks, ref), [tasks, ref]);
-  const wow = useMemo(() => weekOverWeek(tasks, ref), [tasks, ref]);
+  // Live tasks (instant, optimistic) + completed history incl. removed tasks.
+  const all = useMemo(() => mergeHistory(tasks, history), [tasks, history]);
+  const series = useMemo(() => completionsByDay(all, range, ref), [all, range, ref]);
+  const heat = useMemo(() => heatmapWeeks(all, 18, ref), [all, ref]);
+  const streak = useMemo(() => completionStreak(all, ref), [all, ref]);
+  const points = useMemo(() => pointsSummary(all, ref), [all, ref]);
   const best = bestDay(series);
   const avg = series.reduce((s, d) => s + d.count, 0) / series.length;
 
-  // Today's plan = open tasks due today or overdue (+ anything just checked,
-  // so it stays visible with its checkmark for a moment).
+  // Plan list: Today = due today or overdue; Tomorrow = due tomorrow.
+  // Just-checked tasks linger so the checkmark is visible for a moment.
+  const inPlan = (t: Task) => (planDay === "today" ? !!t.dueDate && t.dueDate <= today : t.dueDate === tomorrow);
   const plan = tasks
-    .filter((t) => (t.status !== "done" || lingering.has(t.id)) && t.dueDate && t.dueDate <= today)
+    .filter((t) => (t.status !== "done" || lingering.has(t.id)) && inPlan(t))
     .sort(compareTasks);
   const doneToday = tasks
     .filter((t) => t.status === "done" && !lingering.has(t.id) && t.completedAt && dayKey(new Date(t.completedAt)) === today)
     .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
+  const tomorrowCount = tasks.filter((t) => t.status !== "done" && t.dueDate === tomorrow).length;
   const overdue = tasks.filter((t) => t.status !== "done" && t.dueDate && t.dueDate < today).length;
   const open = tasks.filter((t) => t.status !== "done").length;
-  const completedTodayCount = tasks.filter((t) => t.status === "done" && t.completedAt && dayKey(new Date(t.completedAt)) === today).length;
-  const planTotal = plan.length + doneToday.length;
+  const completedTodayCount = all.filter((t) => t.status === "done" && t.completedAt && dayKey(new Date(t.completedAt)) === today).length;
+  const planTotal = plan.length + (planDay === "today" ? doneToday.length : 0);
   const pct = planTotal === 0 ? 0 : Math.round((doneToday.length / planTotal) * 100);
 
   function submitDraft() {
     const parsed = parseQuickAdd(draft);
     if (!parsed.title.trim()) return;
-    // Added from "Today" → due today unless the text said otherwise.
-    addTask({ ...parsed, dueDate: parsed.dueDate ?? today });
+    // Added from the plan card → due on the selected day unless the text said otherwise.
+    addTask({ ...parsed, dueDate: parsed.dueDate ?? (planDay === "today" ? today : tomorrow) });
     setDraft("");
   }
 
@@ -63,19 +76,29 @@ export function ProductivityDashboard({ initialTasks, serverToday }: { initialTa
           <h1 className="text-3xl font-bold tracking-tight">Productivity</h1>
           <p className="text-sm text-muted-foreground mt-1">{hydrated ? format(ref, "EEEE, MMMM d") : " "}</p>
         </div>
-        <Link href="/tasks" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-          All tasks <ArrowRight className="w-4 h-4" />
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/review" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <CalendarRange className="w-4 h-4" /> Weekly review
+          </Link>
+          <Link href="/tasks" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            All tasks <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
       </header>
 
       {/* ── Stat tiles: the four numbers worth glancing at ───────────────── */}
       <div className="grid grid-cols-2 @3xl:grid-cols-4 gap-3">
-        <StatTile icon={CheckCircle2} label="Completed today" value={completedTodayCount} />
         <StatTile
-          icon={CalendarCheck2}
-          label="Last 7 days"
-          value={wow.thisWeek}
-          detail={<Trend current={wow.thisWeek} previous={wow.lastWeek} />}
+          icon={CheckCircle2}
+          label="Completed today"
+          value={completedTodayCount}
+          detail={points.today > 0 ? `+${points.today} pts today` : "finish one to score"}
+        />
+        <StatTile
+          icon={Sparkles}
+          label="Points · 7 days"
+          value={points.thisWeek}
+          detail={<Trend current={points.thisWeek} previous={points.lastWeek} unit="pts" />}
         />
         <StatTile icon={Flame} label="Day streak" value={streak} detail={streak > 0 ? "days in a row" : "finish one task to start"} />
         <StatTile
@@ -89,13 +112,30 @@ export function ProductivityDashboard({ initialTasks, serverToday }: { initialTa
       <div className="grid gap-6 @3xl:grid-cols-[1.1fr_1fr]">
         {/* ── Today's plan ─────────────────────────────────────────────── */}
         <section className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="font-semibold">Today</h2>
-            <span className="text-xs text-muted-foreground tabular-nums">{doneToday.length}/{planTotal} done</span>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50" role="tablist" aria-label="Plan for">
+              {(["today", "tomorrow"] as const).map((d) => (
+                <button
+                  key={d}
+                  role="tab"
+                  aria-selected={planDay === d}
+                  onClick={() => setPlanDay(d)}
+                  className={cn(
+                    "px-3 h-7 rounded-md text-sm capitalize transition-colors",
+                    planDay === d ? "bg-background shadow-xs text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {d}{d === "tomorrow" && tomorrowCount > 0 ? <span className="ml-1 text-xs text-muted-foreground tabular-nums">{tomorrowCount}</span> : null}
+                </button>
+              ))}
+            </div>
+            {planDay === "today" && <span className="text-xs text-muted-foreground tabular-nums">{doneToday.length}/{planTotal} done</span>}
           </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-4" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's progress">
-            <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-500" style={{ width: `${pct}%` }} />
-          </div>
+          {planDay === "today" && (
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-4" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's progress">
+              <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-500" style={{ width: `${pct}%` }} />
+            </div>
+          )}
 
           <div className="flex items-center gap-2 rounded-lg border border-border px-3 mb-3 focus-within:border-foreground/25">
             <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -103,22 +143,30 @@ export function ProductivityDashboard({ initialTasks, serverToday }: { initialTa
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") submitDraft(); }}
-              placeholder="Add a task for today…"
+              placeholder={planDay === "today" ? "Add a task for today…" : "Plan something for tomorrow…"}
               className="flex-1 h-10 bg-transparent border-0 shadow-none outline-none focus:shadow-none focus-visible:outline-none text-sm px-0"
             />
           </div>
 
-          {plan.length === 0 && doneToday.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">Nothing due today. Add something above or plan from <Link href="/tasks" className="underline underline-offset-4">Tasks</Link>.</p>
+          {plan.length === 0 && (planDay === "tomorrow" || doneToday.length === 0) ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              {planDay === "today" ? "Nothing due today." : "Nothing planned for tomorrow yet."} Add something above, or use the
+              <span className="whitespace-nowrap"> ☀︎ / ↗ </span>buttons on any task in <Link href="/tasks" className="underline underline-offset-4">Tasks</Link>.
+            </p>
           ) : (
-            <div className="divide-y divide-border/70">
-              {plan.map((t) => (
-                <TaskRow key={t.id} task={t} today={today} justDone={lingering.has(t.id)} onToggle={() => toggleDone(t)} />
-              ))}
-            </div>
+            <SortableTaskList
+              className="border-y-0"
+              tasks={plan}
+              today={today}
+              lingering={lingering}
+              onToggle={toggleDone}
+              onMove={move}
+              onDrop={drop}
+              onSchedule={(t, d) => patchTask(t.id, { dueDate: d })}
+            />
           )}
 
-          {doneToday.length > 0 && (
+          {planDay === "today" && doneToday.length > 0 && (
             <div className="mt-4">
               <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1 px-1">Done today · {doneToday.length}</p>
               <div className="divide-y divide-border/70">
@@ -189,15 +237,16 @@ function StatTile({ icon: Icon, label, value, detail }: {
 }
 
 /** Week-over-week change, with an icon + words so it never relies on color alone. */
-function Trend({ current, previous }: { current: number; previous: number }) {
+function Trend({ current, previous, unit = "" }: { current: number; previous: number; unit?: string }) {
   if (previous === 0 && current === 0) return <span>no activity yet</span>;
   const diff = current - previous;
+  const suffix = unit ? ` ${unit}` : "";
   if (diff === 0) return <span className="inline-flex items-center gap-1"><Minus className="w-3 h-3" /> same as prior week</span>;
   const up = diff > 0;
   const Icon = up ? TrendingUp : TrendingDown;
   return (
     <span className={cn("inline-flex items-center gap-1", up ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
-      <Icon className="w-3 h-3" /> {up ? "+" : ""}{diff} vs prior week
+      <Icon className="w-3 h-3" /> {up ? "+" : ""}{diff}{suffix} vs prior week
     </span>
   );
 }

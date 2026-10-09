@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge,
+  Rss, CalendarRange, Gauge, Smartphone,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -27,6 +27,7 @@ const PRIMARY: NavItem[] = [
   { href: "/productivity", icon: Gauge,  label: "Productivity"   },
   { href: "/tasks",    icon: ListTodo,    label: "Tasks"          },
   { href: "/pages",    icon: FileText,    label: "Pages"          },
+  { href: "/review",   icon: BarChart3,   label: "Weekly Review"  },
   { href: "/daily",    icon: CheckSquare, label: "Daily Check-in" },
   { href: "/goals",    icon: Target,      label: "Goals"          },
 ];
@@ -37,7 +38,6 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Track",
     items: [
       { href: "/dashboard",   icon: Rss,             label: "Feed"           },
-      { href: "/review",      icon: BarChart3,       label: "Weekly Review"  },
       { href: "/yearly",      icon: CalendarRange,   label: "Year in Review" },
       { href: "/insights",    icon: Lightbulb,       label: "Insights"       },
       { href: "/heatmap",     icon: LayoutDashboard, label: "Habit Map"      },
@@ -233,6 +233,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "justify-between")}>
             {iconButton({ label: "Settings", href: "/settings", children: <Settings className="w-4 h-4" /> })}
             {!collapsed && iconButton({ label: "Export local data (JSON)", onClick: exportLocalData, children: <Download className="w-4 h-4" /> })}
+            {iconButton({ label: "Install the app", href: "/install", children: <Smartphone className="w-4 h-4" /> })}
             {!mobile && !collapsed && iconButton({ label: "Hide sidebar", onClick: toggleHidden, children: <PanelLeftClose className="w-4 h-4" /> })}
             {!mobile && iconButton({
               label: collapsed ? "Expand sidebar" : "Collapse sidebar",

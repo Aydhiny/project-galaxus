@@ -11,6 +11,7 @@ import {
   real,
   jsonb,
   index,
+  uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import type { Block } from "@/lib/blocks";
@@ -365,6 +366,25 @@ export const workspacePages = pgTable(
   (t) => [index("idx_workspace_pages_user").on(t.userId)]
 );
 
+// ─── Recurring task templates ────────────────────────────────────────────────
+// A template materialises one real `tasks` row per applicable day (see
+// lib/actions/recurring.ts). Templates hold the rule; tasks hold the history.
+export const recurringTasks = pgTable(
+  "recurring_tasks",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    title: varchar("title", { length: 500 }).notNull(),
+    priority: varchar("priority", { length: 10 }).notNull().default("none"),
+    // 7 chars, Monday→Sunday, "1" = repeats that day. "1111111" = every day.
+    days: varchar("days", { length: 7 }).notNull().default("1111111"),
+    time: varchar("time", { length: 5 }), // "08:00" (local), optional
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_recurring_tasks_user").on(t.userId)]
+);
+
 // ─── Tasks ─────────────────────────────────────────────────────────────────────
 export const tasks = pgTable(
   "tasks",
@@ -376,15 +396,27 @@ export const tasks = pgTable(
     status: varchar("status", { length: 20 }).notNull().default("todo"), // 'todo' | 'doing' | 'done'
     priority: varchar("priority", { length: 10 }).notNull().default("none"), // 'none' | 'low' | 'medium' | 'high'
     dueDate: date("due_date"),
+    dueTime: varchar("due_time", { length: 5 }), // "08:00" — set for recurring instances
     pageId: integer("page_id").references(() => workspacePages.id, { onDelete: "set null" }),
+    recurringId: integer("recurring_id").references(() => recurringTasks.id, { onDelete: "set null" }),
     orderIndex: integer("order_index").notNull().default(0),
     completedAt: timestamp("completed_at"),
+    // Soft delete: removed tasks keep their history (stats, weekly review)
+    // and feed the "bring it back?" prompt the next day.
+    deletedAt: timestamp("deleted_at"),
+    // Set once the user answered the "bring it back?" prompt (or the task was
+    // archived automatically, e.g. a missed recurring instance).
+    deletionReviewedAt: timestamp("deletion_reviewed_at"),
+    // Brought back after removal → completing it is worth double points.
+    restoredAt: timestamp("restored_at"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (t) => [
     index("idx_tasks_user_status").on(t.userId, t.status),
     index("idx_tasks_user_completed").on(t.userId, t.completedAt),
+    // One instance per template per day — makes generation idempotent.
+    uniqueIndex("uq_tasks_recurring_due").on(t.recurringId, t.dueDate),
   ]
 );
 
@@ -413,3 +445,4 @@ export type NotifiedAchievement = typeof notifiedAchievements.$inferSelect;
 export type StreakFreeze = typeof streakFreezes.$inferSelect;
 export type WorkspacePage = typeof workspacePages.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type RecurringTask = typeof recurringTasks.$inferSelect;

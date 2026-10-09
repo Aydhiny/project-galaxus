@@ -56,16 +56,19 @@ export function bucketFor(task: TaskLike, today: string): DueBucket {
   return task.dueDate <= weekOut ? "upcoming" : "later";
 }
 
-/** Sort: priority first, then due date (earliest first, undated last), then manual order. */
+/**
+ * Sort: YOUR manual order first (drag / move up-down), then id as a stable
+ * tiebreak. Priority used to win here, which meant reordering did nothing for
+ * tasks of different priority — priority is still shown as a flag instead.
+ */
 export function compareTasks(a: TaskLike, b: TaskLike): number {
+  return a.orderIndex - b.orderIndex || a.id - b.id;
+}
+
+/** Old priority-first ordering — still handy for "what's most important" lists. */
+export function compareByPriority(a: TaskLike, b: TaskLike): number {
   const p = PRIORITY_RANK[a.priority as TaskPriority] - PRIORITY_RANK[b.priority as TaskPriority];
-  if (p !== 0) return p;
-  if (a.dueDate !== b.dueDate) {
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
-    return a.dueDate < b.dueDate ? -1 : 1;
-  }
-  return a.orderIndex - b.orderIndex;
+  return p !== 0 ? p : compareTasks(a, b);
 }
 
 export function groupByBucket<T extends TaskLike>(list: T[], today: string): Record<DueBucket, T[]> {
@@ -110,4 +113,68 @@ export function parseQuickAdd(input: string, now: Date = new Date()): {
   }
 
   return { title: kept.join(" "), dueDate, priority };
+}
+
+// ─── Reordering ─────────────────────────────────────────────────────────────
+
+/** Move one id up (-1) or down (+1) within an ordered list. Returns a new array. */
+export function moveInList<T>(ids: T[], id: T, dir: -1 | 1): T[] {
+  const i = ids.indexOf(id);
+  const j = i + dir;
+  if (i === -1 || j < 0 || j >= ids.length) return ids;
+  const next = [...ids];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
+/** Drag-and-drop: move `fromId` to just above/below `toId`. Returns a new array. */
+export function moveTo<T>(ids: T[], fromId: T, toId: T, position: "above" | "below"): T[] {
+  if (fromId === toId) return ids;
+  const without = ids.filter((x) => x !== fromId);
+  const at = without.indexOf(toId);
+  if (at === -1) return ids;
+  without.splice(position === "above" ? at : at + 1, 0, fromId);
+  return without;
+}
+
+// ─── Points ─────────────────────────────────────────────────────────────────
+
+export const PRIORITY_POINTS: Record<TaskPriority, number> = { none: 1, low: 2, medium: 3, high: 5 };
+
+/** Points a task is worth when completed. Brought back after removal → double. */
+export function taskPoints(t: { priority: string; restoredAt?: Date | string | null }): number {
+  const base = PRIORITY_POINTS[t.priority as TaskPriority] ?? 1;
+  return t.restoredAt ? base * 2 : base;
+}
+
+// ─── Recurrence ─────────────────────────────────────────────────────────────
+// Days are a 7-char mask, Monday first: "1111100" = weekdays.
+
+export const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+export function isValidDaysMask(days: unknown): days is string {
+  return typeof days === "string" && /^[01]{7}$/.test(days) && days.includes("1");
+}
+
+export function isValidTime(t: unknown): t is string {
+  return typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+}
+
+/** Does a recurrence mask include this calendar date ("yyyy-MM-dd")? */
+export function repeatsOn(days: string, dateKey: string): boolean {
+  const d = new Date(dateKey + "T12:00:00");
+  return days[(d.getDay() + 6) % 7] === "1";
+}
+
+export function describeDays(days: string): string {
+  if (days === "1111111") return "Every day";
+  if (days === "1111100") return "Weekdays";
+  if (days === "0000011") return "Weekends";
+  return WEEKDAY_SHORT.filter((_, i) => days[i] === "1").join(", ");
+}
+
+/** "08:00" → "8:00 AM" style label respecting the browser locale. */
+export function formatTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }

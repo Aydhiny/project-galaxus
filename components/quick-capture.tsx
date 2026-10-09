@@ -123,7 +123,7 @@ export function QuickCaptureButton() {
     <button
       onClick={openCapture}
       title="Quick capture (` key)"
-      className="fixed bottom-20 right-4 z-[90] w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-muted-foreground hover:text-[var(--gold)] hover:border-[var(--gold)]/40 transition-all hover:scale-110"
+      className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[90] w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-muted-foreground hover:text-[var(--gold)] hover:border-[var(--gold)]/40 transition-all hover:scale-110"
     >
       <Zap className="w-4 h-4" />
     </button>

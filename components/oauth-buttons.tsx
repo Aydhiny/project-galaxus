@@ -12,17 +12,16 @@ export function OAuthButtons({ google, github }: { google: boolean; github: bool
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/10" />
-        <span className="text-[10px] uppercase tracking-[0.18em] text-white/30">or continue with</span>
-        <div className="h-px flex-1 bg-white/10" />
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted-foreground">or continue with</span>
+        <div className="h-px flex-1 bg-border" />
       </div>
       <div className="grid gap-2.5" style={{ gridTemplateColumns: google && github ? "1fr 1fr" : "1fr" }}>
         {google && (
           <button
             type="button"
             onClick={() => signIn("google", { callbackUrl })}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm text-white/80 hover:text-white hover:bg-white/[0.06] transition-colors"
-            style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.10)" }}
+            className="flex items-center justify-center gap-2 h-11 px-4 rounded-lg border border-input bg-card text-sm font-medium hover:bg-accent transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3.01h3.88c2.27-2.09 3.58-5.17 3.58-8.66z"/>
@@ -37,8 +36,7 @@ export function OAuthButtons({ google, github }: { google: boolean; github: bool
           <button
             type="button"
             onClick={() => signIn("github", { callbackUrl })}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm text-white/80 hover:text-white hover:bg-white/[0.06] transition-colors"
-            style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.10)" }}
+            className="flex items-center justify-center gap-2 h-11 px-4 rounded-lg border border-input bg-card text-sm font-medium hover:bg-accent transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.04-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23.96-.27 1.98-.4 3-.4 1.02 0 2.04.13 3 .4 2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.02 2.89-.02 3.29 0 .32.22.7.83.58C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/>

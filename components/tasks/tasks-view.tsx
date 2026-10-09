@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { format, parseISO, subDays } from "date-fns";
 import {
-  Check, Calendar, Flag, LayoutList, Columns3, Plus, Trash2, CornerDownLeft, CircleDashed,
+  Calendar, Flag, LayoutList, Columns3, Plus, Trash2, CornerDownLeft, CircleDashed, Repeat, Sun, Sunrise, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/lib/db/schema";
 import { clearCompletedTasks } from "@/lib/actions/tasks";
 import { useTasks } from "@/components/tasks/use-tasks";
+import { SortableTaskList, TaskRow, DueChip, PRIORITY_COLOR, STATUS_DOT, tomorrowOf } from "@/components/tasks/task-list";
+import { RecurringSheet } from "@/components/tasks/recurring-sheet";
 import { useLocalToday, useStoredValue } from "@/lib/hooks/client-values";
 import {
   BUCKET_LABEL, PRIORITY_LABEL, STATUS_LABEL, TASK_PRIORITIES, TASK_STATUSES,
@@ -17,24 +19,13 @@ import {
 } from "@/lib/tasks";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
+// Re-exported for existing imports (productivity dashboard).
+export { TaskRow, DueChip };
+
 type View = "list" | "board";
 const VIEW_KEY = "galaxus-tasks-view";
 
-const PRIORITY_COLOR: Record<TaskPriority, string> = {
-  high: "text-red-500",
-  medium: "text-amber-500",
-  low: "text-sky-500",
-  none: "text-muted-foreground/50",
-};
-
-const STATUS_DOT: Record<TaskStatus, string> = {
-  todo: "bg-foreground/25",
-  doing: "bg-amber-500",
-  done: "bg-emerald-500",
-};
-
 export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[]; serverToday: string }) {
-  const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask } = useTasks(initialTasks);
   // Saved view comes from localStorage (browser-only); a click overrides it.
   const storedView = useStoredValue(VIEW_KEY);
   const [chosenView, setChosenView] = useState<View | null>(null);
@@ -43,6 +34,8 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
   const [showEarlier, setShowEarlier] = useState(false);
   // "Today" must be the user's local date, not the server's (UTC).
   const today = useLocalToday(serverToday);
+  const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask, move, drop } = useTasks(initialTasks, today);
+  const [recurringOpen, setRecurringOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   function changeView(v: View) {
@@ -73,6 +66,13 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
             {openCount === 0 ? "All clear. Nice work." : `${openCount} open · ${dueToday} due today or overdue`}
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        <button
+          onClick={() => setRecurringOpen(true)}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
+        >
+          <Repeat className="w-3.5 h-3.5" /> Recurring
+        </button>
         <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
           {(["list", "board"] as const).map((v) => {
             const Icon = v === "list" ? LayoutList : Columns3;
@@ -90,6 +90,7 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
             );
           })}
         </div>
+        </div>
       </header>
 
       <QuickAdd onAdd={addTask} />
@@ -102,11 +103,17 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
                 <h2 className={cn("text-xs font-semibold mb-1.5 px-1", bucket === "overdue" ? "text-red-500" : "text-muted-foreground")}>
                   {BUCKET_LABEL[bucket]} <span className="font-normal opacity-70 ml-1">{groups[bucket].length}</span>
                 </h2>
-                <div className="divide-y divide-border/70 border-y border-border/70">
-                  {groups[bucket].map((t) => (
-                    <TaskRow key={t.id} task={real(t)} today={today} justDone={lingering.has(t.id)} onToggle={() => toggleDone(real(t))} onOpen={() => setOpenId(t.id)} />
-                  ))}
-                </div>
+                <SortableTaskList
+                  tasks={groups[bucket]}
+                  realOf={real}
+                  today={today}
+                  lingering={lingering}
+                  onToggle={toggleDone}
+                  onOpen={(t) => setOpenId(t.id)}
+                  onMove={move}
+                  onDrop={drop}
+                  onSchedule={(t, d) => patchTask(t.id, { dueDate: d })}
+                />
               </section>
             )
           )}
@@ -176,12 +183,15 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
             <TaskDetail
               key={openTask.id}
               task={openTask}
+              today={today}
               onPatch={(p) => patchTask(openTask.id, p)}
               onDelete={() => { removeTask(openTask.id); setOpenId(null); }}
             />
           )}
         </SheetContent>
       </Sheet>
+
+      <RecurringSheet open={recurringOpen} onOpenChange={setRecurringOpen} today={today} />
     </div>
   );
 }
@@ -245,71 +255,6 @@ function QuickAdd({ onAdd }: { onAdd: (t: { title: string; dueDate: string | nul
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── List row ───────────────────────────────────────────────────────────────
-
-export function DueChip({ date, today, done }: { date: string; today: string; done: boolean }) {
-  const overdue = !done && date < today;
-  const isToday = date === today;
-  return (
-    <span className={cn(
-      "inline-flex items-center gap-1 text-xs tabular-nums whitespace-nowrap",
-      overdue ? "text-red-500" : isToday ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
-    )}>
-      <Calendar className="w-3 h-3" />
-      {isToday ? "Today" : format(parseISO(date), "MMM d")}
-    </span>
-  );
-}
-
-export function Checkbox({ done, onToggle, priority }: { done: boolean; onToggle: () => void; priority: TaskPriority }) {
-  return (
-    <button
-      role="checkbox"
-      aria-checked={done}
-      onClick={(e) => { e.stopPropagation(); onToggle(); }}
-      aria-label={done ? "Mark as not done" : "Mark as done"}
-      className={cn(
-        "w-[18px] h-[18px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-all",
-        done
-          ? "bg-emerald-500 border-emerald-500 text-white scale-110"
-          : priority === "high" ? "border-red-500/70 hover:bg-red-500/10"
-          : priority === "medium" ? "border-amber-500/70 hover:bg-amber-500/10"
-          : "border-foreground/30 hover:bg-foreground/[0.05]"
-      )}
-    >
-      {done && <Check className="w-3 h-3" strokeWidth={3} />}
-    </button>
-  );
-}
-
-export function TaskRow({ task, today, onToggle, onOpen, justDone }: {
-  task: Task; today: string; onToggle: () => void; onOpen?: () => void; justDone?: boolean;
-}) {
-  const done = task.status === "done";
-  return (
-    <div
-      onClick={onOpen}
-      className={cn(
-        "group flex items-center gap-3 px-1 py-2.5 rounded-sm transition-colors duration-300",
-        onOpen && "cursor-pointer hover:bg-accent/40",
-        task.id < 0 && "opacity-60",
-        justDone && "bg-emerald-500/[0.07]"
-      )}
-    >
-      <Checkbox done={done} onToggle={onToggle} priority={task.priority as TaskPriority} />
-      <span className={cn("flex-1 min-w-0 truncate text-[15px]", done && "line-through text-muted-foreground")}>{task.title}</span>
-      {task.status === "doing" && (
-        <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT.doing)} /> In progress
-        </span>
-      )}
-      {task.notes && <span className="hidden sm:block w-1 h-1 rounded-full bg-muted-foreground/50" title="Has notes" />}
-      {task.dueDate && <DueChip date={task.dueDate} today={today} done={done} />}
-      {task.priority !== "none" && <Flag className={cn("w-3.5 h-3.5", PRIORITY_COLOR[task.priority as TaskPriority])} />}
     </div>
   );
 }
@@ -424,11 +369,13 @@ function Board({ tasks, today, onMove, onOpen, onAdd }: {
 
 // ─── Detail sheet ───────────────────────────────────────────────────────────
 
-function TaskDetail({ task, onPatch, onDelete }: {
+function TaskDetail({ task, today, onPatch, onDelete }: {
   task: Task;
-  onPatch: (p: Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate">>) => void;
+  today: string;
+  onPatch: (p: Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime">>) => void;
   onDelete: () => void;
 }) {
+  const tomorrow = tomorrowOf(today);
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? "");
 
@@ -466,17 +413,33 @@ function TaskDetail({ task, onPatch, onDelete }: {
             onChange={(v) => onPatch({ priority: v as TaskPriority })}
           />
         </Field>
-        <Field label="Due date">
-          <div className="flex items-center gap-2">
+        <Field label="Do it">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <ScheduleChip active={task.dueDate === today} onClick={() => onPatch({ dueDate: today })} icon={Sun} label="Today" />
+            <ScheduleChip active={task.dueDate === tomorrow} onClick={() => onPatch({ dueDate: tomorrow })} icon={Sunrise} label="Tomorrow" />
             <input
               type="date"
               value={task.dueDate ?? ""}
               onChange={(e) => onPatch({ dueDate: e.target.value || null })}
               className="h-8 rounded-md border border-border bg-transparent px-2 text-sm"
+              aria-label="Pick a date"
             />
             {task.dueDate && (
-              <button onClick={() => onPatch({ dueDate: null })} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+              <button onClick={() => onPatch({ dueDate: null })} className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent" aria-label="Clear date">
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
+          </div>
+        </Field>
+        <Field label="Time">
+          <div className="flex items-center gap-2">
+            <input
+              type="time"
+              value={task.dueTime ?? ""}
+              onChange={(e) => onPatch({ dueTime: e.target.value || null })}
+              className="h-8 rounded-md border border-border bg-transparent px-2 text-sm"
+            />
+            {task.recurringId && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Repeat className="w-3 h-3" /> From a routine</span>}
           </div>
         </Field>
       </div>
@@ -501,6 +464,23 @@ function TaskDetail({ task, onPatch, onDelete }: {
         </button>
       </div>
     </div>
+  );
+}
+
+function ScheduleChip({ active, onClick, icon: Icon, label }: {
+  active: boolean; onClick: () => void; icon: React.ComponentType<{ className?: string }>; label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs transition-colors",
+        active ? "border-primary bg-primary/10 text-foreground font-medium" : "border-border text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Icon className="w-3.5 h-3.5" /> {label}
+    </button>
   );
 }
 

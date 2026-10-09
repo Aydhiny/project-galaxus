@@ -2,20 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1e1f22" />
   <title>Galaxus — Offline</title>
   <style>
-    body { margin: 0; background: #0f0804; color: #e8d5b0; font-family: Georgia, serif;
-           display: flex; flex-direction: column; align-items: center; justify-content: center;
-           min-height: 100vh; text-align: center; padding: 2rem; }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #C9A84C; }
-    p  { color: #8a7a62; font-size: 0.95rem; max-width: 320px; line-height: 1.6; }
-    .emoji { font-size: 3rem; margin-bottom: 1rem; }
+    :root { color-scheme: light dark; --bg: #fbfbfa; --fg: #1f1f1e; --muted: #73726e; --card: #fff; --border: rgba(0,0,0,.085); }
+    @media (prefers-color-scheme: dark) { :root { --bg: #1e1f22; --fg: #e8e8e6; --muted: #9b9ba0; --card: #26272b; --border: rgba(255,255,255,.085); } }
+    body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--bg); color: var(--fg);
+           font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; padding: 24px; box-sizing: border-box; }
+    .card { max-width: 340px; text-align: center; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px; }
+    img { width: 56px; height: 56px; border-radius: 14px; }
+    h1 { font-size: 20px; margin: 16px 0 6px; letter-spacing: -.01em; }
+    p { color: var(--muted); margin: 0 0 20px; }
+    button { font: inherit; font-weight: 500; border: 0; border-radius: 10px; padding: 10px 18px; background: #3b5bdb; color: #fff; cursor: pointer; }
   </style>
 </head>
 <body>
-  <div class="emoji">🕯️</div>
-  <h1>You're offline</h1>
-  <p>Galaxus needs a connection for synced data. Your locally stored notes, metrics, and room settings are still available when you reconnect.</p>
+  <div class="card">
+    <img src="/icons/icon-192.png" alt="" />
+    <h1>You're offline</h1>
+    <p>Galaxus needs a connection to sync your tasks. Reconnect and you'll pick up right where you left off.</p>
+    <button onclick="location.reload()">Try again</button>
+  </div>
 </body>
 </html>

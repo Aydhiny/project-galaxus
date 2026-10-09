@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { completionsByDay, completionStreak, weekOverWeek, heatmapWeeks, bestDay } from "./productivity";
+import { completionsByDay, completionStreak, weekOverWeek, heatmapWeeks, bestDay, pointsSummary, mergeHistory } from "./productivity";
 
 // Friday 2026-10-09, 15:00 local
 const NOW = new Date(2026, 9, 9, 15, 0, 0);
@@ -47,5 +47,21 @@ describe("heatmapWeeks", () => {
     expect(grid[1][0].date).toBe("2026-10-05"); // Monday of this week
     expect(grid[1][4]).toMatchObject({ date: "2026-10-09", count: 1 }); // Friday = today
     expect(grid[1][5].count).toBe(-1); // Saturday is in the future
+  });
+});
+
+describe("points", () => {
+  it("sums today / this week / last week, doubling comeback tasks", () => {
+    const tasks = [
+      { status: "done", priority: "high", completedAt: new Date(2026, 9, 9, 10) }, // 5 today
+      { status: "done", priority: "low", restoredAt: new Date(), completedAt: new Date(2026, 9, 8) }, // 4 this week
+      { status: "done", priority: "none", completedAt: new Date(2026, 9, 1) }, // 1 last week
+    ];
+    expect(pointsSummary(tasks, NOW)).toEqual({ today: 5, thisWeek: 9, lastWeek: 1 });
+  });
+  it("merges history without double counting live tasks", () => {
+    const live = [{ id: 1, status: "todo", completedAt: null }];
+    const history = [{ id: 1, status: "done", completedAt: new Date() }, { id: 2, status: "done", completedAt: new Date() }];
+    expect(mergeHistory(live, history).map((t) => t.status)).toEqual(["todo", "done"]);
   });
 });

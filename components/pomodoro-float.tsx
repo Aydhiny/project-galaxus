@@ -74,7 +74,7 @@ export function FloatingPomodoro() {
         onClick={() => setMinimized(false)}
         title="Open Pomodoro timer (Alt+P)"
         className={cn(
-          "fixed bottom-20 left-4 z-[90] flex items-center gap-2 px-3 py-2 rounded-xl",
+          "fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-[90] flex items-center gap-2 px-3 py-2 rounded-xl",
           "bg-card border border-border shadow-lg text-xs font-semibold tabular-nums transition-all hover:scale-105"
         )}
         style={{ color }}
@@ -90,7 +90,7 @@ export function FloatingPomodoro() {
 
   return (
     <div className={cn(
-      "fixed bottom-20 left-4 z-[90] w-48 rounded-2xl border border-border bg-card/95 backdrop-blur-md shadow-2xl",
+      "fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-[90] w-48 rounded-2xl border border-border bg-card/95 backdrop-blur-md shadow-2xl",
       "transition-all duration-200"
     )}
       style={{ boxShadow: `0 8px 32px oklch(0 0 0 / 40%), 0 0 0 1px oklch(1 0 0 / 6%)` }}>

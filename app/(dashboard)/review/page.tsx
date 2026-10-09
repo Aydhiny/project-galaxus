@@ -5,6 +5,8 @@ import { getJournalEntries } from "@/lib/actions/journal";
 import { BarChart3, TrendingUp, Trophy, Calendar, Star } from "lucide-react";
 import { format, startOfWeek, endOfWeek, subWeeks, eachDayOfInterval, isWithinInterval } from "date-fns";
 import type { DailyCheckin } from "@/lib/db/schema";
+import { listTaskHistory } from "@/lib/actions/tasks";
+import { TaskWeeklyReview } from "@/components/review/task-weekly-review";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -45,11 +47,12 @@ const QUOTES = [
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default async function ReviewPage() {
-  const [checkins, books, courses, journalEntries] = await Promise.all([
+  const [checkins, books, courses, journalEntries, taskHistory] = await Promise.all([
     getRecentCheckins(60),
     getBooks(),
     getCourses(),
     getJournalEntries(),
+    listTaskHistory(70),
   ]);
 
   const thisWeek = getWeekInterval(0);
@@ -136,6 +139,9 @@ export default async function ReviewPage() {
           {format(thisWeek.start, "MMM d")} – {format(thisWeek.end, "MMM d, yyyy")}
         </p>
       </div>
+
+      {/* Tasks review — client side so weeks use the viewer's local dates */}
+      <TaskWeeklyReview tasks={taskHistory} serverToday={format(new Date(), "yyyy-MM-dd")} />
 
       {/* Weekly habit grid */}
       <div className="glass p-5 space-y-4">
