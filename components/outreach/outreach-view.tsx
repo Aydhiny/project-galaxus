@@ -267,7 +267,7 @@ function SendCard({ lead, canRewrite, onSent, onSkip, onMessage, onRewritten, on
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => { if (draft !== (lead.message ?? "")) onMessage(draft); }}
-        rows={6}
+        rows={8}
         className="mt-3 w-full rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed resize-y"
         aria-label={`Message to ${lead.name}`}
       />
