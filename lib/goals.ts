@@ -63,14 +63,15 @@ export function expectedPct(m: string, today: string): number {
 }
 
 /**
- * Share of the plan that's scheduled on or before today (0–100). This is the
- * honest yardstick for a dated plan: a plan that starts on the 10th isn't
- * "behind" on the 9th just because 29% of the month has passed.
+ * Share of the plan scheduled BEFORE today (0–100) — the honest yardstick for
+ * a dated plan. Today's steps don't count yet: you're not behind on something
+ * you still have the rest of the day to do, and a plan starting on the 10th
+ * isn't "behind" on the 9th just because 29% of the month has passed.
  */
 export function scheduledPct(tasks: GoalTaskLike[], today: string): number | null {
   const dated = tasks.filter((t) => t.dueDate);
   if (dated.length === 0) return null;
-  return Math.round((dated.filter((t) => t.dueDate! <= today).length / tasks.length) * 100);
+  return Math.round((dated.filter((t) => t.dueDate! < today).length / tasks.length) * 100);
 }
 
 /** Expected progress by today: the plan's own schedule, else the calendar. */
@@ -90,7 +91,11 @@ export function goalPace(
   if (progress.total === 0) return "no-plan";
   if (progress.done === progress.total) return "achieved";
   const expected = expectedProgress(m, today, tasks);
-  if (expected === 0) return "not-started";
+  if (expected === 0) {
+    // Nothing was due before today: on track if the plan has begun (a step
+    // today or something already done), otherwise it simply hasn't started.
+    return progress.done > 0 || tasks?.some((t) => t.dueDate === today) ? "on-track" : "not-started";
+  }
   const diff = progress.pct - expected;
   if (diff >= 10) return "ahead";
   if (diff >= -10) return "on-track";
@@ -128,4 +133,23 @@ export function groupByPhase<T extends GoalTaskLike>(tasks: T[]): { phase: strin
     if (b.phase === null) return -1;
     return firstDate(a).localeCompare(firstDate(b));
   });
+}
+
+/**
+ * What matters TODAY in a plan: steps due today (done or not) plus earlier
+ * steps still open — missed steps stay visible instead of silently vanishing.
+ */
+export function todaysSteps<T extends GoalTaskLike & { id: number }>(tasks: T[], today: string): T[] {
+  return tasks
+    .filter((t) => t.dueDate === today || (t.status !== "done" && !!t.dueDate && t.dueDate < today))
+    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? "") || (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+}
+
+/** The first open step after today (for "Nothing today — next: …"). */
+export function nextStep<T extends GoalTaskLike>(tasks: T[], today: string): T | null {
+  return (
+    tasks
+      .filter((t) => t.status !== "done" && !!t.dueDate && t.dueDate > today)
+      .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!) || (a.orderIndex ?? 0) - (b.orderIndex ?? 0))[0] ?? null
+  );
 }

@@ -177,8 +177,13 @@ export function describeDays(days: string): string {
   return WEEKDAY_SHORT.filter((_, i) => days[i] === "1").join(", ");
 }
 
-/** "08:00" → "8:00 AM" style label respecting the browser locale. */
+/**
+ * Display a stored "HH:MM" time. Deliberately 24-hour and locale-free: the
+ * server and the browser can have different locales, and a locale-dependent
+ * label ("18:00" on the server vs "6:00 PM" in the browser) causes a React
+ * hydration mismatch.
+ */
 export function formatTime(t: string): string {
-  const [h, m] = t.split(":").map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const [h, m] = t.split(":");
+  return `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
 }

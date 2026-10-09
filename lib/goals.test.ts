@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayInMonth, daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, isValidMonth, monthBounds, monthLabel, scheduledPct, shiftMonth } from "./goals";
+import { dayInMonth, daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, isValidMonth, monthBounds, monthLabel, nextStep, scheduledPct, shiftMonth, todaysSteps } from "./goals";
 
 describe("month helpers", () => {
   it("validates, labels and bounds months", () => {
@@ -75,5 +75,30 @@ describe("plan-based pace", () => {
     const halfway = plan.map((t, i) => (i < 2 ? { ...t, status: "done" } : t));
     expect(goalPace("2026-10", "2026-10-16", goalProgress(halfway), halfway)).toBe("on-track");
     expect(goalPace("2026-10", "2026-10-21", goalProgress(plan), plan)).toBe("behind");
+  });
+});
+
+describe("today-only view", () => {
+  const steps = [
+    { id: 1, status: "done", dueDate: "2026-10-08" },
+    { id: 2, status: "todo", dueDate: "2026-10-09" }, // missed yesterday
+    { id: 3, status: "done", dueDate: "2026-10-10" }, // done today
+    { id: 4, status: "todo", dueDate: "2026-10-10" },
+    { id: 5, status: "todo", dueDate: "2026-10-12" },
+  ];
+  it("shows today's steps plus missed open ones, nothing from the future", () => {
+    expect(todaysSteps(steps, "2026-10-10").map((s) => s.id)).toEqual([2, 3, 4]);
+  });
+  it("finds the next upcoming step", () => {
+    expect(nextStep(steps, "2026-10-10")?.id).toBe(5);
+    expect(nextStep(steps, "2026-10-12")).toBeNull();
+  });
+});
+
+describe("pace on the day of a step", () => {
+  it("isn't 'behind' for a step you still have today to do", () => {
+    const plan = [{ status: "todo", dueDate: "2026-10-10" }, { status: "todo", dueDate: "2026-10-11" }];
+    expect(goalPace("2026-10", "2026-10-10", goalProgress(plan), plan)).toBe("on-track");
+    expect(goalPace("2026-10", "2026-10-11", goalProgress(plan), plan)).toBe("behind"); // yesterday's step was missed
   });
 });

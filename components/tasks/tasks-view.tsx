@@ -41,6 +41,8 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
   const goalsById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
   // Secondary filter by area of life — the main view stays time-based.
   const [areaFilter, setAreaFilter] = useState<Area | null>(null);
+  // Today first: future sections stay folded until asked for.
+  const [showUpcoming, setShowUpcoming] = useState(false);
   const areasInUse = useMemo(() => AREAS.filter((a) => tasks.some((t) => t.area === a && t.status !== "done")), [tasks]);
   const visibleTasks = useMemo(() => (areaFilter ? tasks.filter((t) => t.area === areaFilter) : tasks), [tasks, areaFilter]);
   const [, startTransition] = useTransition();
@@ -123,7 +125,7 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
 
       {view === "list" ? (
         <div className="mt-8 space-y-8">
-          {(["overdue", "today", "upcoming", "later"] as DueBucket[]).map((bucket) =>
+          {(["overdue", "today", ...(showUpcoming ? ["upcoming", "later"] : [])] as DueBucket[]).map((bucket) =>
             groups[bucket].length === 0 ? null : (
               <section key={bucket}>
                 <h2 className={cn("text-xs font-semibold mb-1.5 px-1", bucket === "overdue" ? "text-red-500" : "text-muted-foreground")}>
@@ -143,6 +145,16 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
                 />
               </section>
             )
+          )}
+
+          {groups.upcoming.length + groups.later.length > 0 && (
+            <button
+              onClick={() => setShowUpcoming((v) => !v)}
+              aria-expanded={showUpcoming}
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground px-1"
+            >
+              {showUpcoming ? "Hide upcoming" : "Show upcoming"} <span className="font-normal opacity-70 ml-1">{groups.upcoming.length + groups.later.length}</span>
+            </button>
           )}
 
           {openCount === 0 && groups.done.length === 0 && (

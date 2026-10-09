@@ -3,12 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bot, CalendarDays, Trash2, Trophy } from "lucide-react";
+import { ArrowLeft, Bot, CalendarDays, ChevronDown, Trash2, Trophy } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { deleteMonthlyGoal, updateMonthlyGoal } from "@/lib/actions/monthly-goals";
-import { goalPace, goalProgress, groupByPhase, monthLabel, shiftMonth, PACE_LABEL, type Pace } from "@/lib/goals";
+import { goalPace, goalProgress, groupByPhase, monthLabel, nextStep, shiftMonth, todaysSteps, PACE_LABEL, type Pace } from "@/lib/goals";
 import { useTasks } from "@/components/tasks/use-tasks";
 import { useLocalToday } from "@/lib/hooks/client-values";
 import { SortableTaskList } from "@/components/tasks/task-list";
@@ -33,6 +34,8 @@ export function GoalPage({ goal: initialGoal, initialTasks, goals, serverToday }
   const [draft, setDraft] = useState("");
   const [phase, setPhase] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Today only, by default. The full plan is one tap away, never in your face.
+  const [showPlan, setShowPlan] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const progress = goalProgress(mine);
@@ -40,6 +43,10 @@ export function GoalPage({ goal: initialGoal, initialTasks, goals, serverToday }
   const phases = groupByPhase(mine);
   const phaseNames = phases.map((p) => p.phase).filter((p): p is string => !!p);
   const openTask = mine.find((t) => t.id === openId) ?? null;
+  // Keep a step on the Today list for a moment after checking it.
+  const today_ = todaysSteps(mine.map((t) => (lingering.has(t.id) ? { ...t, status: "todo" } : t)), today)
+    .map((t) => mine.find((x) => x.id === t.id)!);
+  const upcoming = nextStep(mine, today);
 
   function update(patch: Parameters<typeof updateMonthlyGoal>[1]) {
     setGoal((g) => ({ ...g, ...patch }) as MonthlyGoal);
@@ -83,16 +90,48 @@ export function GoalPage({ goal: initialGoal, initialTasks, goals, serverToday }
         </div>
       </div>
 
-      <div className="mt-8 space-y-7">
-        {mine.length === 0 && (
+      {/* ── Today ─────────────────────────────────────────────────────── */}
+      <section className="mt-8" aria-labelledby="today-steps">
+        <h2 id="today-steps" className="text-sm font-semibold mb-2">Today</h2>
+        {mine.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-5 text-sm">
-            <p className="font-medium flex items-center gap-2"><Bot className="w-4 h-4" /> Let your AI build the plan</p>
+            <p className="font-medium flex items-center gap-2"><Bot className="w-4 h-4" /> No plan yet</p>
             <p className="text-muted-foreground mt-1">
-              Connect an assistant in <Link href="/settings#ai" className="underline underline-offset-4">Settings → AI assistants</Link> and ask it to plan this goal — or add steps below.
+              Ask your AI to plan it (<Link href="/settings#ai" className="underline underline-offset-4">Settings → AI assistants</Link>), or open the full plan below and add steps.
             </p>
           </div>
+        ) : today_.length > 0 ? (
+          <SortableTaskList
+            tasks={today_}
+            today={today}
+            lingering={lingering}
+            onToggle={toggleDone}
+            onOpen={(t) => setOpenId(t.id)}
+            onMove={move}
+            onDrop={drop}
+            onSchedule={(t, d) => patchTask(t.id, { dueDate: d })}
+          />
+        ) : (
+          <p className="rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">
+            {upcoming
+              ? <>Nothing today. Next: <span className="text-foreground font-medium">{upcoming.title}</span> · {format(parseISO(upcoming.dueDate!), "EEE d")}</>
+              : progress.done === progress.total ? "Every step is done. 🏆" : "Nothing scheduled — open the full plan to add dates."}
+          </p>
         )}
+      </section>
 
+      {/* ── Full plan (collapsed) ─────────────────────────────────────── */}
+      <div className="mt-6">
+        <button
+          onClick={() => setShowPlan((v) => !v)}
+          aria-expanded={showPlan}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={cn("w-4 h-4 transition-transform", showPlan && "rotate-180")} />
+          {showPlan ? "Hide full plan" : `Full plan · ${progress.total} step${progress.total === 1 ? "" : "s"}`}
+        </button>
+        {showPlan && (
+          <div className="mt-4 space-y-7">
         {phases.map((p) => (
           <section key={p.phase ?? "_none"}>
             <h2 className="text-xs font-semibold text-muted-foreground mb-1.5 px-1">
@@ -131,6 +170,8 @@ export function GoalPage({ goal: initialGoal, initialTasks, goals, serverToday }
             <button onClick={addStep} disabled={!draft.trim()} className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50">Add</button>
           </div>
         </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 pt-6 border-t border-border flex flex-wrap items-center gap-2">

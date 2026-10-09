@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseQuickAdd, bucketFor, groupByBucket, moveInList, moveTo, taskPoints, repeatsOn, describeDays, isValidDaysMask, isValidTime } from "./tasks";
+import { parseQuickAdd, bucketFor, groupByBucket, moveInList, moveTo, taskPoints, repeatsOn, describeDays, isValidDaysMask, isValidTime, formatTime } from "./tasks";
 
 // Thursday 2026-10-08, local time
 const NOW = new Date(2026, 9, 8, 12, 0, 0);
@@ -79,5 +79,12 @@ describe("recurrence", () => {
     expect(isValidDaysMask("0000000")).toBe(false);
     expect(isValidTime("08:30")).toBe(true);
     expect(isValidTime("24:00")).toBe(false);
+  });
+});
+
+describe("formatTime", () => {
+  it("is deterministic 24h (no locale → no hydration mismatch)", () => {
+    expect(formatTime("18:00")).toBe("18:00");
+    expect(formatTime("7:05")).toBe("07:05");
   });
 });

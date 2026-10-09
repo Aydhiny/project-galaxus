@@ -3,13 +3,14 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { format, parseISO } from "date-fns";
 import { Plus, Target, Sparkles, Bot } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { createMonthlyGoal } from "@/lib/actions/monthly-goals";
 import {
-  daysInMonth, expectedProgress, goalPace, goalProgress, monthLabel, shiftMonth, PACE_LABEL, type Pace,
+  daysInMonth, expectedProgress, goalPace, goalProgress, monthLabel, nextStep, shiftMonth, todaysSteps, PACE_LABEL, type Pace,
 } from "@/lib/goals";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
@@ -83,8 +84,8 @@ export function GoalsPanel({ goals: initialGoals, tasks, today, compact }: {
                 <span className="text-2xl leading-none mt-0.5">{g.emoji ?? "🎯"}</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{g.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {progress.total === 0 ? "No plan yet" : `${progress.done}/${progress.total} steps`}
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {cardLine(mine, today, progress.total)}
                   </p>
                 </div>
                 <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", PACE_STYLE[pace])}>{PACE_LABEL[pace]}</span>
@@ -202,4 +203,16 @@ function NewGoalSheet({ open, onOpenChange, month, onCreated }: {
       </SheetContent>
     </Sheet>
   );
+}
+
+/** One line per goal card: what to do today, else when the next step is. */
+function cardLine(tasks: Task[], today: string, total: number): string {
+  if (total === 0) return "No plan yet";
+  const open = todaysSteps(tasks, today).filter((t) => t.status !== "done");
+  if (open.length === 1) return `Today: ${open[0].title}`;
+  if (open.length > 1) return `Today: ${open[0].title} +${open.length - 1}`;
+  const next = nextStep(tasks, today);
+  if (!next) return "All steps done 🏆";
+  // date-fns, not toLocaleDateString: same output on server and client (no hydration mismatch).
+  return `Done for today · next ${format(parseISO(next.dueDate!), "EEE")}`;
 }
