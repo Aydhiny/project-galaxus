@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { createMonthlyGoal, deleteMonthlyGoal, updateMonthlyGoal } from "@/lib/actions/monthly-goals";
 import {
-  daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, monthLabel, shiftMonth, PACE_LABEL, type Pace,
+  daysInMonth, expectedProgress, goalPace, goalProgress, groupByPhase, monthLabel, shiftMonth, PACE_LABEL, type Pace,
 } from "@/lib/goals";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { SortableTaskList } from "@/components/tasks/task-list";
@@ -74,8 +74,8 @@ export function GoalsPanel({ goals: initialGoals, tasks, today, lingering, handl
         {thisMonth.map((g) => {
           const mine = byGoal.get(g.id) ?? [];
           const progress = goalProgress(mine);
-          const pace: Pace = g.status === "achieved" ? "achieved" : goalPace(g.month, today, progress);
-          const expected = expectedPct(g.month, today);
+          const pace: Pace = g.status === "achieved" ? "achieved" : goalPace(g.month, today, progress, mine);
+          const expected = expectedProgress(g.month, today, mine);
           return (
             <button
               key={g.id}
@@ -159,7 +159,7 @@ function GoalDetail({ goal, tasks, today, lingering, handlers, onChange, onDelet
   const [phase, setPhase] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const progress = goalProgress(tasks);
-  const pace: Pace = goal.status === "achieved" ? "achieved" : goalPace(goal.month, today, progress);
+  const pace: Pace = goal.status === "achieved" ? "achieved" : goalPace(goal.month, today, progress, tasks);
   const phases = groupByPhase(tasks);
   const phaseNames = phases.map((p) => p.phase).filter((p): p is string => !!p);
 

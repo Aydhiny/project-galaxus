@@ -62,13 +62,34 @@ export function expectedPct(m: string, today: string): number {
   return Math.round((day / daysInMonth(m)) * 100);
 }
 
+/**
+ * Share of the plan that's scheduled on or before today (0–100). This is the
+ * honest yardstick for a dated plan: a plan that starts on the 10th isn't
+ * "behind" on the 9th just because 29% of the month has passed.
+ */
+export function scheduledPct(tasks: GoalTaskLike[], today: string): number | null {
+  const dated = tasks.filter((t) => t.dueDate);
+  if (dated.length === 0) return null;
+  return Math.round((dated.filter((t) => t.dueDate! <= today).length / tasks.length) * 100);
+}
+
+/** Expected progress by today: the plan's own schedule, else the calendar. */
+export function expectedProgress(m: string, today: string, tasks?: GoalTaskLike[]): number {
+  return (tasks && scheduledPct(tasks, today)) ?? expectedPct(m, today);
+}
+
 export type Pace = "no-plan" | "achieved" | "ahead" | "on-track" | "behind" | "not-started";
 
-/** Compare plan progress with the calendar. ±10 points counts as on track. */
-export function goalPace(m: string, today: string, progress: { done: number; total: number; pct: number }): Pace {
+/** Compare plan progress with where it should be today. ±10 points counts as on track. */
+export function goalPace(
+  m: string,
+  today: string,
+  progress: { done: number; total: number; pct: number },
+  tasks?: GoalTaskLike[]
+): Pace {
   if (progress.total === 0) return "no-plan";
   if (progress.done === progress.total) return "achieved";
-  const expected = expectedPct(m, today);
+  const expected = expectedProgress(m, today, tasks);
   if (expected === 0) return "not-started";
   const diff = progress.pct - expected;
   if (diff >= 10) return "ahead";

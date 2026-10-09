@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayInMonth, daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, isValidMonth, monthBounds, monthLabel, shiftMonth } from "./goals";
+import { dayInMonth, daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, isValidMonth, monthBounds, monthLabel, scheduledPct, shiftMonth } from "./goals";
 
 describe("month helpers", () => {
   it("validates, labels and bounds months", () => {
@@ -57,5 +57,23 @@ describe("schedulePlan", async () => {
     ]);
     expect(out.map((o) => o.dueDate)).toEqual(["2026-10-01", "2026-10-09", "2026-10-16", "2026-10-31", "2026-11-02"]);
     expect(out[2].phase).toBe("Week 4");
+  });
+});
+
+describe("plan-based pace", () => {
+  const plan = [
+    { status: "todo", dueDate: "2026-10-10" },
+    { status: "todo", dueDate: "2026-10-15" },
+    { status: "todo", dueDate: "2026-10-20" },
+    { status: "todo", dueDate: "2026-10-31" },
+  ];
+  it("isn't 'behind' before the first step is even due", () => {
+    expect(scheduledPct(plan, "2026-10-09")).toBe(0);
+    expect(goalPace("2026-10", "2026-10-09", goalProgress(plan), plan)).toBe("not-started");
+  });
+  it("compares done steps with steps scheduled so far", () => {
+    const halfway = plan.map((t, i) => (i < 2 ? { ...t, status: "done" } : t));
+    expect(goalPace("2026-10", "2026-10-16", goalProgress(halfway), halfway)).toBe("on-track");
+    expect(goalPace("2026-10", "2026-10-21", goalProgress(plan), plan)).toBe("behind");
   });
 });

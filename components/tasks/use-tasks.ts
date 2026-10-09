@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { Task } from "@/lib/db/schema";
+import type { MonthlyGoal, Task } from "@/lib/db/schema";
+import { celebrationFor } from "@/lib/celebrate";
+import { fireConfetti } from "@/lib/confetti";
 import { createTask, updateTask, deleteTask, reorderTasks } from "@/lib/actions/tasks";
 import { ensureRecurringInstances } from "@/lib/actions/recurring";
-import { moveInList, moveTo, taskPoints, type TaskPriority, type TaskStatus } from "@/lib/tasks";
+import { moveInList, moveTo, type TaskPriority, type TaskStatus } from "@/lib/tasks";
 
 export type TaskPatch = Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime" | "goalId" | "phase">>;
 
@@ -18,7 +20,8 @@ export const LINGER_MS = 1800;
  * dashboard. UI updates instantly; the server call runs in a transition and
  * a failure refetches so the screen never lies about what's saved.
  */
-export function useTasks(initialTasks: Task[], today: string) {
+export function useTasks(initialTasks: Task[], today: string, opts: { goals?: MonthlyGoal[] } = {}) {
+  const goals = opts.goals;
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   // Server data wins whenever it changes (after revalidation / router.refresh).
@@ -85,12 +88,25 @@ export function useTasks(initialTasks: Task[], today: string) {
       setLingering((s) => { const n = new Set(s); n.delete(task.id); return n; });
       timers.current.delete(task.id);
     }, LINGER_MS));
-    const pts = taskPoints(task);
-    toast.success(`Completed “${task.title}” · +${pts} pt${pts === 1 ? "" : "s"}${task.restoredAt ? " (2× comeback)" : ""}`, {
-      action: { label: "Undo", onClick: () => markUndone(task) },
-      duration: 4000,
+    // Bigger moments for harder / more meaningful tasks (see lib/celebrate.ts).
+    const goal = task.goalId ? goals?.find((g) => g.id === task.goalId) ?? null : null;
+    const isDone = (t: Task) => t.status === "done" || t.id === task.id;
+    const goalTasks = task.goalId ? tasks.filter((t) => t.goalId === task.goalId) : [];
+    const phaseTasks = task.phase ? goalTasks.filter((t) => t.phase === task.phase) : [];
+    const c = celebrationFor(task, {
+      goal,
+      goalDone: goalTasks.filter(isDone).length,
+      goalTotal: goalTasks.length,
+      phaseDone: phaseTasks.filter(isDone).length,
+      phaseTotal: phaseTasks.length,
     });
-  }, [patchTask, markUndone]);
+    toast.success(c.title, {
+      description: c.description,
+      action: { label: "Undo", onClick: () => markUndone(task) },
+      duration: c.confetti === "big" ? 7000 : c.confetti === "small" ? 5000 : 4000,
+    });
+    void fireConfetti(c.confetti);
+  }, [patchTask, markUndone, tasks, goals]);
 
   const toggleDone = useCallback(
     (task: Task) => (task.status === "done" ? markUndone(task) : markDone(task)),

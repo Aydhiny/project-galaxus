@@ -36,7 +36,7 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
   const [showEarlier, setShowEarlier] = useState(false);
   // "Today" must be the user's local date, not the server's (UTC).
   const today = useLocalToday(serverToday);
-  const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask, move, drop } = useTasks(initialTasks, today);
+  const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask, move, drop } = useTasks(initialTasks, today, { goals });
   const [recurringOpen, setRecurringOpen] = useState(false);
   const goalsById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
   const [, startTransition] = useTransition();

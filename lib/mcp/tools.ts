@@ -95,7 +95,7 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
           month_label: monthLabel(m),
           goals: goals.map((g) => ({
             id: g.id, title: g.title, emoji: g.emoji, status: g.status,
-            progress: g.progress, pace: PACE_LABEL[goalPace(g.month, t, g.progress)],
+            progress: g.progress, pace: PACE_LABEL[goalPace(g.month, t, g.progress, g.tasks)],
           })),
           due_today_or_overdue: open.filter((x) => x.dueDate).map(slimTask),
         });
@@ -137,7 +137,7 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
         return ok({
           ...goal,
           progress,
-          pace: PACE_LABEL[goalPace(goal.month, today(given), progress)],
+          pace: PACE_LABEL[goalPace(goal.month, today(given), progress, tasks)],
           phases: groupByPhase(tasks).map((p) => ({ phase: p.phase ?? "Other", tasks: p.tasks.map(slimTask) })),
         });
       } catch (e) { return fail(e); }

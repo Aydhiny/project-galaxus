@@ -29,7 +29,7 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
 }) {
   const today = useLocalToday(serverToday);
   const tomorrow = tomorrowOf(today);
-  const { tasks, lingering, toggleDone, addTask, patchTask, move, drop } = useTasks(initialTasks, today);
+  const { tasks, lingering, toggleDone, addTask, patchTask, move, drop } = useTasks(initialTasks, today, { goals });
   const hydrated = useHydrated();
   const [range, setRange] = useState<Range>(14);
   const [planDay, setPlanDay] = useState<PlanDay>("today");
