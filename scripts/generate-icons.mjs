@@ -41,6 +41,17 @@ await png(markSvg(512, { scale: 0.78 }), "public/icons/maskable-512.png");
 await png(markSvg(180, { scale: 0.9 }), "public/icons/apple-touch-icon.png");
 await png(markSvg(32, { rounded: true }), "public/icons/favicon-32.png");
 
+// Desktop app icon (Tauri → .icns / .ico). macOS Big Sur+ icons are a
+// rounded tile inside a transparent 1024 canvas (~10% margin), not full-bleed.
+{
+  const tile = await sharp(markSvg(824, { rounded: true })).png().toBuffer();
+  await sharp({ create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite([{ input: tile, gravity: "center" }])
+    .png({ compressionLevel: 9 })
+    .toFile("public/icons/desktop-1024.png");
+  console.log("wrote public/icons/desktop-1024.png");
+}
+
 // iPhone launch screens (portrait). iOS shows a blank white screen while a
 // home-screen app boots unless a size-exact startup image matches the device.
 export const SPLASHES = [

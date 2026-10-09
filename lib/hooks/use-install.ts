@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-export type Platform = "ios-safari" | "ios-other" | "android" | "desktop";
+export type Platform = "ios-safari" | "ios-other" | "android" | "mac-safari" | "mac" | "windows" | "linux";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -21,7 +21,13 @@ function detectPlatform(): Platform {
     // reliable, so we steer people there.
     return /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua) ? "ios-other" : "ios-safari";
   }
-  return /Android/.test(ua) ? "android" : "desktop";
+  if (/Android/.test(ua)) return "android";
+  if (/Macintosh|Mac OS X/.test(ua)) {
+    // Safari 17+ on macOS Sonoma can "Add to Dock"; Chrome/Edge show an install button.
+    const isSafari = /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua);
+    return isSafari ? "mac-safari" : "mac";
+  }
+  return /Windows/.test(ua) ? "windows" : "linux";
 }
 
 function isStandalone(): boolean {
@@ -31,9 +37,9 @@ function isStandalone(): boolean {
   );
 }
 
-/** Platform + install state. Server snapshot is neutral ("desktop", not installed). */
+/** Platform + install state. Server snapshot is neutral ("windows", not installed). */
 export function useInstall() {
-  const platform = useSyncExternalStore<Platform>(noop, detectPlatform, () => "desktop");
+  const platform = useSyncExternalStore<Platform>(noop, detectPlatform, () => "windows");
   const installed = useSyncExternalStore(noop, isStandalone, () => false);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
 

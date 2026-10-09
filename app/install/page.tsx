@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import { InstallGuide } from "@/components/install/install-guide";
+import { getDesktopDownloads } from "@/lib/desktop-release";
 
 export const metadata: Metadata = {
-  title: "Install the app",
-  description: "Add Galaxus to your iPhone, Android or desktop home screen.",
+  title: "Get the app",
+  description: "Install Galaxus on iPhone, iPad, Mac, Windows or Android.",
 };
 
-export default function InstallPage() {
-  return <InstallGuide />;
+// Re-check GitHub for new desktop installers at most once an hour.
+export const revalidate = 3600;
+
+export default async function InstallPage() {
+  const downloads = await getDesktopDownloads();
+  return <InstallGuide downloads={downloads} />;
 }

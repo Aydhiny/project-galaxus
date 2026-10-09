@@ -1,0 +1,14 @@
+{
+  "name": "galaxus-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Native desktop shell (Tauri) for Galaxus — opens the hosted app in its own window.",
+  "scripts": {
+    "icons": "tauri icon ../public/icons/desktop-1024.png",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

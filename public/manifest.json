@@ -6,7 +6,6 @@
   "start_url": "/productivity?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
   "theme_color": "#1e1f22",
   "background_color": "#1e1f22",
   "icons": [
