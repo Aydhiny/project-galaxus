@@ -52,18 +52,33 @@ jobs:
         working-directory: desktop
         run: npm run icons
 
-      - name: Build installers + publish release
-        uses: tauri-apps/tauri-action@v0
+      # Optional Apple signing + notarization. Variables are exported ONLY when
+      # the secrets exist: an empty APPLE_CERTIFICATE still counts as "set",
+      # and Tauri then fails trying to import an empty certificate.
+      - name: Configure Apple signing (only if secrets are present)
+        if: matrix.platform == 'macos-latest'
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional — when these secrets exist the Mac build is signed and
-          # notarized (no Gatekeeper warning). Empty secrets = unsigned build.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              echo "$v=${!v}" >> "$GITHUB_ENV"
+            done
+            echo "Apple signing enabled."
+          else
+            echo "No Apple certificate configured — building an unsigned (ad-hoc signed) app."
+          fi
+
+      - name: Build installers + publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'desktop-v__VERSION__' }}
