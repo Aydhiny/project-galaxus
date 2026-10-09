@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BackgroundBeams } from "@/components/aceternity/background-beams";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { GradientText } from "@/components/aceternity/gradient-text";
 import { OAuthButtons } from "@/components/oauth-buttons";
 import { Loader2 } from "lucide-react";
+import { safeCallbackUrl } from "@/lib/safe-redirect";
 
 // Static stars — fixed positions so SSR and client always match
 const STARS = [
@@ -51,13 +52,20 @@ export default function LoginPage({ googleEnabled, githubEnabled }: { googleEnab
   const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError("");
-    const res = await signIn("credentials", { email, password, totpCode, redirect: false });
-    if (res?.ok) { router.push("/dashboard"); setLoading(false); return; }
+    const res = await signIn("credentials", { email: email.trim(), password, totpCode, redirect: false });
+    if (res?.ok) {
+      // Full page load, not router.push: the client SessionProvider only
+      // fetches the session on load, so a soft navigation left useSession()
+      // "unauthenticated" (sidebar showing "User", etc.) until a manual refresh.
+      // Also honours ?callbackUrl= so you land where you were heading.
+      window.location.assign(safeCallbackUrl(searchParams.get("callbackUrl"), window.location.origin));
+      return; // keep the spinner until the navigation happens
+    }
 
     if (res?.code === "2fa_required") {
       setNeedsTwoFactor(true);
@@ -65,6 +73,8 @@ export default function LoginPage({ googleEnabled, githubEnabled }: { googleEnab
     } else if (res?.code === "2fa_invalid") {
       setNeedsTwoFactor(true);
       setError("Incorrect code. Try again or use a backup code.");
+    } else if (res?.code === "rate_limited") {
+      setError("Too many attempts. Wait a minute and try again.");
     } else if (res?.code === "oauth_only") {
       setError("This account uses Google/GitHub sign-in — use a button below instead of a password.");
     } else {
@@ -112,15 +122,18 @@ export default function LoginPage({ googleEnabled, githubEnabled }: { googleEnab
             {!needsTwoFactor ? (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Username or Email</label>
-                  <input type="text" value={email} onChange={e => setEmail(e.target.value)}
-                    placeholder="Username or email" required
+                  <label htmlFor="login-email" className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Email</label>
+                  <input id="login-email" type="email" autoComplete="email" autoFocus value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com" required
                     className="w-full px-4 py-3 rounded-xl border text-sm"
                     style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Password</label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="login-password" className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Password</label>
+                    <Link href="/forgot-password" className="text-[11px] text-white/40 hover:text-white/70 transition-colors">Forgot password?</Link>
+                  </div>
+                  <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••" required
                     className="w-full px-4 py-3 rounded-xl border text-sm"
                     style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />
@@ -129,7 +142,7 @@ export default function LoginPage({ googleEnabled, githubEnabled }: { googleEnab
             ) : (
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-semibold block">Authenticator code</label>
-                <input type="text" inputMode="numeric" autoFocus value={totpCode} onChange={e => setTotpCode(e.target.value)}
+                <input type="text" inputMode="numeric" autoComplete="one-time-code" autoFocus value={totpCode} onChange={e => setTotpCode(e.target.value)}
                   placeholder="123456 or a backup code" required
                   className="w-full px-4 py-3 rounded-xl border text-sm"
                   style={{ background:"rgba(255,255,255,0.05)", borderColor:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.9)" }} />

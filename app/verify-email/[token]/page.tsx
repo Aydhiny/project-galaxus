@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -11,15 +11,19 @@ export default function VerifyEmailPage() {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<"loading" | "success" | "error">("loading");
   const [error, setError] = useState("");
+  const started = useRef(false);
 
   useEffect(() => {
-    let alive = true;
+    // Tokens are single-use. React StrictMode (dev) runs effects twice, and
+    // the old `alive` flag discarded the FIRST (successful) result, then
+    // showed the second call's "invalid or expired" — a false failure.
+    // The ref guarantees exactly one verification request per mount.
+    if (started.current) return;
+    started.current = true;
     verifyEmail(token).then((res) => {
-      if (!alive) return;
       if (res.error) { setError(res.error); setState("error"); }
       else setState("success");
     });
-    return () => { alive = false; };
   }, [token]);
 
   return (

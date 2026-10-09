@@ -2,16 +2,14 @@
 
 import { db } from "@/lib/db";
 import { users, backupCodes } from "@/lib/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { generateSecret, generateURI, verify } from "otplib";
 import QRCode from "qrcode";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireUserId } from "@/lib/auth-session";
-
-function hashCode(code: string): string {
-  return createHash("sha256").update(code).digest("hex");
-}
+import { hashBackupCode } from "@/lib/auth-security";
+import { revokeOtherSessions } from "@/lib/session-revoke";
 
 function generateBackupCode(): string {
   // 10 chars, groups of 5 separated by a dash — easy to read back, hard to guess.
@@ -43,12 +41,15 @@ export async function confirmTwoFactorEnrollment(code: string) {
   const result = await verify({ secret: user.twoFactorSecret, token: code, epochTolerance: 30 });
   if (!result.valid) return { error: "Incorrect code. Check your authenticator app and try again." };
 
-  await db.update(users).set({ twoFactorEnabled: true }).where(eq(users.id, userId));
+  const step = "timeStep" in result ? result.timeStep : null;
+  await db.update(users).set({ twoFactorEnabled: true, totpLastStep: step }).where(eq(users.id, userId));
+  // Turning 2FA on should kick out any session that was opened without it.
+  await revokeOtherSessions(userId);
 
   // Fresh backup codes every time 2FA is (re-)enabled — old ones are invalidated.
   await db.delete(backupCodes).where(eq(backupCodes.userId, userId));
   const codes = Array.from({ length: 10 }, generateBackupCode);
-  await db.insert(backupCodes).values(codes.map((code) => ({ userId, codeHash: hashCode(code) })));
+  await db.insert(backupCodes).values(codes.map((code) => ({ userId, codeHash: hashBackupCode(code) })));
 
   return { success: true, backupCodes: codes };
 }
@@ -65,41 +66,8 @@ export async function disableTwoFactor(password?: string) {
     if (!valid) return { error: "Password is incorrect." };
   }
 
-  await db.update(users).set({ twoFactorEnabled: false, twoFactorSecret: null }).where(eq(users.id, userId));
+  await db.update(users).set({ twoFactorEnabled: false, twoFactorSecret: null, totpLastStep: null }).where(eq(users.id, userId));
   await db.delete(backupCodes).where(eq(backupCodes.userId, userId));
+  await revokeOtherSessions(userId);
   return { success: true };
-}
-
-/**
- * Used from auth.ts's authorize() — no session exists yet at that point, so
- * this takes a userId directly rather than going through requireUserId().
- * Tries a live TOTP code first, then falls back to a single-use backup code.
- */
-export async function verifyTwoFactorCode(userId: number, code: string): Promise<boolean> {
-  const [user] = await db.select({ twoFactorSecret: users.twoFactorSecret }).from(users).where(eq(users.id, userId)).limit(1);
-  if (!user?.twoFactorSecret) return false;
-
-  // otplib's verify() throws (rather than returning invalid) when the token
-  // isn't a plain 6-digit string — which backup codes never are — so this
-  // must not be allowed to skip the backup-code fallback below.
-  try {
-    const totpResult = await verify({ secret: user.twoFactorSecret, token: code, epochTolerance: 30 });
-    if (totpResult.valid) return true;
-  } catch {
-    // Not a valid TOTP token shape — fall through to backup-code check.
-  }
-
-  const normalized = code.trim().toUpperCase();
-  const codeHash = hashCode(normalized);
-  const rows = await db
-    .select()
-    .from(backupCodes)
-    .where(and(eq(backupCodes.userId, userId), eq(backupCodes.codeHash, codeHash), isNull(backupCodes.usedAt)))
-    .limit(1);
-
-  const match = rows[0];
-  if (!match) return false;
-
-  await db.update(backupCodes).set({ usedAt: new Date() }).where(eq(backupCodes.id, match.id));
-  return true;
 }

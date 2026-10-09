@@ -3,16 +3,17 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import { headers } from "next/headers";
-import { checkRateLimit } from "@/lib/ratelimit";
+import { createHmac, timingSafeEqual } from "crypto";
+import { checkRateLimit, resetRateLimit } from "@/lib/ratelimit";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { authConfig } from "@/auth.config";
-import { verifyTwoFactorCode } from "@/lib/actions/two-factor";
+import { verifyTwoFactorCode, getSessionVersion } from "@/lib/auth-security";
 
 // Distinguishable error codes surfaced to the client via signIn()'s `code`
-// field (redirect: false) — see app/login/page.tsx for the two-step UI this drives.
+// field (redirect: false) — see app/login/login-client.tsx for the UI.
 class TwoFactorRequiredError extends CredentialsSignin {
   code = "2fa_required";
 }
@@ -22,9 +23,53 @@ class TwoFactorInvalidError extends CredentialsSignin {
 class OAuthOnlyError extends CredentialsSignin {
   code = "oauth_only";
 }
+// Previously this was a plain `throw new Error(...)`, which NextAuth swallows
+// into a generic error — the user just saw "Invalid email or password" while
+// actually being rate-limited.
+class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+// Compared against when the email doesn't exist, so "no such user" takes the
+// same ~bcrypt time as "wrong password" and response timing can't be used to
+// discover which emails have accounts.
+const DUMMY_HASH = "$2b$12$cmF71I3xpuD.hQT0X.QJwOgSuA7uFdbJrDd3pjukb.c/F5GfUtbfG";
+
+/** How often (ms) a live session re-checks that it hasn't been revoked. */
+const REVOCATION_CHECK_MS = 5 * 60 * 1000;
+
+/**
+ * Signed proof that the server itself is re-issuing a session at a new
+ * version (after "sign out everywhere else", password change, 2FA change).
+ * The client-side useSession().update() can send arbitrary data, so a stale
+ * session must not be able to just claim a newer version — it would need
+ * this HMAC, which requires AUTH_SECRET.
+ */
+export function signSessionGrant(userId: string, version: number): string {
+  return createHmac("sha256", process.env.AUTH_SECRET ?? "")
+    .update(`session-grant:${userId}:${version}`)
+    .digest("hex");
+}
+
+function isValidGrant(userId: string, version: unknown, grant: unknown): version is number {
+  if (typeof version !== "number" || typeof grant !== "string") return false;
+  const expected = Buffer.from(signSessionGrant(userId, version));
+  const given = Buffer.from(grant);
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
+
+async function clientIp(): Promise<string> {
+  const hdrs = await headers();
+  return hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+}
+
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days of inactivity → signed out
+    updateAge: 24 * 60 * 60, // rolling: the cookie is re-issued (rotated) at most daily while in use
+  },
   providers: [
     Credentials({
       credentials: {
@@ -33,21 +78,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         totpCode: { label: "2FA Code", type: "text" },
       },
       async authorize(credentials) {
-        const hdrs = await headers();
-        const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-        const { allowed, retryAfterSeconds } = checkRateLimit(ip);
-
-        if (!allowed) {
-          throw new Error(`Too many attempts. Try again in ${retryAfterSeconds}s.`);
-        }
-
-        const email = (credentials.email as string) ?? "";
-        const password = (credentials.password as string) ?? "";
+        const email = String(credentials.email ?? "").trim().toLowerCase();
+        const password = String(credentials.password ?? "");
         const totpCode = (credentials.totpCode as string | undefined)?.trim();
 
-        const rows = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+        // Bucket per IP *and* email: one attacker can't lock everyone out
+        // from a shared IP, and one account can't be hammered from many tabs.
+        const ip = await clientIp();
+        const limitKey = `login:${ip}:${email}`;
+        if (!checkRateLimit(limitKey).allowed) throw new RateLimitedError();
+
+        if (!email || !password) return null;
+
+        const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
         const user = rows[0];
-        if (!user) return null;
+        if (!user) {
+          await bcrypt.compare(password, DUMMY_HASH);
+          return null;
+        }
         if (!user.passwordHash) throw new OAuthOnlyError();
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
@@ -58,6 +106,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!codeValid) throw new TwoFactorInvalidError();
         }
 
+        // Successful sign-in shouldn't eat into the next session's attempt budget.
+        resetRateLimit(limitKey);
         return { id: String(user.id), name: user.name, email: user.email };
       },
     }),
@@ -77,8 +127,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (!user.email) return false;
 
       // OAuth: find-or-create a row in our own `users` table by email, then
-      // overwrite user.id with OUR id so the existing jwt/session callbacks
-      // (unchanged, shared with Credentials) pick it up identically.
+      // overwrite user.id with OUR id so the jwt/session callbacks (shared
+      // with Credentials) pick it up identically.
       const email = user.email.toLowerCase();
       const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
       let dbUser = existing[0];
@@ -100,6 +150,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       user.id = String(dbUser.id);
       return true;
+    },
+
+    /**
+     * Node-runtime jwt callback = edge callback (auth.config.ts) + revocation.
+     * The edge proxy only decodes the cookie (no DB there); every server
+     * component / action that calls auth() runs this version, which rejects
+     * sessions whose version is behind users.session_version.
+     */
+    async jwt(params) {
+      const token = await authConfig.callbacks.jwt(params);
+      const { user, trigger, session } = params;
+      if (!token.id) return token;
+      const userId = String(token.id);
+      const now = Date.now();
+
+      // Fresh sign-in: stamp the token with the user's current version.
+      if (user) {
+        token.sv = (await getSessionVersion(Number(userId))) ?? 0;
+        token.svCheckedAt = now;
+        return token;
+      }
+
+      // Server-initiated re-issue at a new version (see signSessionGrant).
+      if (trigger === "update" && isValidGrant(userId, session?.sv, session?.svGrant)) {
+        token.sv = session.sv;
+        token.svCheckedAt = now;
+        return token;
+      }
+
+      // Periodic revocation check. Throttled so normal page loads don't all
+      // hit the DB; a revoked session dies within REVOCATION_CHECK_MS.
+      if (typeof token.svCheckedAt !== "number" || now - token.svCheckedAt > REVOCATION_CHECK_MS) {
+        const current = await getSessionVersion(Number(userId));
+        // User deleted, or version bumped since this token was issued → revoke.
+        // Returning null makes NextAuth clear the session cookie.
+        if (current === null || current !== (token.sv ?? 0)) return null;
+        token.svCheckedAt = now;
+      }
+      return token;
     },
   },
 });

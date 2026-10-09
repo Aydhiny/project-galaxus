@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { requireUserId } from "@/lib/auth-session";
 import { revalidatePath } from "next/cache";
+import { revokeOtherSessions } from "@/lib/session-revoke";
 
 export async function getAccountInfo() {
   const userId = await requireUserId();
@@ -75,6 +76,16 @@ export async function changePassword(data: { currentPassword?: string; newPasswo
 
   const passwordHash = await bcrypt.hash(data.newPassword, 12);
   await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  // A password change usually means "I think someone else has it" — end
+  // every other session, keep this one.
+  await revokeOtherSessions(userId);
+  return { success: true };
+}
+
+/** Signs out every other device/browser; the current session stays active. */
+export async function signOutOtherSessions() {
+  const userId = await requireUserId();
+  await revokeOtherSessions(userId);
   return { success: true };
 }
 

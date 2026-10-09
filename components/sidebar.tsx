@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
@@ -10,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange,
+  Rss, CalendarRange, Gauge,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,12 +17,14 @@ import { NotificationBell } from "@/components/notification-bell";
 import { useUIStore } from "@/lib/store/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RoomCustomizer } from "@/components/room-customizer";
+import { useHydrated } from "@/lib/hooks/client-values";
 
 type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string };
 
 // The handful of things you open every day — always visible.
 const PRIMARY: NavItem[] = [
   { href: "/overview", icon: Sunrise,     label: "Today"          },
+  { href: "/productivity", icon: Gauge,  label: "Productivity"   },
   { href: "/tasks",    icon: ListTodo,    label: "Tasks"          },
   { href: "/pages",    icon: FileText,    label: "Pages"          },
   { href: "/daily",    icon: CheckSquare, label: "Daily Check-in" },
@@ -85,8 +86,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
   const { openPalette } = useCommandStore();
   // Mounted guard so SSR and the first client render agree; persisted UI
   // state (collapsed, open groups) only applies after mount.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
   const collapsed = mounted ? (mobile ? false : sidebarCollapsed) : false;
 
   function isActive(href: string) {

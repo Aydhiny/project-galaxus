@@ -29,6 +29,7 @@ import { generateReportPdf } from "@/lib/actions/generate-report";
 import { createCheckoutSession, createPortalSession } from "@/lib/actions/billing";
 import { setLeaderboardOptIn } from "@/lib/actions/leaderboard";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
+import { SessionSettings } from "@/components/session-settings";
 
 interface AccountInfo {
   id: number;
@@ -268,6 +269,9 @@ export function SettingsClient({
 
       {/* Two-factor authentication */}
       <TwoFactorSettings enabled={account?.twoFactorEnabled ?? false} hasPassword={hasPassword} />
+
+      {/* Sessions */}
+      <SessionSettings />
 
       {/* Notifications */}
       <Card>

@@ -1,7 +1,7 @@
 import { randomBytes, createHash } from "crypto";
 import { db } from "@/lib/db";
 import { verificationTokens } from "@/lib/db/schema";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, lt, or } from "drizzle-orm";
 
 export type TokenPurpose = "password_reset" | "email_verify";
 
@@ -14,13 +14,28 @@ export function generateToken(): string {
   return randomBytes(32).toString("hex");
 }
 
-function hashToken(rawToken: string): string {
+export function hashToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex");
 }
 
-/** Creates a token, returns the raw (unhashed) value — only ever store the hash. */
+/**
+ * Creates a token and returns the raw (unhashed) value — only the hash is stored.
+ *
+ * Rotation: issuing a new token deletes every earlier token for the same
+ * user + purpose, so only the most recent email link works. Before this, each
+ * "forgot password" click minted another live link and all of them stayed
+ * valid for an hour — an old email sitting in an inbox was still a key.
+ */
 export async function createVerificationToken(userId: number, purpose: TokenPurpose): Promise<string> {
   const rawToken = generateToken();
+  await db
+    .delete(verificationTokens)
+    .where(
+      or(
+        and(eq(verificationTokens.userId, userId), eq(verificationTokens.purpose, purpose)),
+        lt(verificationTokens.expiresAt, new Date()) // opportunistic cleanup of anyone's expired tokens
+      )
+    );
   await db.insert(verificationTokens).values({
     userId,
     tokenHash: hashToken(rawToken),
@@ -30,18 +45,23 @@ export async function createVerificationToken(userId: number, purpose: TokenPurp
   return rawToken;
 }
 
-/** Validates + single-use consumes a token. Returns the userId on success, null otherwise. */
+/**
+ * Validates and consumes a token in ONE statement (DELETE … RETURNING).
+ * The old select-then-delete version had a race: two concurrent requests with
+ * the same link could both pass the SELECT before either DELETE ran, letting
+ * a single-use token be used twice.
+ */
 export async function consumeVerificationToken(rawToken: string, purpose: TokenPurpose): Promise<number | null> {
-  const tokenHash = hashToken(rawToken);
+  if (typeof rawToken !== "string" || !/^[a-f0-9]{64}$/.test(rawToken)) return null;
   const rows = await db
-    .select()
-    .from(verificationTokens)
-    .where(and(eq(verificationTokens.tokenHash, tokenHash), eq(verificationTokens.purpose, purpose), gt(verificationTokens.expiresAt, new Date())))
-    .limit(1);
-
-  const row = rows[0];
-  if (!row) return null;
-
-  await db.delete(verificationTokens).where(eq(verificationTokens.id, row.id));
-  return row.userId;
+    .delete(verificationTokens)
+    .where(
+      and(
+        eq(verificationTokens.tokenHash, hashToken(rawToken)),
+        eq(verificationTokens.purpose, purpose),
+        gt(verificationTokens.expiresAt, new Date())
+      )
+    )
+    .returning({ userId: verificationTokens.userId });
+  return rows[0]?.userId ?? null;
 }

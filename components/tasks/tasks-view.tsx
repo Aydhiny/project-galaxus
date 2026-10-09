@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { format, parseISO } from "date-fns";
-import { toast } from "sonner";
+import { format, parseISO, subDays } from "date-fns";
 import {
   Check, Calendar, Flag, LayoutList, Columns3, Plus, Trash2, CornerDownLeft, CircleDashed,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/lib/db/schema";
-import { createTask, updateTask, deleteTask, clearCompletedTasks } from "@/lib/actions/tasks";
+import { clearCompletedTasks } from "@/lib/actions/tasks";
+import { useTasks } from "@/components/tasks/use-tasks";
+import { useLocalToday, useStoredValue } from "@/lib/hooks/client-values";
 import {
   BUCKET_LABEL, PRIORITY_LABEL, STATUS_LABEL, TASK_PRIORITIES, TASK_STATUSES,
   compareTasks, groupByBucket, parseQuickAdd, toDateKey,
@@ -34,78 +34,32 @@ const STATUS_DOT: Record<TaskStatus, string> = {
 };
 
 export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[]; serverToday: string }) {
-  const router = useRouter();
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [view, setView] = useState<View>("list");
+  const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask } = useTasks(initialTasks);
+  // Saved view comes from localStorage (browser-only); a click overrides it.
+  const storedView = useStoredValue(VIEW_KEY);
+  const [chosenView, setChosenView] = useState<View | null>(null);
+  const view: View = chosenView ?? (storedView === "board" ? "board" : "list");
   const [openId, setOpenId] = useState<number | null>(null);
-  const [showDone, setShowDone] = useState(false);
-  // "Today" must be the user's local date, not the server's (UTC). Start with
-  // the server value so SSR and hydration agree, then correct after mount.
-  const [today, setToday] = useState(serverToday);
+  const [showEarlier, setShowEarlier] = useState(false);
+  // "Today" must be the user's local date, not the server's (UTC).
+  const today = useLocalToday(serverToday);
   const [, startTransition] = useTransition();
 
-  useEffect(() => {
-    setToday(toDateKey(new Date()));
-    try {
-      const v = localStorage.getItem(VIEW_KEY);
-      if (v === "list" || v === "board") setView(v);
-    } catch { /* storage blocked — default view is fine */ }
-  }, []);
-
-  // Server data wins whenever it changes (after revalidation / router.refresh).
-  useEffect(() => setTasks(initialTasks), [initialTasks]);
-
   function changeView(v: View) {
-    setView(v);
+    setChosenView(v);
     try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ }
   }
 
-  // ── Optimistic mutations ─────────────────────────────────────────────────
-  // Update local state immediately, then persist. If the server call fails we
-  // refetch so the UI never lies about what's saved.
-  function patchTask(id: number, patch: Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate">>) {
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-    startTransition(async () => {
-      try {
-        await updateTask(id, patch as Parameters<typeof updateTask>[1]);
-      } catch {
-        toast.error("Couldn't save that change.");
-        router.refresh();
-      }
-    });
-  }
-
-  function addTask(input: { title: string; dueDate: string | null; priority: TaskPriority; status?: TaskStatus }) {
-    const tempId = -Date.now();
-    const optimistic: Task = {
-      id: tempId, userId: 0, title: input.title, notes: null, status: input.status ?? "todo",
-      priority: input.priority, dueDate: input.dueDate, pageId: null,
-      orderIndex: Number.MAX_SAFE_INTEGER, completedAt: null, createdAt: new Date(), updatedAt: new Date(),
-    };
-    setTasks((ts) => [...ts, optimistic]);
-    startTransition(async () => {
-      try {
-        const row = await createTask(input);
-        setTasks((ts) => ts.map((t) => (t.id === tempId ? row : t)));
-      } catch {
-        setTasks((ts) => ts.filter((t) => t.id !== tempId));
-        toast.error("Couldn't add the task.");
-      }
-    });
-  }
-
-  function removeTask(id: number) {
-    setTasks((ts) => ts.filter((t) => t.id !== id));
-    setOpenId(null);
-    startTransition(async () => {
-      try { await deleteTask(id); }
-      catch { toast.error("Couldn't delete the task."); router.refresh(); }
-    });
-  }
-
-  const toggleDone = (t: Task) => patchTask(t.id, { status: t.status === "done" ? "todo" : "done" });
-
-  const groups = useMemo(() => groupByBucket(tasks, today), [tasks, today]);
+  // Just-completed tasks are bucketed as if still open so they stay where you
+  // clicked (struck through) for a moment, then glide into "Done today".
+  const groups = useMemo(
+    () => groupByBucket(tasks.map((t) => (lingering.has(t.id) ? { ...t, status: "todo" } : t)), today),
+    [tasks, lingering, today]
+  );
+  const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
+  const real = (t: Task) => byId.get(t.id) ?? t; // the un-masked task (true status)
+  const doneToday = groups.done.filter((t) => t.completedAt && toDateKey(new Date(t.completedAt)) === today);
+  const doneEarlier = groups.done.filter((t) => !doneToday.includes(t));
   const openCount = tasks.filter((t) => t.status !== "done").length;
   const dueToday = groups.today.length + groups.overdue.length;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
@@ -150,7 +104,7 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
                 </h2>
                 <div className="divide-y divide-border/70 border-y border-border/70">
                   {groups[bucket].map((t) => (
-                    <TaskRow key={t.id} task={t} today={today} onToggle={() => toggleDone(t)} onOpen={() => setOpenId(t.id)} />
+                    <TaskRow key={t.id} task={real(t)} today={today} justDone={lingering.has(t.id)} onToggle={() => toggleDone(real(t))} onOpen={() => setOpenId(t.id)} />
                   ))}
                 </div>
               </section>
@@ -165,13 +119,26 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
             </div>
           )}
 
-          {groups.done.length > 0 && (
+          {doneToday.length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold mb-1.5 px-1 text-emerald-600 dark:text-emerald-400">
+                Done today <span className="font-normal opacity-70 ml-1">{doneToday.length}</span>
+              </h2>
+              <div className="divide-y divide-border/70 border-y border-border/70">
+                {doneToday.map((t) => (
+                  <TaskRow key={t.id} task={t} today={today} onToggle={() => toggleDone(t)} onOpen={() => setOpenId(t.id)} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {doneEarlier.length > 0 && (
             <section>
               <div className="flex items-center justify-between px-1 mb-1.5">
-                <button onClick={() => setShowDone(!showDone)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">
-                  {showDone ? "Hide" : "Show"} completed <span className="font-normal opacity-70 ml-1">{groups.done.length}</span>
+                <button onClick={() => setShowEarlier(!showEarlier)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">
+                  {showEarlier ? "Hide" : "Show"} earlier completed <span className="font-normal opacity-70 ml-1">{doneEarlier.length}</span>
                 </button>
-                {showDone && (
+                {showEarlier && (
                   <button
                     onClick={() => {
                       setTasks((ts) => ts.filter((t) => t.status !== "done"));
@@ -179,13 +146,13 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
                     }}
                     className="text-xs text-muted-foreground hover:text-destructive"
                   >
-                    Clear completed
+                    Clear all completed
                   </button>
                 )}
               </div>
-              {showDone && (
+              {showEarlier && (
                 <div className="divide-y divide-border/70 border-y border-border/70">
-                  {groups.done.map((t) => (
+                  {doneEarlier.map((t) => (
                     <TaskRow key={t.id} task={t} today={today} onToggle={() => toggleDone(t)} onOpen={() => setOpenId(t.id)} />
                   ))}
                 </div>
@@ -210,7 +177,7 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
               key={openTask.id}
               task={openTask}
               onPatch={(p) => patchTask(openTask.id, p)}
-              onDelete={() => removeTask(openTask.id)}
+              onDelete={() => { removeTask(openTask.id); setOpenId(null); }}
             />
           )}
         </SheetContent>
@@ -284,7 +251,7 @@ function QuickAdd({ onAdd }: { onAdd: (t: { title: string; dueDate: string | nul
 
 // ─── List row ───────────────────────────────────────────────────────────────
 
-function DueChip({ date, today, done }: { date: string; today: string; done: boolean }) {
+export function DueChip({ date, today, done }: { date: string; today: string; done: boolean }) {
   const overdue = !done && date < today;
   const isToday = date === today;
   return (
@@ -298,16 +265,17 @@ function DueChip({ date, today, done }: { date: string; today: string; done: boo
   );
 }
 
-function Checkbox({ done, onToggle, priority }: { done: boolean; onToggle: () => void; priority: TaskPriority }) {
+export function Checkbox({ done, onToggle, priority }: { done: boolean; onToggle: () => void; priority: TaskPriority }) {
   return (
     <button
       role="checkbox"
       aria-checked={done}
       onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      aria-label={done ? "Mark as not done" : "Mark as done"}
       className={cn(
-        "w-[18px] h-[18px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors",
+        "w-[18px] h-[18px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-all",
         done
-          ? "bg-primary border-primary text-primary-foreground"
+          ? "bg-emerald-500 border-emerald-500 text-white scale-110"
           : priority === "high" ? "border-red-500/70 hover:bg-red-500/10"
           : priority === "medium" ? "border-amber-500/70 hover:bg-amber-500/10"
           : "border-foreground/30 hover:bg-foreground/[0.05]"
@@ -318,12 +286,19 @@ function Checkbox({ done, onToggle, priority }: { done: boolean; onToggle: () =>
   );
 }
 
-function TaskRow({ task, today, onToggle, onOpen }: { task: Task; today: string; onToggle: () => void; onOpen: () => void }) {
+export function TaskRow({ task, today, onToggle, onOpen, justDone }: {
+  task: Task; today: string; onToggle: () => void; onOpen?: () => void; justDone?: boolean;
+}) {
   const done = task.status === "done";
   return (
     <div
       onClick={onOpen}
-      className={cn("group flex items-center gap-3 px-1 py-2.5 cursor-pointer hover:bg-accent/40 rounded-sm", task.id < 0 && "opacity-60")}
+      className={cn(
+        "group flex items-center gap-3 px-1 py-2.5 rounded-sm transition-colors duration-300",
+        onOpen && "cursor-pointer hover:bg-accent/40",
+        task.id < 0 && "opacity-60",
+        justDone && "bg-emerald-500/[0.07]"
+      )}
     >
       <Checkbox done={done} onToggle={onToggle} priority={task.priority as TaskPriority} />
       <span className={cn("flex-1 min-w-0 truncate text-[15px]", done && "line-through text-muted-foreground")}>{task.title}</span>
@@ -357,7 +332,16 @@ function Board({ tasks, today, onMove, onOpen, onAdd }: {
     // depends on whether the sidebar is open, so it should respond to that.
     <div className="mt-8 grid grid-cols-1 @2xl:grid-cols-3 gap-4 items-start">
       {TASK_STATUSES.map((status) => {
-        const col = tasks.filter((t) => t.status === status).sort(compareTasks);
+        const all = tasks.filter((t) => t.status === status).sort(compareTasks);
+        // The Done column would otherwise grow forever — show the last week only.
+        // (Derived from `today`, not Date.now(): render must stay pure.)
+        const weekAgo = toDateKey(subDays(new Date(today + "T12:00:00"), 7));
+        const col = status === "done"
+          ? all
+              .filter((t) => !t.completedAt || toDateKey(new Date(t.completedAt)) >= weekAgo)
+              .sort((a, b) => new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime())
+          : all;
+        const hidden = all.length - col.length;
         return (
           <div
             key={status}
@@ -407,6 +391,9 @@ function Board({ tasks, today, onMove, onOpen, onAdd }: {
                   )}
                 </div>
               ))}
+              {hidden > 0 && (
+                <p className="px-2 py-1 text-xs text-muted-foreground">+{hidden} completed earlier (see List view)</p>
+              )}
               {adding === status ? (
                 <input
                   autoFocus

@@ -30,6 +30,7 @@ export default function robots(): MetadataRoute.Robots {
           "/notes",
           "/pages",
           "/tasks",
+          "/productivity",
           "/heatmap",
           "/spiritual",
           "/overview",

@@ -10,7 +10,7 @@ import { sendVerificationEmail } from "@/lib/email";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const { allowed, retryAfterSeconds } = checkRateLimit(ip);
+    const { allowed, retryAfterSeconds } = checkRateLimit(`register:${ip}`);
     if (!allowed) {
       return NextResponse.json({ error: `Too many attempts. Try again in ${retryAfterSeconds}s.` }, { status: 429 });
     }

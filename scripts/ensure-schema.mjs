@@ -1,0 +1,80 @@
+// Applies additive schema changes during Vercel *production* builds — the
+// only place DATABASE_URL exists (it lives in Vercel's env, not in the repo
+// or locally). Runs before `next build`; if it fails, the build fails, so a
+// deploy can never go live with code that expects tables that don't exist.
+//
+// RULES for this file:
+//   • Additive + idempotent only (IF NOT EXISTS). It runs on every deploy.
+//   • Never DROP / rename / change types here — do destructive changes by
+//     hand with `npm run db:push` and a backup.
+//   • Constraint names mirror drizzle-kit's naming so a later `db:push`
+//     sees no diff.
+
+import { neon } from "@neondatabase/serverless";
+
+const STATEMENTS = [
+  // ── 2026-10 · Pages + Tasks ───────────────────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS "workspace_pages" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "parent_id" integer,
+    "title" varchar(255) DEFAULT '' NOT NULL,
+    "icon" varchar(16),
+    "blocks" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "is_favorite" boolean DEFAULT false NOT NULL,
+    "order_index" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "workspace_pages_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade,
+    CONSTRAINT "workspace_pages_parent_id_workspace_pages_id_fk" FOREIGN KEY ("parent_id") REFERENCES "workspace_pages"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_workspace_pages_user" ON "workspace_pages" ("user_id")`,
+
+  `CREATE TABLE IF NOT EXISTS "tasks" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "title" varchar(500) NOT NULL,
+    "notes" text,
+    "status" varchar(20) DEFAULT 'todo' NOT NULL,
+    "priority" varchar(10) DEFAULT 'none' NOT NULL,
+    "due_date" date,
+    "page_id" integer,
+    "order_index" integer DEFAULT 0 NOT NULL,
+    "completed_at" timestamp,
+    "created_at" timestamp DEFAULT now(),
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "tasks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade,
+    CONSTRAINT "tasks_page_id_workspace_pages_id_fk" FOREIGN KEY ("page_id") REFERENCES "workspace_pages"("id") ON DELETE set null
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_tasks_user_status" ON "tasks" ("user_id", "status")`,
+  `CREATE INDEX IF NOT EXISTS "idx_tasks_user_completed" ON "tasks" ("user_id", "completed_at")`,
+
+  // ── 2026-10 · Session revocation + TOTP replay protection ────────────────
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "session_version" integer DEFAULT 0 NOT NULL`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "totp_last_step" integer`,
+
+  // Housekeeping: expired reset/verify tokens are useless — clear them.
+  `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
+];
+
+async function main() {
+  if (process.env.VERCEL_ENV !== "production") {
+    console.log(`[ensure-schema] skipped (VERCEL_ENV=${process.env.VERCEL_ENV ?? "unset"})`);
+    return;
+  }
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("[ensure-schema] DATABASE_URL is not set in this Vercel environment.");
+
+  const sql = neon(url);
+  for (const statement of STATEMENTS) {
+    const label = statement.trim().split("\n")[0].slice(0, 90);
+    await sql.query(statement);
+    console.log(`[ensure-schema] ok  ${label}`);
+  }
+  console.log(`[ensure-schema] done — ${STATEMENTS.length} statements applied`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

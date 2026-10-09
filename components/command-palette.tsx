@@ -12,7 +12,7 @@ import {
   Target, HeartPulse, Sparkles, Activity, BarChart3, BookMarked, StickyNote,
   LayoutDashboard, CloudRain, Flame, Wind, Timer, Plus, Sunrise, Search, X,
   Leaf, Mountain,
-  Square, ListTodo, FileText,
+  Square, ListTodo, FileText, Gauge,
 } from "lucide-react";
 
 /* ─── Command definitions ──────────────────────────────────────────────────── */
@@ -100,6 +100,7 @@ export function CommandPalette() {
     { id:"metrics",  kind:"navigate", label:"Body Metrics",   icon:<Activity className="w-4 h-4"/>,      run:()=>nav("/metrics")    },
     { id:"study",    kind:"navigate", label:"Study",          icon:<GraduationCap className="w-4 h-4"/>, run:()=>nav("/study"),     keywords:"courses learn" },
     { id:"reading",  kind:"navigate", label:"Reading",        icon:<BookOpen className="w-4 h-4"/>,      run:()=>nav("/reading"),   keywords:"books library" },
+    { id:"productivity", kind:"navigate", label:"Productivity", icon:<Gauge className="w-4 h-4"/>,     run:()=>nav("/productivity"), keywords:"dashboard stats completed chart" },
     { id:"tasks",    kind:"navigate", label:"Tasks",          icon:<ListTodo className="w-4 h-4"/>,      run:()=>nav("/tasks"),     keywords:"todo kanban board productivity" },
     { id:"pages",    kind:"navigate", label:"Pages",          icon:<FileText className="w-4 h-4"/>,      run:()=>nav("/pages"),     keywords:"docs notion write notes" },
     { id:"notes",    kind:"navigate", label:"Notes",          icon:<StickyNote className="w-4 h-4"/>,    run:()=>nav("/notes"),     keywords:"brain dump write" },

@@ -1,8 +1,12 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 export function OAuthButtons({ google, github }: { google: boolean; github: boolean }) {
+  // Land where the user was heading. NextAuth's redirect callback already
+  // rejects cross-origin callback URLs, so passing this through is safe.
+  const callbackUrl = useSearchParams().get("callbackUrl") ?? "/overview";
   if (!google && !github) return null;
 
   return (
@@ -16,7 +20,7 @@ export function OAuthButtons({ google, github }: { google: boolean; github: bool
         {google && (
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            onClick={() => signIn("google", { callbackUrl })}
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm text-white/80 hover:text-white hover:bg-white/[0.06] transition-colors"
             style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.10)" }}
           >
@@ -32,7 +36,7 @@ export function OAuthButtons({ google, github }: { google: boolean; github: bool
         {github && (
           <button
             type="button"
-            onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
+            onClick={() => signIn("github", { callbackUrl })}
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm text-white/80 hover:text-white hover:bg-white/[0.06] transition-colors"
             style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.10)" }}
           >

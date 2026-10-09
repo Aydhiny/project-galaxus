@@ -30,6 +30,12 @@ export const users = pgTable("users", {
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
   subscriptionStatus: varchar("subscription_status", { length: 30 }), // Stripe's own enum, stored verbatim
   currentPeriodEnd: timestamp("current_period_end"),
+  // Bumped on password change/reset, 2FA changes and "sign out everywhere".
+  // Every session JWT carries the version it was issued with; a mismatch
+  // means the session was revoked (see auth.ts jwt callback).
+  sessionVersion: integer("session_version").notNull().default(0),
+  // Last accepted TOTP time step — rejects replaying a code inside its window.
+  totpLastStep: integer("totp_last_step"),
 });
 
 // ─── Verification Tokens (password reset + email verify) ─────────────────────
@@ -376,7 +382,10 @@ export const tasks = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-  (t) => [index("idx_tasks_user_status").on(t.userId, t.status)]
+  (t) => [
+    index("idx_tasks_user_status").on(t.userId, t.status),
+    index("idx_tasks_user_completed").on(t.userId, t.completedAt),
+  ]
 );
 
 export type User = typeof users.$inferSelect;
