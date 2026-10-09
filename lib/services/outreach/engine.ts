@@ -16,7 +16,7 @@
 import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leads, leadSearches, outreachDays, outreachSettings, users, type Lead, type OutreachSlot } from "@/lib/db/schema";
-import { encrypt, tryDecrypt } from "@/lib/crypto-box";
+import { getSecret, setSecret } from "@/lib/services/secrets";
 import {
   batchSizes, isLeadStatus, isMobileBA, localNow, normalizePhone, outreachStats, planSlots,
   REPLIED_STATUSES, scoreLead, type LeadStatus,
@@ -39,8 +39,8 @@ export async function getConfigFor(userId: number) {
   return {
     settings,
     senderName: settings.senderName?.trim() || user?.name?.split(" ")[0] || "Ajdin",
-    googleKey: tryDecrypt(settings.googleKeyEnc),
-    anthropicKey: tryDecrypt(settings.anthropicKeyEnc),
+    googleKey: await getSecret(userId, "google"),
+    anthropicKey: await getSecret(userId, "anthropic"),
   };
 }
 
@@ -88,8 +88,8 @@ export async function saveSettingsFor(userId: number, patch: SettingsPatch) {
   if (patch.batches !== undefined) set.batches = clampInt(patch.batches, 1, 6);
   if (patch.windowStart !== undefined) set.windowStart = clampInt(patch.windowStart, 0, 23);
   if (patch.windowEnd !== undefined) set.windowEnd = clampInt(patch.windowEnd, 1, 24);
-  if (patch.googleKey !== undefined) set.googleKeyEnc = patch.googleKey.trim() ? encrypt(patch.googleKey.trim()) : null;
-  if (patch.anthropicKey !== undefined) set.anthropicKeyEnc = patch.anthropicKey.trim() ? encrypt(patch.anthropicKey.trim()) : null;
+  if (patch.googleKey !== undefined) await setSecret(userId, "google", patch.googleKey);
+  if (patch.anthropicKey !== undefined) await setSecret(userId, "anthropic", patch.anthropicKey);
   await db.update(outreachSettings).set(set).where(eq(outreachSettings.userId, userId));
 
   const { settings } = await getConfigFor(userId);

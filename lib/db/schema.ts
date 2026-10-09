@@ -588,6 +588,97 @@ export const appSecrets = pgTable("app_secrets", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ─── Per-user secrets (provider API keys) ─────────────────────────────────────
+// One encrypted row per key (lib/crypto-box.ts): "anthropic", "google",
+// "youtube". Shared by every feature that calls an outside API.
+export const userSecrets = pgTable(
+  "user_secrets",
+  {
+    userId: userIdCol(),
+    name: varchar("name", { length: 40 }).notNull(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_user_secrets_user_name").on(t.userId, t.name)]
+);
+
+// ─── YouTube studio ───────────────────────────────────────────────────────────
+// Connected channels + their public video data (YouTube Data API), the audit
+// findings, Claude's reports, and the user's own production pipeline.
+export const youtubeChannels = pgTable(
+  "youtube_channels",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    channelId: varchar("channel_id", { length: 40 }).notNull(), // UC…
+    title: varchar("title", { length: 255 }).notNull(),
+    handle: varchar("handle", { length: 100 }),
+    thumbnailUrl: text("thumbnail_url"),
+    description: text("description"),
+    subscribers: integer("subscribers"),
+    totalViews: integer("total_views"),
+    videoCount: integer("video_count"),
+    report: text("report"), // Claude's channel review
+    reportAt: timestamp("report_at"),
+    lastSyncedAt: timestamp("last_synced_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_youtube_channels_user_channel").on(t.userId, t.channelId)]
+);
+
+export const youtubeVideos = pgTable(
+  "youtube_videos",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    channelRowId: integer("channel_row_id").notNull().references(() => youtubeChannels.id, { onDelete: "cascade" }),
+    videoId: varchar("video_id", { length: 20 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description").notNull().default(""),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    publishedAt: timestamp("published_at").notNull(),
+    durationSec: integer("duration_sec").notNull().default(0),
+    isShort: boolean("is_short").notNull().default(false),
+    views: integer("views").notNull().default(0),
+    likes: integer("likes").notNull().default(0),
+    comments: integer("comments").notNull().default(0),
+    thumbnailUrl: text("thumbnail_url"),
+    hasCaptions: boolean("has_captions"),
+    // From YouTube Studio, typed in by hand — the public API can't read them.
+    swipeViewedPct: integer("swipe_viewed_pct"),
+    avgViewedPct: integer("avg_viewed_pct"),
+    script: text("script"), // what was said, for hook analysis
+    suggestions: text("suggestions"), // Claude's "improve this video"
+    suggestionsAt: timestamp("suggestions_at"),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_youtube_videos_user_video").on(t.userId, t.videoId),
+    index("idx_youtube_videos_channel").on(t.channelRowId),
+  ]
+);
+
+/** Production pipeline: idea → script → record → edit → ready → published. */
+export const youtubeIdeas = pgTable(
+  "youtube_ideas",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    channelRowId: integer("channel_row_id").references(() => youtubeChannels.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    format: varchar("format", { length: 10 }).notNull().default("short"), // 'short' | 'long'
+    stage: varchar("stage", { length: 12 }).notNull().default("idea"),
+    hook: text("hook"),
+    script: text("script"),
+    notes: text("notes"),
+    videoId: varchar("video_id", { length: 20 }), // set once published
+    dueDate: date("due_date"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("idx_youtube_ideas_user").on(t.userId)]
+);
+
 export type User = typeof users.$inferSelect;
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
@@ -620,3 +711,6 @@ export type OutreachSettings = typeof outreachSettings.$inferSelect;
 export type LeadSearch = typeof leadSearches.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
 export type OutreachDay = typeof outreachDays.$inferSelect;
+export type YoutubeChannel = typeof youtubeChannels.$inferSelect;
+export type YoutubeVideo = typeof youtubeVideos.$inferSelect;
+export type YoutubeIdea = typeof youtubeIdeas.$inferSelect;

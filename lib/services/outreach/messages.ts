@@ -1,10 +1,8 @@
 // Cold-message writer. Claude when an Anthropic key is set, otherwise the
 // Bosnian template in lib/outreach.ts — the engine works either way.
 
-import Anthropic from "@anthropic-ai/sdk";
+import { askClaude } from "@/lib/services/claude";
 import { GAP_META, OPT_OUT_LINE, templateMessage, type Gap, type OutreachStats } from "@/lib/outreach";
-
-const MODEL = "claude-opus-5-5";
 
 type DraftLead = {
   name: string;
@@ -29,29 +27,8 @@ Rules:
 - After a blank line, finish with exactly this line: ${OPT_OUT_LINE}
 - Output only the message text.`;
 
-function client(apiKey: string) {
-  return new Anthropic({ apiKey, maxRetries: 2, timeout: 60_000 });
-}
-
-/** Text of a response, or null if Claude (and its fallback) declined. */
-async function ask(apiKey: string, system: string, prompt: string, effort: "low" | "medium", maxTokens: number): Promise<string | null> {
-  const response = await client(apiKey).beta.messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    // A policy decline is retried on Anthropic's recommended fallback model
-    // inside the same call, instead of coming back as a refusal.
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort },
-    system,
-    messages: [{ role: "user", content: prompt }],
-  });
-  if (response.stop_reason === "refusal") return null;
-  const text = response.content
-    .flatMap((b) => (b.type === "text" ? [b.text] : []))
-    .join("")
-    .trim();
-  return text || null;
+async function ask(apiKey: string, system: string, prompt: string, effort: "low" | "medium", maxTokens: number) {
+  return askClaude({ apiKey, system, prompt, effort, maxTokens });
 }
 
 export async function draftMessage(lead: DraftLead, opts: { senderName: string; offer: string | null; anthropicKey: string | null }) {
