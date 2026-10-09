@@ -5,11 +5,7 @@ import { tasks } from "@/lib/db/schema";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-session";
-import { TASK_PRIORITIES, TASK_STATUSES, isValidTime, type TaskPriority, type TaskStatus } from "@/lib/tasks";
-
-const isStatus = (v: unknown): v is TaskStatus => TASK_STATUSES.includes(v as TaskStatus);
-const isPriority = (v: unknown): v is TaskPriority => TASK_PRIORITIES.includes(v as TaskPriority);
-const isDateKey = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+import { isDateKey, listTasksFor, createTaskFor, updateTaskFor, deleteTaskFor, type TaskInput, type TaskPatch } from "@/lib/services/tasks";
 
 function revalidateTaskViews() {
   revalidatePath("/tasks");
@@ -26,12 +22,7 @@ function cleanIds(ids: unknown, max = 500): number[] {
 /** Live (not removed) tasks — what the Tasks/Productivity screens show. */
 export async function listTasks() {
   try {
-    const userId = await requireUserId();
-    return await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.userId, userId), isNull(tasks.deletedAt)))
-      .orderBy(asc(tasks.orderIndex), asc(tasks.id));
+    return await listTasksFor(await requireUserId());
   } catch {
     return [];
   }
@@ -84,69 +75,14 @@ export async function listTaskHistory(days = 70) {
   }
 }
 
-export async function createTask(input: {
-  title: string;
-  dueDate?: string | null;
-  dueTime?: string | null;
-  priority?: TaskPriority;
-  status?: TaskStatus;
-}) {
-  const userId = await requireUserId();
-  const title = input.title.trim().slice(0, 500);
-  if (!title) throw new Error("Task title is required.");
-
-  const [{ max }] = await db
-    .select({ max: sql<number>`coalesce(max(${tasks.orderIndex}), 0)::int` })
-    .from(tasks)
-    .where(eq(tasks.userId, userId));
-
-  const status = isStatus(input.status) ? input.status : "todo";
-  const [row] = await db
-    .insert(tasks)
-    .values({
-      userId,
-      title,
-      dueDate: isDateKey(input.dueDate) ? input.dueDate : null,
-      dueTime: isValidTime(input.dueTime) ? input.dueTime : null,
-      priority: isPriority(input.priority) ? input.priority : "none",
-      status,
-      completedAt: status === "done" ? new Date() : null,
-      orderIndex: max + 1,
-    })
-    .returning();
-
+export async function createTask(input: TaskInput) {
+  const row = await createTaskFor(await requireUserId(), input);
   revalidateTaskViews();
   return row;
 }
 
-export async function updateTask(
-  id: number,
-  patch: {
-    title?: string;
-    notes?: string | null;
-    status?: TaskStatus;
-    priority?: TaskPriority;
-    dueDate?: string | null;
-    dueTime?: string | null;
-  }
-) {
-  const userId = await requireUserId();
-  const values: Partial<typeof tasks.$inferInsert> = { updatedAt: new Date() };
-
-  if (patch.title !== undefined) {
-    const t = patch.title.trim().slice(0, 500);
-    if (t) values.title = t;
-  }
-  if (patch.notes !== undefined) values.notes = patch.notes ? patch.notes.slice(0, 20_000) : null;
-  if (patch.priority !== undefined && isPriority(patch.priority)) values.priority = patch.priority;
-  if (patch.dueDate !== undefined) values.dueDate = isDateKey(patch.dueDate) ? patch.dueDate : null;
-  if (patch.dueTime !== undefined) values.dueTime = isValidTime(patch.dueTime) ? patch.dueTime : null;
-  if (patch.status !== undefined && isStatus(patch.status)) {
-    values.status = patch.status;
-    values.completedAt = patch.status === "done" ? new Date() : null;
-  }
-
-  await db.update(tasks).set(values).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+export async function updateTask(id: number, patch: TaskPatch) {
+  await updateTaskFor(await requireUserId(), id, patch);
   revalidateTaskViews();
 }
 
@@ -172,15 +108,7 @@ export async function reorderTasks(ids: number[]) {
  * are marked reviewed straight away — there's nothing to feel guilty about.
  */
 export async function deleteTask(id: number) {
-  const userId = await requireUserId();
-  const now = new Date();
-  await db
-    .update(tasks)
-    .set({
-      deletedAt: now,
-      deletionReviewedAt: sql`case when ${tasks.status} = 'done' then ${now.toISOString()}::timestamp else null end`,
-    })
-    .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+  await deleteTaskFor(await requireUserId(), id);
   revalidateTaskViews();
 }
 

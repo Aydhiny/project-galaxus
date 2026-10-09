@@ -366,6 +366,43 @@ export const workspacePages = pgTable(
   (t) => [index("idx_workspace_pages_user").on(t.userId)]
 );
 
+// ─── Monthly goals ─────────────────────────────────────────────────────────────
+// A goal you want to reach within one calendar month ("Learn a handstand —
+// 2026-10"). Its plan is ordinary tasks linked via tasks.goal_id, optionally
+// grouped by tasks.phase ("Week 1 · Foundations" → "Week 4 · Freestanding").
+export const monthlyGoals = pgTable(
+  "monthly_goals",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    title: varchar("title", { length: 200 }).notNull(),
+    description: text("description"), // the "why" / definition of done
+    emoji: varchar("emoji", { length: 16 }),
+    month: varchar("month", { length: 7 }).notNull(), // "YYYY-MM"
+    status: varchar("status", { length: 20 }).notNull().default("active"), // 'active' | 'achieved' | 'abandoned'
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("idx_monthly_goals_user_month").on(t.userId, t.month)]
+);
+
+// ─── Personal API tokens (MCP / integrations) ─────────────────────────────────
+// Only a SHA-256 hash is stored; the raw token is shown to the user once.
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    name: varchar("name", { length: 100 }).notNull(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+    prefix: varchar("prefix", { length: 16 }).notNull(), // first chars, so users can tell tokens apart
+    lastUsedAt: timestamp("last_used_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_api_tokens_user").on(t.userId)]
+);
+
 // ─── Recurring task templates ────────────────────────────────────────────────
 // A template materialises one real `tasks` row per applicable day (see
 // lib/actions/recurring.ts). Templates hold the rule; tasks hold the history.
@@ -399,6 +436,8 @@ export const tasks = pgTable(
     dueTime: varchar("due_time", { length: 5 }), // "08:00" — set for recurring instances
     pageId: integer("page_id").references(() => workspacePages.id, { onDelete: "set null" }),
     recurringId: integer("recurring_id").references(() => recurringTasks.id, { onDelete: "set null" }),
+    goalId: integer("goal_id").references(() => monthlyGoals.id, { onDelete: "set null" }),
+    phase: varchar("phase", { length: 100 }), // plan stage within a goal, e.g. "Week 1 · Foundations"
     orderIndex: integer("order_index").notNull().default(0),
     completedAt: timestamp("completed_at"),
     // Soft delete: removed tasks keep their history (stats, weekly review)
@@ -417,6 +456,7 @@ export const tasks = pgTable(
     index("idx_tasks_user_completed").on(t.userId, t.completedAt),
     // One instance per template per day — makes generation idempotent.
     uniqueIndex("uq_tasks_recurring_due").on(t.recurringId, t.dueDate),
+    index("idx_tasks_goal").on(t.goalId),
   ]
 );
 
@@ -446,3 +486,5 @@ export type StreakFreeze = typeof streakFreezes.$inferSelect;
 export type WorkspacePage = typeof workspacePages.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type RecurringTask = typeof recurringTasks.$inferSelect;
+export type MonthlyGoal = typeof monthlyGoals.$inferSelect;
+export type ApiToken = typeof apiTokens.$inferSelect;

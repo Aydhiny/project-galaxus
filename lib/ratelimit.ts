@@ -27,17 +27,21 @@ function prune(now: number) {
   for (const [k, e] of store) if (now > e.resetAt) store.delete(k);
 }
 
-export function checkRateLimit(key: string): { allowed: boolean; retryAfterSeconds: number } {
+export function checkRateLimit(
+  key: string,
+  maxAttempts: number = MAX_ATTEMPTS,
+  windowMs: number = WINDOW_MS
+): { allowed: boolean; retryAfterSeconds: number } {
   const now = Date.now();
   prune(now);
   const entry = store.get(key);
 
   if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + WINDOW_MS });
+    store.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, retryAfterSeconds: 0 };
   }
 
-  if (entry.count >= MAX_ATTEMPTS) {
+  if (entry.count >= maxAttempts) {
     return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
   }
 

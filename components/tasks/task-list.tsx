@@ -4,7 +4,7 @@ import { useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { Calendar, Check, ChevronDown, ChevronUp, Clock, Flag, GripVertical, Repeat, Sun, Sunrise } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/lib/db/schema";
+import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { formatTime, toDateKey, type TaskPriority, type TaskStatus } from "@/lib/tasks";
 
 export const PRIORITY_COLOR: Record<TaskPriority, string> = {
@@ -80,9 +80,11 @@ export interface TaskRowProps {
   /** Drag-and-drop wiring from SortableTaskList. */
   dragProps?: React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
   dropIndicator?: "above" | "below" | null;
+  /** Monthly goal this task belongs to (shows a small tag). */
+  goal?: Pick<MonthlyGoal, "emoji" | "title"> | null;
 }
 
-export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onMoveDown, onSchedule, dragProps, dropIndicator }: TaskRowProps) {
+export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onMoveDown, onSchedule, dragProps, dropIndicator, goal }: TaskRowProps) {
   const done = task.status === "done";
   const reorderable = !!(onMoveUp || onMoveDown);
   const tomorrow = tomorrowOf(today);
@@ -123,6 +125,12 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
         {task.title}
       </span>
 
+      {goal && (
+        <span className="shrink-0 inline-flex items-center gap-1 max-w-[8rem] rounded-full bg-muted px-1.5 py-px text-[11px] text-muted-foreground" title={`Goal: ${goal.title}`}>
+          <span>{goal.emoji ?? "🎯"}</span>
+          <span className="hidden xl:inline truncate">{goal.title}</span>
+        </span>
+      )}
       {task.restoredAt && !done && (
         <span className="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400" title="Brought back — worth double points">
           2×
@@ -146,7 +154,15 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
       {/* Row actions: always visible on touch screens, on hover/focus with a mouse */}
       {(reorderable || onSchedule) && !done && (
         <div
-          className="flex items-center shrink-0 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+          // Touch screens: inline + always visible. Mouse: overlay the row's
+          // right edge (fading over the chips) so hidden buttons don't steal
+          // width from the title. --row-bg matches the surface behind the row.
+          className={cn(
+            "flex items-center shrink-0 transition-opacity",
+            "[@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-0 [@media(hover:hover)]:pl-10 [@media(hover:hover)]:pr-1",
+            "[@media(hover:hover)]:bg-[linear-gradient(to_left,var(--row-bg,var(--background))_70%,transparent)]",
+            "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          )}
           onClick={(e) => e.stopPropagation()}
         >
           {onSchedule && task.dueDate !== today && (
@@ -181,7 +197,7 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
  * get ↑/↓ buttons. All three funnel into the same onMove/onDrop callbacks.
  */
 export function SortableTaskList({
-  tasks, today, lingering, realOf, onToggle, onOpen, onMove, onDrop, onSchedule, className,
+  tasks, today, lingering, realOf, onToggle, onOpen, onMove, onDrop, onSchedule, className, goalsById,
 }: {
   tasks: Task[];
   today: string;
@@ -194,6 +210,8 @@ export function SortableTaskList({
   onDrop: (ids: number[], fromId: number, toId: number, position: "above" | "below") => void;
   onSchedule?: (t: Task, dateKey: string | null) => void;
   className?: string;
+  /** Show a goal tag on tasks linked to one of these goals. */
+  goalsById?: Map<number, MonthlyGoal>;
 }) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [target, setTarget] = useState<{ id: number; position: "above" | "below" } | null>(null);
@@ -215,6 +233,7 @@ export function SortableTaskList({
             onMoveUp={i > 0 ? () => onMove(ids, t.id, -1) : undefined}
             onMoveDown={i < tasks.length - 1 ? () => onMove(ids, t.id, 1) : undefined}
             onSchedule={onSchedule ? (d) => onSchedule(rt, d) : undefined}
+            goal={rt.goalId ? goalsById?.get(rt.goalId) ?? null : null}
             dropIndicator={target?.id === t.id && dragId !== t.id ? target.position : null}
             dragProps={{
               draggable: t.id > 0 && tasks.length > 1,

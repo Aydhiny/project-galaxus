@@ -6,7 +6,9 @@ import {
   Calendar, Flag, LayoutList, Columns3, Plus, Trash2, CornerDownLeft, CircleDashed, Repeat, Sun, Sunrise, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/lib/db/schema";
+import type { MonthlyGoal, Task } from "@/lib/db/schema";
+import { GoalsPanel } from "@/components/goals/goals-panel";
+import { monthLabel } from "@/lib/goals";
 import { clearCompletedTasks } from "@/lib/actions/tasks";
 import { useTasks } from "@/components/tasks/use-tasks";
 import { SortableTaskList, TaskRow, DueChip, PRIORITY_COLOR, STATUS_DOT, tomorrowOf } from "@/components/tasks/task-list";
@@ -25,7 +27,7 @@ export { TaskRow, DueChip };
 type View = "list" | "board";
 const VIEW_KEY = "galaxus-tasks-view";
 
-export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[]; serverToday: string }) {
+export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: Task[]; goals: MonthlyGoal[]; serverToday: string }) {
   // Saved view comes from localStorage (browser-only); a click overrides it.
   const storedView = useStoredValue(VIEW_KEY);
   const [chosenView, setChosenView] = useState<View | null>(null);
@@ -36,6 +38,7 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
   const today = useLocalToday(serverToday);
   const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask, move, drop } = useTasks(initialTasks, today);
   const [recurringOpen, setRecurringOpen] = useState(false);
+  const goalsById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
   const [, startTransition] = useTransition();
 
   function changeView(v: View) {
@@ -93,6 +96,16 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
         </div>
       </header>
 
+      <div className="mb-8">
+        <GoalsPanel
+          goals={goals}
+          tasks={tasks}
+          today={today}
+          lingering={lingering}
+          handlers={{ toggleDone, move, drop, patchTask, addTask }}
+        />
+      </div>
+
       <QuickAdd onAdd={addTask} />
 
       {view === "list" ? (
@@ -113,6 +126,7 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
                   onMove={move}
                   onDrop={drop}
                   onSchedule={(t, d) => patchTask(t.id, { dueDate: d })}
+                  goalsById={goalsById}
                 />
               </section>
             )
@@ -184,6 +198,7 @@ export function TasksView({ initialTasks, serverToday }: { initialTasks: Task[];
               key={openTask.id}
               task={openTask}
               today={today}
+              goals={goals}
               onPatch={(p) => patchTask(openTask.id, p)}
               onDelete={() => { removeTask(openTask.id); setOpenId(null); }}
             />
@@ -369,10 +384,11 @@ function Board({ tasks, today, onMove, onOpen, onAdd }: {
 
 // ─── Detail sheet ───────────────────────────────────────────────────────────
 
-function TaskDetail({ task, today, onPatch, onDelete }: {
+function TaskDetail({ task, today, goals, onPatch, onDelete }: {
   task: Task;
   today: string;
-  onPatch: (p: Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime">>) => void;
+  goals: MonthlyGoal[];
+  onPatch: (p: Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime" | "goalId" | "phase">>) => void;
   onDelete: () => void;
 }) {
   const tomorrow = tomorrowOf(today);
@@ -428,6 +444,31 @@ function TaskDetail({ task, today, onPatch, onDelete }: {
               <button onClick={() => onPatch({ dueDate: null })} className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent" aria-label="Clear date">
                 <X className="w-3.5 h-3.5" />
               </button>
+            )}
+          </div>
+        </Field>
+        <Field label="Goal">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={task.goalId ?? ""}
+              onChange={(e) => onPatch({ goalId: e.target.value ? Number(e.target.value) : null })}
+              className="h-8 max-w-[14rem] rounded-md border border-border bg-transparent px-2 text-sm"
+              aria-label="Monthly goal"
+            >
+              <option value="">No goal</option>
+              {goals.filter((g) => g.status !== "abandoned" || g.id === task.goalId).map((g) => (
+                <option key={g.id} value={g.id}>{g.emoji ?? "🎯"} {g.title} · {monthLabel(g.month).split(" ")[0]}</option>
+              ))}
+            </select>
+            {task.goalId && (
+              <input
+                key={task.id}
+                defaultValue={task.phase ?? ""}
+                onBlur={(e) => { if ((e.target.value || null) !== task.phase) onPatch({ phase: e.target.value.trim() || null }); }}
+                placeholder="Phase"
+                className="h-8 w-36 rounded-md border border-border bg-transparent px-2 text-sm"
+                aria-label="Phase"
+              />
             )}
           </div>
         </Field>

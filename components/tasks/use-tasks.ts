@@ -8,7 +8,7 @@ import { createTask, updateTask, deleteTask, reorderTasks } from "@/lib/actions/
 import { ensureRecurringInstances } from "@/lib/actions/recurring";
 import { moveInList, moveTo, taskPoints, type TaskPriority, type TaskStatus } from "@/lib/tasks";
 
-export type TaskPatch = Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime">>;
+export type TaskPatch = Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime" | "goalId" | "phase">>;
 
 /** How long a just-checked task stays in place (struck through) before moving to "Done". */
 export const LINGER_MS = 1800;
@@ -120,11 +120,12 @@ export function useTasks(initialTasks: Task[], today: string) {
     if (next !== sectionIds) applyOrder(next);
   }, [applyOrder]);
 
-  const addTask = useCallback((input: { title: string; dueDate: string | null; priority: TaskPriority; status?: TaskStatus }) => {
+  const addTask = useCallback((input: { title: string; dueDate: string | null; priority: TaskPriority; status?: TaskStatus; goalId?: number | null; phase?: string | null }) => {
     const tempId = -Date.now();
     const optimistic: Task = {
       id: tempId, userId: 0, title: input.title, notes: null, status: input.status ?? "todo",
       priority: input.priority, dueDate: input.dueDate, dueTime: null, pageId: null, recurringId: null,
+      goalId: input.goalId ?? null, phase: input.phase ?? null,
       orderIndex: Number.MAX_SAFE_INTEGER, completedAt: input.status === "done" ? new Date() : null,
       deletedAt: null, deletionReviewedAt: null, restoredAt: null,
       createdAt: new Date(), updatedAt: new Date(),

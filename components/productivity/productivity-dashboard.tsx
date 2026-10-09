@@ -5,7 +5,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowRight, Flame, CheckCircle2, Sparkles, ListTodo, Plus, TrendingUp, TrendingDown, Minus, CalendarRange } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/lib/db/schema";
+import type { MonthlyGoal, Task } from "@/lib/db/schema";
+import { GoalsPanel } from "@/components/goals/goals-panel";
 import { useTasks } from "@/components/tasks/use-tasks";
 import { SortableTaskList, TaskRow, tomorrowOf } from "@/components/tasks/task-list";
 import { compareTasks, parseQuickAdd } from "@/lib/tasks";
@@ -20,9 +21,10 @@ type Range = (typeof RANGES)[number];
 type HistoryItem = CompletableTask & { id: number };
 type PlanDay = "today" | "tomorrow";
 
-export function ProductivityDashboard({ initialTasks, history, serverToday }: {
+export function ProductivityDashboard({ initialTasks, history, goals, serverToday }: {
   initialTasks: Task[];
   history: HistoryItem[];
+  goals: MonthlyGoal[];
   serverToday: string;
 }) {
   const today = useLocalToday(serverToday);
@@ -32,6 +34,7 @@ export function ProductivityDashboard({ initialTasks, history, serverToday }: {
   const [range, setRange] = useState<Range>(14);
   const [planDay, setPlanDay] = useState<PlanDay>("today");
   const [draft, setDraft] = useState("");
+  const goalsById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
 
   // All stats are day-granular, so a midday Date for the local "today" is
   // enough (and keeps render pure — no new Date() per render).
@@ -109,6 +112,14 @@ export function ProductivityDashboard({ initialTasks, history, serverToday }: {
         />
       </div>
 
+      <GoalsPanel
+        goals={goals}
+        tasks={tasks}
+        today={today}
+        lingering={lingering}
+        handlers={{ toggleDone, move, drop, patchTask, addTask }}
+      />
+
       <div className="grid gap-6 @3xl:grid-cols-[1.1fr_1fr]">
         {/* ── Today's plan ─────────────────────────────────────────────── */}
         <section className="rounded-xl border border-border bg-card p-5">
@@ -155,7 +166,7 @@ export function ProductivityDashboard({ initialTasks, history, serverToday }: {
             </p>
           ) : (
             <SortableTaskList
-              className="border-y-0"
+              className="border-y-0 [--row-bg:var(--card)]"
               tasks={plan}
               today={today}
               lingering={lingering}
@@ -163,6 +174,7 @@ export function ProductivityDashboard({ initialTasks, history, serverToday }: {
               onMove={move}
               onDrop={drop}
               onSchedule={(t, d) => patchTask(t.id, { dueDate: d })}
+              goalsById={goalsById}
             />
           )}
 

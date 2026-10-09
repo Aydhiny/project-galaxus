@@ -1,0 +1,371 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import { Plus, Target, Sparkles, Trash2, Trophy, CalendarDays, Bot } from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import type { MonthlyGoal, Task } from "@/lib/db/schema";
+import { createMonthlyGoal, deleteMonthlyGoal, updateMonthlyGoal } from "@/lib/actions/monthly-goals";
+import {
+  daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, monthLabel, shiftMonth, PACE_LABEL, type Pace,
+} from "@/lib/goals";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { SortableTaskList } from "@/components/tasks/task-list";
+
+const PACE_STYLE: Record<Pace, string> = {
+  ahead: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "on-track": "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+  behind: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  achieved: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "no-plan": "bg-muted text-muted-foreground",
+  "not-started": "bg-muted text-muted-foreground",
+};
+
+const GOAL_EMOJIS = ["🎯", "🤸", "💪", "🏃", "📚", "🧠", "🎵", "🎨", "💻", "🕌", "🧘", "💰", "🌱", "✍️", "🗣️", "🚀"];
+
+export interface GoalTaskHandlers {
+  toggleDone: (t: Task) => void;
+  move: (ids: number[], id: number, dir: -1 | 1) => void;
+  drop: (ids: number[], fromId: number, toId: number, position: "above" | "below") => void;
+  patchTask: (id: number, patch: Partial<Pick<Task, "dueDate" | "goalId" | "phase">>) => void;
+  addTask: (input: { title: string; dueDate: string | null; priority: "none"; goalId: number; phase: string | null }) => void;
+}
+
+/**
+ * "This month's goals": cards with plan progress + pace, a sheet showing a
+ * goal's plan by phase, and a new-goal form. Shared by Tasks + Productivity.
+ */
+export function GoalsPanel({ goals: initialGoals, tasks, today, lingering, handlers, compact }: {
+  goals: MonthlyGoal[];
+  tasks: Task[];
+  today: string;
+  lingering?: Set<number>;
+  handlers: GoalTaskHandlers;
+  compact?: boolean;
+}) {
+  const [goals, setGoals] = useState(initialGoals);
+  const [prev, setPrev] = useState(initialGoals);
+  if (prev !== initialGoals) { setPrev(initialGoals); setGoals(initialGoals); } // server refresh wins
+
+  const month = today.slice(0, 7);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const thisMonth = goals.filter((g) => g.month === month && g.status !== "abandoned");
+  const byGoal = useMemo(() => {
+    const m = new Map<number, Task[]>();
+    for (const t of tasks) if (t.goalId) m.set(t.goalId, [...(m.get(t.goalId) ?? []), t]);
+    return m;
+  }, [tasks]);
+  const openGoal = goals.find((g) => g.id === openId) ?? null;
+  const daysLeft = daysInMonth(month) - Number(today.slice(8, 10));
+
+  return (
+    <section aria-labelledby="goals-title">
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h2 id="goals-title" className="text-sm font-semibold flex items-center gap-1.5">
+          <Target className="w-4 h-4" /> {monthLabel(month).split(" ")[0]} goals
+        </h2>
+        <span className="text-xs text-muted-foreground">{daysLeft} day{daysLeft === 1 ? "" : "s"} left this month</span>
+      </div>
+
+      <div className={cn("grid gap-3", compact ? "grid-cols-1 @xl:grid-cols-2" : "grid-cols-1 @xl:grid-cols-2 @4xl:grid-cols-3")}>
+        {thisMonth.map((g) => {
+          const mine = byGoal.get(g.id) ?? [];
+          const progress = goalProgress(mine);
+          const pace: Pace = g.status === "achieved" ? "achieved" : goalPace(g.month, today, progress);
+          const expected = expectedPct(g.month, today);
+          return (
+            <button
+              key={g.id}
+              onClick={() => setOpenId(g.id)}
+              className="text-left rounded-xl border border-border bg-card p-4 hover:border-foreground/20 transition-colors"
+            >
+              <div className="flex items-start gap-3">
+                <span className="text-2xl leading-none mt-0.5">{g.emoji ?? "🎯"}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{g.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {progress.total === 0 ? "No plan yet" : `${progress.done}/${progress.total} steps`}
+                  </p>
+                </div>
+                <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", PACE_STYLE[pace])}>{PACE_LABEL[pace]}</span>
+              </div>
+              {/* Progress bar with a tick at where you "should" be by today */}
+              <div className="relative mt-3 h-1.5 rounded-full bg-muted overflow-visible" aria-hidden>
+                <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${progress.pct}%` }} />
+                {progress.total > 0 && expected > 0 && expected < 100 && (
+                  <span className="absolute -top-1 w-0.5 h-3.5 rounded bg-foreground/40" style={{ left: `${expected}%` }} title={`Today's pace: ${expected}%`} />
+                )}
+              </div>
+              <p className="sr-only">{progress.pct}% done, expected {expected}% by today.</p>
+            </button>
+          );
+        })}
+
+        <button
+          onClick={() => setCreating(true)}
+          className="rounded-xl border border-dashed border-border p-4 text-left text-sm text-muted-foreground hover:text-foreground hover:border-foreground/25 transition-colors flex items-center gap-3 min-h-[92px]"
+        >
+          <span className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center"><Plus className="w-4 h-4" /></span>
+          <span>
+            <span className="block font-medium text-foreground">{thisMonth.length === 0 ? "Set a goal for this month" : "Add a goal"}</span>
+            <span className="block text-xs">e.g. Learn a handstand, read 4 books</span>
+          </span>
+        </button>
+      </div>
+
+      <NewGoalSheet
+        open={creating}
+        onOpenChange={setCreating}
+        month={month}
+        onCreated={(g) => { setGoals((gs) => [...gs, g]); setCreating(false); setOpenId(g.id); }}
+      />
+
+      <Sheet open={openGoal !== null} onOpenChange={(o) => { if (!o) setOpenId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-xl p-0 gap-0 overflow-y-auto">
+          {openGoal && (
+            <GoalDetail
+              key={openGoal.id}
+              goal={openGoal}
+              tasks={byGoal.get(openGoal.id) ?? []}
+              today={today}
+              lingering={lingering}
+              handlers={handlers}
+              onChange={(g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x)))}
+              onDeleted={() => { setGoals((gs) => gs.filter((x) => x.id !== openGoal.id)); setOpenId(null); }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </section>
+  );
+}
+
+// ─── Goal detail (the plan) ─────────────────────────────────────────────────
+
+function GoalDetail({ goal, tasks, today, lingering, handlers, onChange, onDeleted }: {
+  goal: MonthlyGoal;
+  tasks: Task[];
+  today: string;
+  lingering?: Set<number>;
+  handlers: GoalTaskHandlers;
+  onChange: (g: MonthlyGoal) => void;
+  onDeleted: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [draft, setDraft] = useState("");
+  const [phase, setPhase] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const progress = goalProgress(tasks);
+  const pace: Pace = goal.status === "achieved" ? "achieved" : goalPace(goal.month, today, progress);
+  const phases = groupByPhase(tasks);
+  const phaseNames = phases.map((p) => p.phase).filter((p): p is string => !!p);
+
+  function update(patch: Parameters<typeof updateMonthlyGoal>[1]) {
+    onChange({ ...goal, ...patch } as MonthlyGoal);
+    startTransition(async () => {
+      try { await updateMonthlyGoal(goal.id, patch); } catch { toast.error("Couldn't save the goal."); }
+    });
+  }
+
+  function addStep() {
+    const title = draft.trim();
+    if (!title) return;
+    // New steps default to today (or the 1st if the goal's month hasn't started).
+    const due = today.slice(0, 7) === goal.month ? today : `${goal.month}-01`;
+    handlers.addTask({ title, dueDate: due, priority: "none", goalId: goal.id, phase: phase.trim() || null });
+    setDraft("");
+  }
+
+  return (
+    <div className="flex flex-col min-h-full">
+      <div className="p-6 pr-12 border-b border-border space-y-4">
+        <div className="flex items-start gap-3">
+          <span className="text-4xl leading-none">{goal.emoji ?? "🎯"}</span>
+          <div className="flex-1 min-w-0">
+            <SheetTitle className="text-xl leading-snug">{goal.title}</SheetTitle>
+            <SheetDescription className="flex items-center gap-1.5 mt-1">
+              <CalendarDays className="w-3.5 h-3.5" /> {monthLabel(goal.month)}
+            </SheetDescription>
+          </div>
+        </div>
+        {goal.description && <p className="text-sm text-muted-foreground whitespace-pre-line">{goal.description}</p>}
+        <div>
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="text-muted-foreground tabular-nums">{progress.done}/{progress.total} steps · {progress.pct}%</span>
+            <span className={cn("rounded-full px-2 py-0.5 font-medium", PACE_STYLE[pace])}>{PACE_LABEL[pace]}</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${progress.pct}%` }} />
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6 flex-1">
+        {tasks.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border p-5 text-sm">
+            <p className="font-medium flex items-center gap-2"><Bot className="w-4 h-4" /> Let your AI build the plan</p>
+            <p className="text-muted-foreground mt-1">
+              Connect Claude (or any MCP assistant) in <Link href="/settings#ai" className="underline underline-offset-4">Settings → AI assistants</Link>,
+              then ask: <span className="italic">“Plan my {goal.title.toLowerCase()} goal for {monthLabel(goal.month)}, beginner to pro.”</span>
+              Or add steps yourself below.
+            </p>
+          </div>
+        )}
+
+        {phases.map((p) => (
+          <div key={p.phase ?? "_none"}>
+            <p className="text-xs font-semibold text-muted-foreground mb-1.5 px-1">
+              {p.phase ?? "Other steps"} <span className="font-normal opacity-70 ml-1">{p.tasks.filter((t) => t.status === "done").length}/{p.tasks.length}</span>
+            </p>
+            <SortableTaskList
+              className="[--row-bg:var(--popover)]"
+              tasks={p.tasks}
+              today={today}
+              lingering={lingering}
+              onToggle={handlers.toggleDone}
+              onMove={handlers.move}
+              onDrop={handlers.drop}
+              onSchedule={(t, d) => handlers.patchTask(t.id, { dueDate: d })}
+            />
+          </div>
+        ))}
+
+        <div className="rounded-xl border border-border p-3 space-y-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addStep(); }}
+            placeholder="Add a step to this goal…"
+            className="w-full h-9 bg-transparent border-0 shadow-none outline-none focus:shadow-none focus-visible:outline-none text-sm px-1"
+          />
+          <div className="flex items-center gap-2">
+            <input
+              value={phase}
+              onChange={(e) => setPhase(e.target.value)}
+              list={`phases-${goal.id}`}
+              placeholder="Phase (optional, e.g. Week 1 · Foundations)"
+              className="flex-1 h-8 rounded-md border border-border bg-transparent px-2 text-xs"
+            />
+            <datalist id={`phases-${goal.id}`}>{phaseNames.map((n) => <option key={n} value={n} />)}</datalist>
+            <button onClick={addStep} disabled={!draft.trim()} className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 pt-0 flex flex-wrap items-center gap-2">
+        {goal.status !== "achieved" ? (
+          <button onClick={() => { update({ status: "achieved" }); toast.success("Goal achieved — well done! 🏆"); }} disabled={pending}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10">
+            <Trophy className="w-3.5 h-3.5" /> Mark achieved
+          </button>
+        ) : (
+          <button onClick={() => update({ status: "active" })} disabled={pending}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground">
+            Reopen goal
+          </button>
+        )}
+        <button onClick={() => update({ month: shiftMonth(goal.month, 1) })} disabled={pending}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground">
+          Move to {monthLabel(shiftMonth(goal.month, 1)).split(" ")[0]}
+        </button>
+        <span className="flex-1" />
+        {confirmDelete ? (
+          <span className="inline-flex items-center gap-1.5 text-xs">
+            Delete
+            <button className="underline" onClick={() => startTransition(async () => { await deleteMonthlyGoal(goal.id, false); onDeleted(); })}>goal only</button>
+            or
+            <button className="underline text-destructive" onClick={() => startTransition(async () => { await deleteMonthlyGoal(goal.id, true); onDeleted(); })}>goal + its steps</button>?
+            <button className="text-muted-foreground ml-1" onClick={() => setConfirmDelete(false)}>Cancel</button>
+          </span>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 h-8 px-2 rounded-md text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── New goal ───────────────────────────────────────────────────────────────
+
+function NewGoalSheet({ open, onOpenChange, month, onCreated }: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  month: string;
+  onCreated: (g: MonthlyGoal) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [emoji, setEmoji] = useState("🎯");
+  const [description, setDescription] = useState("");
+  const [targetMonth, setTargetMonth] = useState(month);
+  const [pending, startTransition] = useTransition();
+  const next = shiftMonth(month, 1);
+
+  function create() {
+    if (!title.trim()) return;
+    startTransition(async () => {
+      try {
+        const g = await createMonthlyGoal({ title, emoji, description: description || null, month: targetMonth });
+        setTitle(""); setDescription(""); setEmoji("🎯");
+        onCreated(g);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't create the goal.");
+      }
+    });
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md p-0 gap-0 overflow-y-auto">
+        <div className="p-6 pr-12 border-b border-border">
+          <SheetTitle className="flex items-center gap-2 text-lg"><Sparkles className="w-4 h-4" /> New monthly goal</SheetTitle>
+          <SheetDescription className="mt-1">One clear outcome for the month. You&apos;ll break it into steps next — or let your AI plan it.</SheetDescription>
+        </div>
+        <div className="p-6 space-y-5">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Icon">
+            {GOAL_EMOJIS.map((e) => (
+              <button key={e} type="button" onClick={() => setEmoji(e)} aria-pressed={emoji === e}
+                className={cn("w-9 h-9 rounded-lg text-lg", emoji === e ? "bg-accent ring-1 ring-primary" : "hover:bg-accent")}>
+                {e}
+              </button>
+            ))}
+          </div>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium">Goal</span>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") create(); }}
+              autoFocus placeholder="Learn a freestanding handstand" className="w-full h-10 rounded-lg border border-border bg-transparent px-3 text-sm" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium">Why / what “done” looks like <span className="text-muted-foreground font-normal">(optional)</span></span>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+              placeholder="Hold a 10-second freestanding handstand by Oct 31."
+              className="w-full rounded-lg border border-border bg-transparent p-3 text-sm resize-none" />
+          </label>
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium">Month</span>
+            <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
+              {[month, next].map((m) => (
+                <button key={m} type="button" onClick={() => setTargetMonth(m)} aria-pressed={targetMonth === m}
+                  className={cn("px-3 h-8 rounded-md text-sm", targetMonth === m ? "bg-background shadow-xs font-medium" : "text-muted-foreground")}>
+                  {monthLabel(m).split(" ")[0]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button onClick={create} disabled={pending || !title.trim()}
+            className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
+            Create goal
+          </button>
+          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+            <Bot className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>Tip: with an AI assistant connected (<Link href="/settings#ai" className="underline underline-offset-2">Settings → AI assistants</Link>) you can just say “make me a handstand plan for October” and it creates the goal and every step.</span>
+          </p>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}

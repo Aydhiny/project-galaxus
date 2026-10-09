@@ -30,6 +30,7 @@ import { createCheckoutSession, createPortalSession } from "@/lib/actions/billin
 import { setLeaderboardOptIn } from "@/lib/actions/leaderboard";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
 import { SessionSettings } from "@/components/session-settings";
+import { AiAssistantsSettings } from "@/components/ai-assistants-settings";
 
 interface AccountInfo {
   id: number;
@@ -272,6 +273,9 @@ export function SettingsClient({
 
       {/* Sessions */}
       <SessionSettings />
+
+      {/* AI assistants (MCP) */}
+      <AiAssistantsSettings />
 
       {/* Notifications */}
       <Card>

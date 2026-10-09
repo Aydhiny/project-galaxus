@@ -80,6 +80,43 @@ const STATEMENTS = [
   END $$`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_tasks_recurring_due" ON "tasks" ("recurring_id", "due_date")`,
 
+  // ── 2026-10 · Monthly goals + personal API tokens (MCP) ─────────────────
+  `CREATE TABLE IF NOT EXISTS "monthly_goals" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "title" varchar(200) NOT NULL,
+    "description" text,
+    "emoji" varchar(16),
+    "month" varchar(7) NOT NULL,
+    "status" varchar(20) DEFAULT 'active' NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "monthly_goals_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_monthly_goals_user_month" ON "monthly_goals" ("user_id", "month")`,
+  `CREATE TABLE IF NOT EXISTS "api_tokens" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "name" varchar(100) NOT NULL,
+    "token_hash" varchar(64) NOT NULL,
+    "prefix" varchar(16) NOT NULL,
+    "last_used_at" timestamp,
+    "revoked_at" timestamp,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "api_tokens_token_hash_unique" UNIQUE("token_hash"),
+    CONSTRAINT "api_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_api_tokens_user" ON "api_tokens" ("user_id")`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "goal_id" integer`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "phase" varchar(100)`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tasks_goal_id_monthly_goals_id_fk') THEN
+      ALTER TABLE "tasks" ADD CONSTRAINT "tasks_goal_id_monthly_goals_id_fk"
+        FOREIGN KEY ("goal_id") REFERENCES "monthly_goals"("id") ON DELETE set null;
+    END IF;
+  END $$`,
+  `CREATE INDEX IF NOT EXISTS "idx_tasks_goal" ON "tasks" ("goal_id")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];
