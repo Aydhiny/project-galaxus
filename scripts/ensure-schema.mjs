@@ -316,6 +316,60 @@ const STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS "idx_voice_commands_user_status" ON "voice_commands" ("user_id", "status")`,
 
+  // ── 2026-10 · Claude jobs, content calendar, comments, game dev ────────
+  `ALTER TABLE "voice_commands" ADD COLUMN IF NOT EXISTS "kind" varchar(20) DEFAULT 'voice' NOT NULL`,
+  `ALTER TABLE "voice_commands" ADD COLUMN IF NOT EXISTS "payload" jsonb`,
+  `ALTER TABLE "voice_commands" ADD COLUMN IF NOT EXISTS "result" text`,
+  `ALTER TABLE "youtube_ideas" ADD COLUMN IF NOT EXISTS "hooks" jsonb DEFAULT '[]'::jsonb NOT NULL`,
+  `ALTER TABLE "youtube_ideas" ADD COLUMN IF NOT EXISTS "source" varchar(20)`,
+  `ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "youtube_idea_id" integer`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tasks_youtube_idea_id_youtube_ideas_id_fk') THEN
+      ALTER TABLE "tasks" ADD CONSTRAINT "tasks_youtube_idea_id_youtube_ideas_id_fk"
+        FOREIGN KEY ("youtube_idea_id") REFERENCES "youtube_ideas"("id") ON DELETE set null;
+    END IF;
+  END $$`,
+  `CREATE INDEX IF NOT EXISTS "idx_tasks_youtube_idea" ON "tasks" ("youtube_idea_id")`,
+  `CREATE TABLE IF NOT EXISTS "youtube_comments" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "channel_row_id" integer NOT NULL,
+    "video_id" varchar(20) NOT NULL,
+    "comment_id" varchar(80) NOT NULL,
+    "author" varchar(120) NOT NULL,
+    "text" text NOT NULL,
+    "published_at" timestamp NOT NULL,
+    "like_count" integer DEFAULT 0 NOT NULL,
+    "status" varchar(12) DEFAULT 'new' NOT NULL,
+    "reply" text,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "youtube_comments_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade,
+    CONSTRAINT "youtube_comments_channel_row_id_youtube_channels_id_fk" FOREIGN KEY ("channel_row_id") REFERENCES "youtube_channels"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_youtube_comments_user_comment" ON "youtube_comments" ("user_id", "comment_id")`,
+  `CREATE INDEX IF NOT EXISTS "idx_youtube_comments_user_status" ON "youtube_comments" ("user_id", "status")`,
+  `CREATE TABLE IF NOT EXISTS "game_settings" (
+    "user_id" integer PRIMARY KEY NOT NULL,
+    "repo" varchar(140),
+    "last_devlog_sha" varchar(64),
+    "last_devlog_at" timestamp,
+    "playtest_themes" jsonb,
+    "playtest_themes_at" timestamp,
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "game_settings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE TABLE IF NOT EXISTS "playtest_feedback" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "tester" varchar(80),
+    "build" varchar(40),
+    "rating" integer,
+    "text" text NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "playtest_feedback_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_playtest_feedback_user" ON "playtest_feedback" ("user_id")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

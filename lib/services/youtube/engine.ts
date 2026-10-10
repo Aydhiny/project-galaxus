@@ -2,16 +2,18 @@
 // channel review, per-video fixes and Shorts scripts. Audit rules are pure
 // (lib/youtube.ts) and run on read, so they never go stale.
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { youtubeChannels, youtubeIdeas, youtubeVideos, type YoutubeIdea, type YoutubeVideo } from "@/lib/db/schema";
+import { outreachSettings, tasks, youtubeChannels, youtubeComments, youtubeIdeas, youtubeVideos, type YoutubeIdea, type YoutubeVideo } from "@/lib/db/schema";
 import {
-  auditVideo, channelContext, channelFindings, isIdeaStage, isShortVideo, parseChannelInput, parseDuration,
+  auditVideo, channelContext, channelFindings, ideaTaskPlan, isIdeaStage, isShortVideo, parseChannelInput, parseDuration,
   type AuditVideo,
 } from "@/lib/youtube";
 import { askClaude } from "@/lib/services/claude";
 import { getSecret, getYoutubeKey, setSecret } from "@/lib/services/secrets";
-import { fetchChannel, fetchUploads } from "./api";
+import { fetchChannel, fetchComments, fetchUploads } from "./api";
+import { enqueueJobFor } from "@/lib/services/claude-jobs";
+import { localNow } from "@/lib/outreach";
 
 async function requireYoutubeKey(userId: number) {
   const key = await getYoutubeKey(userId);
@@ -120,7 +122,98 @@ export async function syncChannelFor(userId: number, channelRowId: number) {
       subscribers: ch.subscribers, totalViews: ch.totalViews, videoCount: ch.videoCount, lastSyncedAt: new Date(),
     })
     .where(eq(youtubeChannels.id, channelRowId));
-  return { videos: uploads.length };
+  const comments = await syncCommentsFor(userId, channelRowId, key, ch.channelId, uploads.slice(0, 10).map((v) => v.videoId));
+  return { videos: uploads.length, comments };
+}
+
+/** Newest comments on your 10 latest videos into the inbox. Your own comments and ones you already answered are skipped. */
+async function syncCommentsFor(userId: number, channelRowId: number, key: string, ownerChannelId: string, videoIds: string[]) {
+  let added = 0;
+  for (const videoId of videoIds) {
+    const list = await fetchComments(key, videoId, ownerChannelId);
+    const fresh = list.filter((c) => c.authorChannelId !== ownerChannelId);
+    if (fresh.length === 0) continue;
+    const rows = await db
+      .insert(youtubeComments)
+      .values(fresh.map((c) => ({
+        userId, channelRowId, videoId: c.videoId, commentId: c.commentId, author: c.author.slice(0, 120), text: c.text.slice(0, 5000),
+        publishedAt: new Date(c.publishedAt), likeCount: c.likeCount, status: c.ownerReplied ? "replied" : "new",
+      })))
+      .onConflictDoNothing({ target: [youtubeComments.userId, youtubeComments.commentId] })
+      .returning({ id: youtubeComments.id });
+    added += rows.length;
+    // Answered on YouTube since the last sync: leave the inbox.
+    const replied = fresh.filter((c) => c.ownerReplied).map((c) => c.commentId);
+    if (replied.length) {
+      await db.update(youtubeComments).set({ status: "replied" })
+        .where(and(eq(youtubeComments.userId, userId), inArray(youtubeComments.commentId, replied), ne(youtubeComments.status, "ignored")));
+    }
+  }
+  return added;
+}
+
+export async function updateCommentFor(userId: number, id: number, patch: { status?: string; reply?: string }) {
+  const set: { status?: string; reply?: string | null } = {};
+  if (patch.status !== undefined) {
+    if (!["new", "drafted", "replied", "ignored"].includes(patch.status)) throw new Error("Unknown status.");
+    set.status = patch.status;
+  }
+  if (patch.reply !== undefined) set.reply = String(patch.reply).slice(0, 1000) || null;
+  await db.update(youtubeComments).set(set).where(and(eq(youtubeComments.id, id), eq(youtubeComments.userId, userId)));
+}
+
+/** Claude drafts replies for every comment still waiting (max 25 per run). */
+export async function draftRepliesFor(userId: number) {
+  const waiting = await db
+    .select({ id: youtubeComments.id })
+    .from(youtubeComments)
+    .where(and(eq(youtubeComments.userId, userId), eq(youtubeComments.status, "new")))
+    .orderBy(desc(youtubeComments.publishedAt))
+    .limit(25);
+  if (waiting.length === 0) throw new Error("No new comments to reply to. Sync first.");
+  return enqueueJobFor(userId, "comment_replies", `Draft replies to ${waiting.length} comment${waiting.length === 1 ? "" : "s"}`, { commentIds: waiting.map((w) => w.id) });
+}
+
+/** Hook lab: 10 opening lines for an idea, from Claude. */
+export async function hookLabFor(userId: number, ideaId: number) {
+  const [idea] = await db.select({ id: youtubeIdeas.id, title: youtubeIdeas.title }).from(youtubeIdeas)
+    .where(and(eq(youtubeIdeas.id, ideaId), eq(youtubeIdeas.userId, userId))).limit(1);
+  if (!idea) throw new Error("Idea not found.");
+  return enqueueJobFor(userId, "hooks", `Hooks for "${idea.title}"`, { ideaId });
+}
+
+// ─── Content calendar ─────────────────────────────────────────────────────────
+
+async function todayFor(userId: number) {
+  const [row] = await db.select({ tz: outreachSettings.timezone }).from(outreachSettings).where(eq(outreachSettings.userId, userId)).limit(1);
+  return localNow(row?.tz ?? "Europe/Sarajevo").day;
+}
+
+/**
+ * A publish date on an idea = Record / Edit / Publish tasks on your Tasks
+ * page (area: youtube). Dates follow the idea; finished tasks are left alone;
+ * no date (or a deleted idea) removes the open ones.
+ */
+async function syncIdeaTasks(userId: number, idea: YoutubeIdea | null, ideaId: number) {
+  const linked = await db.select().from(tasks)
+    .where(and(eq(tasks.userId, userId), eq(tasks.youtubeIdeaId, ideaId), isNull(tasks.deletedAt)));
+  const now = new Date();
+  if (!idea || !idea.dueDate) {
+    const open = linked.filter((t) => t.status !== "done").map((t) => t.id);
+    if (open.length) await db.update(tasks).set({ deletedAt: now, deletionReviewedAt: now }).where(inArray(tasks.id, open));
+    return;
+  }
+  if (idea.stage === "published") return; // done: leave history as it is
+  const plan = ideaTaskPlan(idea.dueDate, await todayFor(userId));
+  for (const step of plan) {
+    const title = `${step.phase}: ${idea.title}`.slice(0, 500);
+    const existing = linked.find((t) => t.phase === step.phase);
+    if (existing) {
+      if (existing.status !== "done") await db.update(tasks).set({ title, dueDate: step.dueDate, updatedAt: now }).where(eq(tasks.id, existing.id));
+    } else {
+      await db.insert(tasks).values({ userId, title, dueDate: step.dueDate, phase: step.phase, area: "youtube", youtubeIdeaId: ideaId, priority: step.phase === "Publish" ? "medium" : "none" });
+    }
+  }
 }
 
 export async function removeChannelFor(userId: number, channelRowId: number) {
@@ -128,13 +221,17 @@ export async function removeChannelFor(userId: number, channelRowId: number) {
 }
 
 export async function studioFor(userId: number) {
-  const [channels, videos, ideas, keys] = await Promise.all([
+  const [channels, videos, ideas, keys, comments, ideaTasks] = await Promise.all([
     db.select().from(youtubeChannels).where(eq(youtubeChannels.userId, userId)).orderBy(asc(youtubeChannels.createdAt)),
     db.select().from(youtubeVideos).where(eq(youtubeVideos.userId, userId)).orderBy(desc(youtubeVideos.publishedAt)),
     db.select().from(youtubeIdeas).where(eq(youtubeIdeas.userId, userId)).orderBy(desc(youtubeIdeas.updatedAt)),
     keyStatusFor(userId),
+    db.select().from(youtubeComments).where(and(eq(youtubeComments.userId, userId), inArray(youtubeComments.status, ["new", "drafted"])))
+      .orderBy(desc(youtubeComments.publishedAt)).limit(100),
+    db.select({ id: tasks.id, ideaId: tasks.youtubeIdeaId, phase: tasks.phase, dueDate: tasks.dueDate, status: tasks.status })
+      .from(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.youtubeIdeaId), isNull(tasks.deletedAt))),
   ]);
-  return { channels, videos, ideas, keys };
+  return { channels, videos, ideas, keys, comments, ideaTasks };
 }
 
 // ─── Videos ───────────────────────────────────────────────────────────────────
@@ -273,6 +370,7 @@ export async function createIdeaFor(userId: number, input: IdeaInput) {
   const set = ideaSet(input);
   if (!set.title) throw new Error("Give the idea a title.");
   const [row] = await db.insert(youtubeIdeas).values({ ...set, title: set.title, userId }).returning();
+  if (row.dueDate) await syncIdeaTasks(userId, row, row.id);
   return row;
 }
 
@@ -281,6 +379,7 @@ export async function updateIdeaFor(userId: number, id: number, input: IdeaInput
   if (set.title === "") throw new Error("Title can't be empty.");
   const [row] = await db.update(youtubeIdeas).set(set).where(and(eq(youtubeIdeas.id, id), eq(youtubeIdeas.userId, userId))).returning();
   if (!row) throw new Error("Idea not found.");
+  if (input.dueDate !== undefined || input.title !== undefined || input.stage !== undefined) await syncIdeaTasks(userId, row, row.id);
 
   // Published with a video link → copy the script onto the video, so the
   // channel review can see what was actually said.
@@ -294,6 +393,7 @@ export async function updateIdeaFor(userId: number, id: number, input: IdeaInput
 }
 
 export async function deleteIdeaFor(userId: number, id: number) {
+  await syncIdeaTasks(userId, null, id); // open Record/Edit/Publish tasks go too
   await db.delete(youtubeIdeas).where(and(eq(youtubeIdeas.id, id), eq(youtubeIdeas.userId, userId)));
 }
 

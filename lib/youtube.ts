@@ -239,3 +239,22 @@ export function isStalled(idea: { stage: string; updatedAt: Date | string | null
   if (idea.stage === "published" || idea.stage === "idea" || !idea.updatedAt) return false;
   return now.getTime() - new Date(idea.updatedAt).getTime() > 7 * 86_400_000;
 }
+
+// ─── Content calendar ─────────────────────────────────────────────────────────
+
+export const CALENDAR_STEPS = [
+  { phase: "Record", offset: -2 },
+  { phase: "Edit", offset: -1 },
+  { phase: "Publish", offset: 0 },
+] as const;
+
+/** Record / Edit / Publish dates for a publish date — never before today. */
+export function ideaTaskPlan(publishDate: string, today: string): { phase: string; dueDate: string }[] {
+  const base = new Date(publishDate + "T12:00:00");
+  return CALENDAR_STEPS.map(({ phase, offset }) => {
+    const d = new Date(base);
+    d.setDate(d.getDate() + offset);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { phase, dueDate: key < today ? today : key };
+  });
+}

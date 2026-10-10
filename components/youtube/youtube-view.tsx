@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 import { AlertTriangle, Check, Clapperboard, KeyRound, Loader2, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
@@ -17,9 +18,10 @@ import {
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { VideoDetail } from "./video-sheet";
 import { IssueList, ReportText } from "./shared";
+import { CommentsTab } from "./comments-tab";
 import { IdeaDetail } from "./idea-sheet";
 
-type Tab = "channel" | "work" | "setup";
+type Tab = "channel" | "work" | "comments" | "setup";
 
 const toAudit = (v: YoutubeVideo): AuditVideo => ({ ...v, description: v.description ?? "", tags: v.tags ?? [] });
 
@@ -64,10 +66,10 @@ export function YoutubeView({ state }: { state: StudioState }) {
           </p>
         </div>
         <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
-          {(["channel", "work", "setup"] as const).map((t) => (
+          {(["channel", "work", "comments", "setup"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={cn("px-3 h-7 rounded-md text-sm capitalize transition-colors", tab === t ? "bg-background shadow-xs text-foreground" : "text-muted-foreground hover:text-foreground")}>
-              {t}
+              {t === "comments" && state.comments.filter((c) => c.status !== "replied").length > 0 ? `comments · ${state.comments.length}` : t}
             </button>
           ))}
         </div>
@@ -144,6 +146,8 @@ export function YoutubeView({ state }: { state: StudioState }) {
 
       {tab === "work" && <WorkTab state={state} channelRowId={channel?.id ?? null} onOpen={(id) => setOpenIdea(id)} />}
 
+      {tab === "comments" && <CommentsTab state={state} />}
+
       {tab === "setup" && <SetupTab state={state} pending={pending} run={run} onConnected={() => setTab("channel")} />}
 
       <Sheet open={video !== null} onOpenChange={(o) => { if (!o) setOpenVideo(null); }}>
@@ -153,7 +157,7 @@ export function YoutubeView({ state }: { state: StudioState }) {
       </Sheet>
       <Sheet open={idea !== null} onOpenChange={(o) => { if (!o) setOpenIdea(null); }}>
         <SheetContent side="right" className="w-full sm:max-w-lg p-0 gap-0 overflow-y-auto">
-          {idea && <IdeaDetail key={idea.id} idea={idea} canAsk={state.keys.anthropic} onDeleted={() => setOpenIdea(null)} />}
+          {idea && <IdeaDetail key={idea.id} idea={idea} canAsk={state.keys.anthropic} onDeleted={() => setOpenIdea(null)} calendar={state.ideaTasks.filter((t) => t.ideaId === idea.id)} />}
         </SheetContent>
       </Sheet>
     </div>
@@ -258,6 +262,10 @@ function WorkTab({ state, channelRowId, onOpen }: { state: StudioState; channelR
           <Plus className="w-4 h-4" /> Add
         </button>
       </div>
+
+      <p className="text-xs text-muted-foreground px-1">
+        Give an idea a <b>publish date</b> and Record → Edit → Publish tasks appear on your Tasks. Out of ideas? <Link href="/game" className="underline underline-offset-4">Draft a devlog from your commits</Link>.
+      </p>
 
       {state.ideas.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">

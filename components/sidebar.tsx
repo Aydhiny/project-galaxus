@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -34,6 +34,7 @@ const TONE: Record<string, string> = {
   "/goals":        "bg-rose-500/12 text-rose-600 dark:text-rose-400",
   "/outreach":     "bg-teal-500/12 text-teal-600 dark:text-teal-400",
   "/youtube":      "bg-red-500/12 text-red-600 dark:text-red-400",
+  "/game":         "bg-violet-500/12 text-violet-600 dark:text-violet-400",
   "/dashboard":    "bg-cyan-500/12 text-cyan-600 dark:text-cyan-400",
   "/yearly":       "bg-violet-500/12 text-violet-600 dark:text-violet-400",
   "/insights":     "bg-yellow-500/12 text-yellow-700 dark:text-yellow-400",
@@ -65,6 +66,7 @@ const PRIMARY: NavItem[] = [
   { href: "/goals",    icon: Target,      label: "Goals"          },
   { href: "/outreach", icon: Send,        label: "Outreach"       },
   { href: "/youtube",  icon: Clapperboard, label: "YouTube"        },
+  { href: "/game",     icon: Gamepad2,    label: "Game dev"       },
 ];
 
 // Everything else lives in collapsible groups so the sidebar stays calm.

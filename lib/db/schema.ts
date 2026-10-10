@@ -444,6 +444,8 @@ export const tasks = pgTable(
     pageId: integer("page_id").references(() => workspacePages.id, { onDelete: "set null" }),
     recurringId: integer("recurring_id").references(() => recurringTasks.id, { onDelete: "set null" }),
     goalId: integer("goal_id").references(() => monthlyGoals.id, { onDelete: "set null" }),
+    // Content calendar: Record / Edit / Publish tasks made from a YouTube idea.
+    youtubeIdeaId: integer("youtube_idea_id").references((): AnyPgColumn => youtubeIdeas.id, { onDelete: "set null" }),
     phase: varchar("phase", { length: 100 }), // plan stage within a goal, e.g. "Week 1 · Foundations"
     area: varchar("area", { length: 20 }), // area of life: training | faith | reading | youtube | mind | sleep | study
     // Links / images: [{ type: "link" | "image", url, title? }] — small, always
@@ -468,6 +470,7 @@ export const tasks = pgTable(
     // One instance per template per day — makes generation idempotent.
     uniqueIndex("uq_tasks_recurring_due").on(t.recurringId, t.dueDate),
     index("idx_tasks_goal").on(t.goalId),
+    index("idx_tasks_youtube_idea").on(t.youtubeIdeaId),
   ]
 );
 
@@ -683,6 +686,8 @@ export const youtubeIdeas = pgTable(
     notes: text("notes"),
     videoId: varchar("video_id", { length: 20 }), // set once published
     dueDate: date("due_date"),
+    hooks: jsonb("hooks").$type<string[]>().notNull().default([]), // Hook lab options
+    source: varchar("source", { length: 20 }), // 'devlog' when drafted from commits
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -703,6 +708,11 @@ export const voiceCommands = pgTable(
     localTime: varchar("local_time", { length: 5 }).notNull(),
     timezone: varchar("timezone", { length: 50 }).notNull(),
     status: varchar("status", { length: 10 }).notNull().default("queued"), // queued | running | done | failed
+    // 'voice' | 'devlog' | 'hooks' | 'comment_replies' | 'playtest' — every
+    // Claude job runs on the same subscription runner (lib/services/claude-jobs.ts).
+    kind: varchar("kind", { length: 20 }).notNull().default("voice"),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    result: text("result"), // Claude's full output (summary is the short version)
     actions: jsonb("actions").$type<VoiceAction[]>().notNull().default([]),
     summary: text("summary"), // Claude's own one-line recap
     error: text("error"),
@@ -712,6 +722,52 @@ export const voiceCommands = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [index("idx_voice_commands_user_status").on(t.userId, t.status)]
+);
+
+// ─── YouTube comments (inbox) ──────────────────────────────────────────────────
+export const youtubeComments = pgTable(
+  "youtube_comments",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    channelRowId: integer("channel_row_id").notNull().references(() => youtubeChannels.id, { onDelete: "cascade" }),
+    videoId: varchar("video_id", { length: 20 }).notNull(),
+    commentId: varchar("comment_id", { length: 80 }).notNull(),
+    author: varchar("author", { length: 120 }).notNull(),
+    text: text("text").notNull(),
+    publishedAt: timestamp("published_at").notNull(),
+    likeCount: integer("like_count").notNull().default(0),
+    status: varchar("status", { length: 12 }).notNull().default("new"), // new | drafted | replied | ignored
+    reply: text("reply"), // Claude's draft (you post it on YouTube)
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_youtube_comments_user_comment").on(t.userId, t.commentId), index("idx_youtube_comments_user_status").on(t.userId, t.status)]
+);
+
+// ─── Game dev (Hunter Mouse 2): devlog source + playtest log ───────────────────
+export type PlaytestTheme = { theme: string; count: number; severity: "high" | "medium" | "low"; examples: string[]; task: string };
+export const gameSettings = pgTable("game_settings", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  repo: varchar("repo", { length: 140 }), // "owner/name"
+  lastDevlogSha: varchar("last_devlog_sha", { length: 64 }),
+  lastDevlogAt: timestamp("last_devlog_at"),
+  playtestThemes: jsonb("playtest_themes").$type<PlaytestTheme[]>(),
+  playtestThemesAt: timestamp("playtest_themes_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const playtestFeedback = pgTable(
+  "playtest_feedback",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    tester: varchar("tester", { length: 80 }),
+    build: varchar("build", { length: 40 }),
+    rating: integer("rating"), // 1–5, optional
+    text: text("text").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_playtest_feedback_user").on(t.userId)]
 );
 
 export type User = typeof users.$inferSelect;
@@ -750,3 +806,6 @@ export type YoutubeChannel = typeof youtubeChannels.$inferSelect;
 export type YoutubeVideo = typeof youtubeVideos.$inferSelect;
 export type YoutubeIdea = typeof youtubeIdeas.$inferSelect;
 export type VoiceCommand = typeof voiceCommands.$inferSelect;
+export type YoutubeComment = typeof youtubeComments.$inferSelect;
+export type GameSettings = typeof gameSettings.$inferSelect;
+export type PlaytestFeedback = typeof playtestFeedback.$inferSelect;

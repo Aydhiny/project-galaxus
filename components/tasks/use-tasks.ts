@@ -155,7 +155,7 @@ export function useTasks(initialTasks: Task[], today: string, opts: { goals?: Mo
     const optimistic: Task = {
       id: tempId, userId: 0, title: input.title, notes: null, status: input.status ?? "todo",
       priority: input.priority, dueDate: input.dueDate, dueTime: null, pageId: null, recurringId: null,
-      goalId: input.goalId ?? null, phase: input.phase ?? null, area: input.area ?? null, attachments: [],
+      goalId: input.goalId ?? null, phase: input.phase ?? null, area: input.area ?? null, attachments: [], youtubeIdeaId: null,
       orderIndex: Number.MAX_SAFE_INTEGER, completedAt: input.status === "done" ? new Date() : null,
       deletedAt: null, deletionReviewedAt: null, restoredAt: null,
       createdAt: new Date(), updatedAt: new Date(),

@@ -17,6 +17,8 @@ import { MAX_TRANSCRIPT, STALE_RUNNING_MS, VOICE_RATE, VOICE_SYSTEM, buildVoiceP
 import { checkRateLimit } from "@/lib/ratelimit";
 import { getSecret, setSecret } from "@/lib/services/secrets";
 import { notifyUser } from "@/lib/services/outreach/push";
+import { buildJobPrompt, applyJobResult } from "@/lib/services/claude-jobs";
+import { JOB_LABEL, type JobKind } from "@/lib/claude-jobs";
 
 export const VOICE_REPO = process.env.GALAXUS_VOICE_REPO ?? "Aydhiny/project-galaxus";
 export const VOICE_WORKFLOW = "voice.yml";
@@ -46,7 +48,7 @@ export async function createCommandFor(
  * Start the GitHub Actions runner now. Without a GitHub key the scheduled
  * fallback (every 10 minutes) still picks the command up — just slower.
  */
-async function dispatchRunner(userId: number): Promise<boolean> {
+export async function dispatchRunner(userId: number): Promise<boolean> {
   const token = await getSecret(userId, "github");
   if (!token) return false;
   try {
@@ -83,7 +85,12 @@ export async function retryCommandFor(userId: number, id: number) {
 // ─── Reading ──────────────────────────────────────────────────────────────────
 
 export async function listCommandsFor(userId: number, limit = 20) {
-  return db.select().from(voiceCommands).where(eq(voiceCommands.userId, userId)).orderBy(desc(voiceCommands.id)).limit(limit);
+  return db
+    .select()
+    .from(voiceCommands)
+    .where(and(eq(voiceCommands.userId, userId), eq(voiceCommands.kind, "voice")))
+    .orderBy(desc(voiceCommands.id))
+    .limit(limit);
 }
 
 export async function getCommandFor(userId: number, id: number) {
@@ -134,10 +141,21 @@ export async function claimNextFor(userId: number) {
       limit 1
       for update skip locked
     )
-    returning id, transcript, local_date, local_time, timezone
+    returning id, transcript, local_date, local_time, timezone, kind, payload
   `);
-  const row = (rows as unknown as { rows: Record<string, string | number>[] }).rows?.[0];
+  const row = (rows as unknown as { rows: Record<string, unknown>[] }).rows?.[0];
   if (!row) return null;
+  if (row.kind !== "voice") {
+    // Other Claude jobs (devlog, hooks, replies, playtest) build their prompt
+    // from fresh data. A job whose data vanished fails cleanly.
+    try {
+      const built = await buildJobPrompt({ userId, kind: String(row.kind), payload: row.payload as Record<string, unknown> });
+      return { id: Number(row.id), ...built };
+    } catch (e) {
+      await completeFor(userId, Number(row.id), { ok: false, error: e instanceof Error ? e.message : "Couldn't prepare this job." });
+      return claimNextFor(userId);
+    }
+  }
   return {
     id: Number(row.id),
     system: VOICE_SYSTEM,
@@ -169,27 +187,46 @@ export async function recordToolResultFor(userId: number, tool: string, resultTe
 }
 
 export async function completeFor(userId: number, id: number, result: { ok: boolean; summary?: string; error?: string }) {
+  const [current] = await db
+    .select()
+    .from(voiceCommands)
+    .where(and(eq(voiceCommands.id, id), eq(voiceCommands.userId, userId), eq(voiceCommands.status, "running")))
+    .limit(1);
+  if (!current) return null;
+
+  const full = result.summary ? String(result.summary).slice(0, 20_000) : null;
+  let ok = result.ok;
+  let summary = full ? full.slice(0, 2000) : null;
+  let error = ok ? null : String(result.error ?? "Claude couldn't finish this one.").slice(0, 500);
+  // Non-voice jobs: turn Claude's answer into data (idea, hooks, replies, themes).
+  if (ok && current.kind !== "voice") {
+    try {
+      summary = await applyJobResult(current, full ?? "");
+    } catch (e) {
+      ok = false;
+      error = e instanceof Error ? e.message : "Couldn't use Claude's answer.";
+    }
+  }
   const [row] = await db
     .update(voiceCommands)
-    .set({
-      status: result.ok ? "done" : "failed",
-      summary: result.summary ? String(result.summary).slice(0, 2000) : null,
-      error: result.ok ? null : String(result.error ?? "Claude couldn't finish this one.").slice(0, 500),
-      finishedAt: new Date(),
-    })
-    .where(and(eq(voiceCommands.id, id), eq(voiceCommands.userId, userId), eq(voiceCommands.status, "running")))
+    .set({ status: ok ? "done" : "failed", summary, result: full, error, finishedAt: new Date() })
+    .where(eq(voiceCommands.id, id))
     .returning();
-  if (!row) return null;
   await notifyDone(userId, row);
   return row;
 }
 
+const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game" };
+
 async function notifyDone(userId: number, c: VoiceCommand) {
   const n = c.actions.length;
+  const label = JOB_LABEL[c.kind as JobKind] ?? "Claude job";
   await notifyUser(userId, {
-    title: c.status === "done" ? (n ? `Claude made ${n} change${n === 1 ? "" : "s"}` : "Claude finished") : "Voice command failed",
+    title: c.status === "done"
+      ? c.kind === "voice" ? (n ? `Claude made ${n} change${n === 1 ? "" : "s"}` : "Claude finished") : `${label} ready`
+      : `${label} failed`,
     body: c.status === "done" ? (c.summary ?? "Open Galaxus to see what changed.").slice(0, 140) : (c.error ?? "Tap to retry."),
-    url: "/voice",
+    url: JOB_URL[c.kind] ?? "/voice",
     tag: `voice-${c.id}`,
   }).catch(() => {});
 }

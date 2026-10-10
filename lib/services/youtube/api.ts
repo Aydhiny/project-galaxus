@@ -123,3 +123,50 @@ export async function fetchUploads(key: string, uploadsPlaylistId: string, limit
   }
   return videos;
 }
+
+export type ApiComment = {
+  commentId: string;
+  videoId: string;
+  author: string;
+  authorChannelId: string | null;
+  text: string;
+  publishedAt: string;
+  likeCount: number;
+  ownerReplied: boolean;
+};
+
+type RawThread = {
+  id: string;
+  snippet: {
+    videoId: string;
+    topLevelComment: { snippet: { authorDisplayName: string; authorChannelId?: { value: string }; textOriginal: string; publishedAt: string; likeCount: number } };
+  };
+  replies?: { comments: { snippet: { authorChannelId?: { value: string } } }[] };
+};
+
+/** Newest top-level comments on one video (1 quota unit). Disabled comments → []. */
+export async function fetchComments(key: string, videoId: string, ownerChannelId: string): Promise<ApiComment[]> {
+  try {
+    const { items } = await get<{ items?: RawThread[] }>(
+      "commentThreads",
+      { part: "snippet,replies", videoId, maxResults: "30", order: "time", textFormat: "plainText" },
+      key
+    );
+    return (items ?? []).map((t) => {
+      const c = t.snippet.topLevelComment.snippet;
+      return {
+        commentId: t.id,
+        videoId: t.snippet.videoId,
+        author: c.authorDisplayName,
+        authorChannelId: c.authorChannelId?.value ?? null,
+        text: c.textOriginal,
+        publishedAt: c.publishedAt,
+        likeCount: c.likeCount ?? 0,
+        ownerReplied: (t.replies?.comments ?? []).some((r) => r.snippet.authorChannelId?.value === ownerChannelId),
+      };
+    });
+  } catch (e) {
+    if (e instanceof Error && /disabled comments|commentsDisabled/i.test(e.message)) return [];
+    throw e;
+  }
+}

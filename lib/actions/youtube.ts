@@ -6,6 +6,7 @@ import { requireUserId } from "@/lib/auth-session";
 import {
   channelReportFor, connectChannelFor, createIdeaFor, deleteIdeaFor, improveVideoFor, removeChannelFor,
   saveKeysFor, studioFor, syncChannelFor, updateIdeaFor, updateVideoFor, writeScriptFor,
+  draftRepliesFor, hookLabFor, updateCommentFor,
   type IdeaInput, type VideoPatch,
 } from "@/lib/services/youtube/engine";
 
@@ -99,4 +100,19 @@ export async function writeScript(id: number) {
     refresh();
     return row;
   });
+}
+
+export async function updateComment(id: number, patch: { status?: string; reply?: string }) {
+  return toResult(async () => {
+    await updateCommentFor(await requireUserId(), id, patch);
+    refresh();
+  });
+}
+
+export async function draftReplies() {
+  return toResult(async () => draftRepliesFor(await requireUserId()));
+}
+
+export async function runHookLab(ideaId: number) {
+  return toResult(async () => hookLabFor(await requireUserId(), ideaId));
 }
