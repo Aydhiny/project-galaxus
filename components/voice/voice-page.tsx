@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Check, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { Check, Loader2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandIcon } from "@/components/brand-icon";
 import type { VoiceCommand } from "@/lib/db/schema";
 import { saveVoiceGithubKey } from "@/lib/actions/voice";
 import { VoicePanel } from "./voice-panel";
@@ -20,7 +21,7 @@ export function VoicePage({ history, setup }: { history: VoiceCommand[]; setup: 
   return (
     <div className="max-w-3xl mx-auto px-5 md:px-10 py-8 md:py-12">
       <header className="mb-2">
-        <h1 className="text-3xl font-bold tracking-tight">Voice</h1>
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2.5"><BrandIcon name="claude" className="w-7 h-7" /> Voice</h1>
         <p className="text-sm text-muted-foreground mt-1">Say it — Claude plans it. Tasks, routines and goals, made by Claude on your own subscription.</p>
       </header>
 
@@ -71,7 +72,7 @@ function SetupCard({ setup }: { setup: { hasGithubKey: boolean; repo: string } }
 
       <div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium flex items-center gap-2"><KeyRound className="w-4 h-4" /> GitHub key — makes Claude start instantly</span>
+          <span className="text-sm font-medium flex items-center gap-2"><BrandIcon name="github" className="w-4 h-4" /> GitHub key — makes Claude start instantly</span>
           {setup.hasGithubKey
             ? <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"><Check className="w-3.5 h-3.5" /> Saved</span>
             : <span className="text-xs text-muted-foreground">Optional · without it, ~10 min</span>}

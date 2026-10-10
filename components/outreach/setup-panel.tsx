@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Bell, Check, ClipboardPaste, KeyRound, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandIcon } from "@/components/brand-icon";
 import { Switch } from "@/components/ui/switch";
 import { OSM_TYPES, osmType } from "@/lib/outreach";
 import {
@@ -311,7 +312,7 @@ function SearchesCard({ state, onFind, finding }: { state: OutreachState; onFind
         {(["osm", "google"] as const).map((src) => (
           <button key={src} onClick={() => setSource(src)}
             className={cn("px-2.5 h-7 rounded-md text-xs", source === src ? "bg-background shadow-xs font-medium" : "text-muted-foreground")}>
-            {src === "osm" ? "OpenStreetMap (free)" : "Google"}
+            <span className="inline-flex items-center gap-1.5"><BrandIcon name={src === "osm" ? "openstreetmap" : "googlemaps"} className="w-3.5 h-3.5" />{src === "osm" ? "OpenStreetMap (free)" : "Google"}</span>
           </button>
         ))}
       </div>

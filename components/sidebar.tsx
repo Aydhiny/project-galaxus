@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -20,6 +20,38 @@ import { RoomCustomizer } from "@/components/room-customizer";
 import { useHydrated } from "@/lib/hooks/client-values";
 
 type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string };
+
+// One soft colour per section — tinted tile + coloured glyph. Full class
+// strings (not built dynamically) so Tailwind keeps them in the build.
+const TONE: Record<string, string> = {
+  "/overview":     "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  "/voice":        "bg-orange-500/12 text-orange-600 dark:text-orange-400",
+  "/productivity": "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+  "/tasks":        "bg-sky-500/12 text-sky-600 dark:text-sky-400",
+  "/pages":        "bg-slate-500/12 text-slate-600 dark:text-slate-300",
+  "/review":       "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400",
+  "/daily":        "bg-lime-500/12 text-lime-700 dark:text-lime-400",
+  "/goals":        "bg-rose-500/12 text-rose-600 dark:text-rose-400",
+  "/outreach":     "bg-teal-500/12 text-teal-600 dark:text-teal-400",
+  "/youtube":      "bg-red-500/12 text-red-600 dark:text-red-400",
+  "/dashboard":    "bg-cyan-500/12 text-cyan-600 dark:text-cyan-400",
+  "/yearly":       "bg-violet-500/12 text-violet-600 dark:text-violet-400",
+  "/insights":     "bg-yellow-500/12 text-yellow-700 dark:text-yellow-400",
+  "/heatmap":      "bg-green-500/12 text-green-600 dark:text-green-400",
+  "/leaderboard":  "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  "/training":     "bg-red-500/12 text-red-600 dark:text-red-400",
+  "/workout":      "bg-pink-500/12 text-pink-600 dark:text-pink-400",
+  "/meditation":   "bg-purple-500/12 text-purple-600 dark:text-purple-400",
+  "/metrics":      "bg-teal-500/12 text-teal-600 dark:text-teal-400",
+  "/study":        "bg-blue-500/12 text-blue-600 dark:text-blue-400",
+  "/reading":      "bg-orange-500/12 text-orange-600 dark:text-orange-400",
+  "/notes":        "bg-yellow-500/12 text-yellow-700 dark:text-yellow-400",
+  "/spiritual":    "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+  "/duas":         "bg-teal-500/12 text-teal-600 dark:text-teal-400",
+  "/journal":      "bg-fuchsia-500/12 text-fuchsia-600 dark:text-fuchsia-400",
+  "/creative":     "bg-pink-500/12 text-pink-600 dark:text-pink-400",
+  "/beats":        "bg-violet-500/12 text-violet-600 dark:text-violet-400",
+};
 
 // The handful of things you open every day — always visible.
 const PRIMARY: NavItem[] = [
@@ -110,13 +142,15 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
         onClick={onClose}
         className={cn(
           "flex items-center rounded-md text-[13.5px] transition-colors",
-          collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 h-8 px-2",
+          collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 h-9 px-1.5",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
         )}
       >
-        <Icon className={cn("w-4 h-4 shrink-0", active ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/55")} />
+        <span className={cn("w-6 h-6 rounded-md flex items-center justify-center shrink-0", TONE[href] ?? "text-sidebar-foreground/55")}>
+          <Icon className="w-3.5 h-3.5" />
+        </span>
         {!collapsed && <span className="truncate">{label}</span>}
       </Link>
     );
@@ -235,6 +269,7 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
           {!collapsed && !mobile && <RoomCustomizer />}
           <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "justify-between")}>
             {iconButton({ label: "Settings", href: "/settings", children: <Settings className="w-4 h-4" /> })}
+            {iconButton({ label: "Connections", href: "/connections", children: <Plug className="w-4 h-4" /> })}
             {!collapsed && iconButton({ label: "Export local data (JSON)", onClick: exportLocalData, children: <Download className="w-4 h-4" /> })}
             {iconButton({ label: "Install the app", href: "/install", children: <Smartphone className="w-4 h-4" /> })}
             {!mobile && !collapsed && iconButton({ label: "Hide sidebar", onClick: toggleHidden, children: <PanelLeftClose className="w-4 h-4" /> })}

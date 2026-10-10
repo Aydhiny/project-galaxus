@@ -15,6 +15,7 @@ import { useUIStore } from "@/lib/store/ui";
 import { useRoomStore } from "@/lib/store/room";
 import { cn } from "@/lib/utils";
 import { useHydrated } from "@/lib/hooks/client-values";
+import { TopBar, MeetingsPill } from "@/components/top-bar";
 
 // Non-critical overlays/widgets — none of these need to block first paint or
 // hydrate eagerly, so they're split into their own chunks (loaded on the
@@ -133,10 +134,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Menu className="w-5 h-5" />
           </Button>
           <p className="font-semibold text-sm">Galaxus</p>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <MeetingsPill compact />
             <NotificationBell />
           </div>
         </div>
+        <TopBar />
 
         <ErrorBoundary label="Page error">
           {/* No backdrop-blur here — this wrapper covers the entire scrollable

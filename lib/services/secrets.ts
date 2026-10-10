@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { outreachSettings, userSecrets } from "@/lib/db/schema";
 import { encrypt, tryDecrypt } from "@/lib/crypto-box";
 
-export type SecretName = "anthropic" | "google" | "youtube" | "github";
+export type SecretName = "anthropic" | "google" | "youtube" | "github" | "calendar";
 
 export async function getSecret(userId: number, name: SecretName): Promise<string | null> {
   const [row] = await db

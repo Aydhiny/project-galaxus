@@ -5,6 +5,7 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 import { AlertTriangle, Check, Clapperboard, KeyRound, Loader2, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandIcon } from "@/components/brand-icon";
 import type { YoutubeVideo } from "@/lib/db/schema";
 import {
   IDEA_STAGES, STAGE_LABEL, auditVideo, channelContext, channelFindings, compactNumber, formatDuration,
@@ -56,7 +57,7 @@ export function YoutubeView({ state }: { state: StudioState }) {
     <div className="max-w-4xl mx-auto px-5 md:px-10 py-8 md:py-12">
       <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">YouTube</h1>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2.5"><BrandIcon name="youtube" className="w-8 h-8" /> YouTube</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {channel ? `${channel.title} · ${compactNumber(channel.subscribers)} subscribers` : "Connect a channel to see what's holding it back."}
             {stalled > 0 && ` · ${stalled} unfinished`}
@@ -119,7 +120,7 @@ export function YoutubeView({ state }: { state: StudioState }) {
 
             <section className="rounded-xl border border-border p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <h2 className="text-sm font-semibold flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Claude&apos;s review</h2>
+                <h2 className="text-sm font-semibold flex items-center gap-1.5"><BrandIcon name="claude" className="w-4 h-4" /> Claude&apos;s review</h2>
                 <button onClick={() => run(async () => { await runChannelReport(channel.id); return "Review ready."; }, "Review failed.")}
                   disabled={pending || !state.keys.anthropic} title={state.keys.anthropic ? undefined : "Add an Anthropic key in Setup"}
                   className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-sm hover:bg-accent disabled:opacity-50">

@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { Check, CheckSquare, Keyboard, Loader2, Mic, RotateCcw, Repeat, Send, Square, Target, X } from "lucide-react";
+import { Check, CheckSquare, Keyboard, Loader2, Mic, RotateCcw, Repeat, Square, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VoiceCommand } from "@/lib/db/schema";
 import type { VoiceAction } from "@/lib/voice";
 import { getVoiceCommand, retryVoiceCommand, submitVoiceCommand } from "@/lib/actions/voice";
 import { useStoredValue } from "@/lib/hooks/client-values";
+import { BrandIcon } from "@/components/brand-icon";
 
 // ─── Speech recognition (built into Chrome/Edge/Safari — free, no key) ────────
 
@@ -41,6 +42,11 @@ const LANG_KEY = "galaxus-voice-lang";
 type Phase = "idle" | "listening" | "review" | "tracking";
 
 const KIND_ICON = { task: CheckSquare, goal: Target, routine: Repeat } as const;
+const KIND_TILE = {
+  task: "bg-sky-500/12 text-sky-600 dark:text-sky-400",
+  goal: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
+  routine: "bg-orange-500/12 text-orange-600 dark:text-orange-400",
+} as const;
 const VERB_STYLE: Record<VoiceAction["verb"], string> = {
   created: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   planned: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
@@ -64,7 +70,8 @@ export function VoicePanel({ onClose, compact }: { onClose?: () => void; compact
 
   const recRef = useRef<Recognition | null>(null);
   const finalRef = useRef("");
-  const orbRef = useRef<HTMLDivElement>(null);
+  const barsRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLSpanElement>(null);
   const audioRef = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number } | null>(null);
   const sentAt = useRef(0);
 
@@ -76,25 +83,37 @@ export function VoicePanel({ onClose, compact }: { onClose?: () => void; compact
     a.stream.getTracks().forEach((t) => t.stop());
     a.ctx.close().catch(() => {});
     audioRef.current = null;
-    if (orbRef.current) orbRef.current.style.transform = "";
+    barsRef.current?.querySelectorAll("span").forEach((b) => { (b as HTMLElement).style.transform = ""; });
+    if (ringRef.current) ringRef.current.style.transform = "";
   }
 
   async function startAudioMeter() {
-    // Purely visual: the orb breathes with your voice. If the mic stream isn't
-    // available (some iOS cases), the CSS pulse still runs.
+    // Purely visual: a waveform that follows your voice. Written straight to
+    // the DOM (refs), not React state — 60 updates a second would re-render
+    // the whole panel. If the mic stream isn't available, bars stay idle.
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.75;
       ctx.createMediaStreamSource(stream).connect(analyser);
-      const data = new Uint8Array(analyser.fftSize);
+      const freq = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
-        analyser.getByteTimeDomainData(data);
-        let sum = 0;
-        for (const v of data) sum += ((v - 128) / 128) ** 2;
-        const level = Math.min(1, Math.sqrt(sum / data.length) * 4);
-        if (orbRef.current) orbRef.current.style.transform = `scale(${1 + level * 0.35})`;
+        analyser.getByteFrequencyData(freq);
+        const bars = barsRef.current?.children;
+        if (bars) {
+          const n = bars.length;
+          let total = 0;
+          for (let i = 0; i < n; i++) {
+            // Mirror around the centre so the wave looks symmetric.
+            const bin = Math.floor((Math.abs(i - (n - 1) / 2) / (n / 2)) * 40) + 2;
+            const v = freq[bin] / 255;
+            total += v;
+            (bars[i] as HTMLElement).style.transform = `scaleY(${0.12 + v * 0.88})`;
+          }
+          if (ringRef.current) ringRef.current.style.transform = `scale(${1 + (total / n) * 0.25})`;
+        }
         audioRef.current!.raf = requestAnimationFrame(tick);
       };
       audioRef.current = { stream, ctx, raf: requestAnimationFrame(tick) };
@@ -231,23 +250,30 @@ export function VoicePanel({ onClose, compact }: { onClose?: () => void; compact
 
       {(phase === "idle" || phase === "listening") && (
         <>
-          <div className="relative w-40 h-40 flex items-center justify-center">
-            {/* Glow layers */}
-            <div className={cn("absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/30 via-sky-400/25 to-emerald-400/30 blur-2xl transition-opacity duration-500", phase === "listening" ? "opacity-100 animate-pulse" : "opacity-50")} />
-            <div ref={orbRef} className="absolute inset-6 rounded-full bg-gradient-to-br from-violet-500/40 via-sky-400/30 to-emerald-400/40 transition-transform duration-75" />
+          <div className="relative w-28 h-28 flex items-center justify-center">
+            {/* One thin ring that swells with your voice — no glow, no blur. */}
+            <span ref={ringRef} aria-hidden className={cn(
+              "absolute inset-0 rounded-full border transition-[transform,border-color] duration-100",
+              phase === "listening" ? "border-foreground/25" : "border-border"
+            )} />
             <button
               onClick={phase === "listening" ? stopListening : startListening}
               aria-label={phase === "listening" ? "Stop listening" : "Start speaking"}
               className={cn(
-                "relative z-10 w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all",
-                phase === "listening" ? "bg-foreground text-background scale-105" : "bg-primary text-primary-foreground hover:scale-105"
+                "relative z-10 w-[4.5rem] h-[4.5rem] rounded-full flex items-center justify-center transition-all shadow-sm",
+                phase === "listening" ? "bg-red-500 text-white" : "bg-foreground text-background hover:scale-[1.04]"
               )}
             >
-              {phase === "listening" ? <Square className="w-6 h-6 fill-current" /> : <Mic className="w-8 h-8" />}
+              {phase === "listening" ? <Square className="w-5 h-5 fill-current" /> : <Mic className="w-7 h-7" />}
             </button>
           </div>
-          <p className="mt-6 text-sm text-muted-foreground">
-            {phase === "listening" ? "Listening… tap to stop" : "Tap and tell Claude what to plan"}
+          <div ref={barsRef} aria-hidden className={cn("mt-6 flex items-center justify-center gap-[3px] h-8 transition-opacity", phase === "listening" ? "opacity-100" : "opacity-30")}>
+            {Array.from({ length: 32 }, (_, i) => (
+              <span key={i} className="w-[3px] h-8 rounded-full bg-foreground/70 origin-center transition-transform duration-75" style={{ transform: "scaleY(0.12)" }} />
+            ))}
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground inline-flex items-center gap-1.5">
+            {phase === "listening" ? "Listening… tap to stop" : <><BrandIcon name="claude" className="w-3.5 h-3.5" /> Tell Claude what to plan</>}
           </p>
           <div className="mt-4 min-h-[4.5rem] max-w-xl px-4 text-lg leading-relaxed">
             {phase === "listening" && (
@@ -297,7 +323,7 @@ export function VoicePanel({ onClose, compact }: { onClose?: () => void; compact
             )}
             <button onClick={send} disabled={sending || draft.trim().length < 3}
               className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send to Claude
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrandIcon name="claude" className="w-4 h-4" color="currentColor" />} Send to Claude
             </button>
           </div>
         </div>
@@ -376,7 +402,7 @@ function ActionCard({ action, index }: { action: VoiceAction; index: number }) {
   const Icon = KIND_ICON[action.kind];
   const body = (
     <>
-      <span className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0"><Icon className="w-4 h-4" /></span>
+      <span className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", KIND_TILE[action.kind])}><Icon className="w-4 h-4" /></span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{action.title}</p>
         {action.detail && <p className="text-xs text-muted-foreground truncate">{action.detail}</p>}
@@ -405,7 +431,7 @@ function TypedSummary({ text }: { text: string }) {
   const words = text.split(/\s+/);
   return (
     <p className="mt-5 text-sm leading-relaxed">
-      <span className="text-xs font-semibold text-muted-foreground mr-2">CLAUDE</span>
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground mr-2 align-middle"><BrandIcon name="claude" className="w-3.5 h-3.5" /> Claude</span>
       {words.map((w, i) => (
         <motion.span key={i} initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)" }} transition={{ delay: 0.15 + i * 0.035, duration: 0.25 }}>
           {w}{" "}

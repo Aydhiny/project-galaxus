@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { ExternalLink, Loader2, Sparkles } from "lucide-react";
 import type { YoutubeVideo } from "@/lib/db/schema";
+import { BrandIcon } from "@/components/brand-icon";
 import { compactNumber, formatDuration, likeRate, type Issue } from "@/lib/youtube";
 import { improveVideo, updateVideo } from "@/lib/actions/youtube";
 import { SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -82,7 +83,7 @@ export function VideoDetail({ video, issues, canAsk }: { video: YoutubeVideo; is
 
         <section className="rounded-xl border border-border p-4">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="text-sm font-semibold flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Improve with Claude</h3>
+            <h3 className="text-sm font-semibold flex items-center gap-1.5"><BrandIcon name="claude" className="w-4 h-4" /> Improve with Claude</h3>
             <button
               onClick={() => startAsk(async () => { try { await improveVideo(video.id); } catch (e) { toast.error(e instanceof Error ? e.message : "Failed."); } })}
               disabled={asking || !canAsk} title={canAsk ? undefined : "Add an Anthropic key in Setup"}

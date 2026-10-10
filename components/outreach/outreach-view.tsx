@@ -3,8 +3,9 @@
 import { useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Loader2, MapPin, MessageCircle, Phone, RefreshCw, Search, Sparkles, Star, Wand2, X } from "lucide-react";
+import { Loader2, MapPin, Phone, RefreshCw, Search, Sparkles, Star, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandIcon } from "@/components/brand-icon";
 import type { Lead } from "@/lib/db/schema";
 import {
   GAP_META, LEAD_STATUSES, STATUS_LABEL, formatPhone, whatsappLink, type Gap, type LeadStatus,
@@ -280,7 +281,7 @@ function SendCard({ lead, canRewrite, onSent, onSkip, onMessage, onRewritten, on
             onClick={() => { if (draft !== (lead.message ?? "")) onMessage(draft); onSent(); }}
             className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold"
           >
-            <MessageCircle className="w-4 h-4" /> Send on WhatsApp
+            <BrandIcon name="whatsapp" className="w-4 h-4" color="currentColor" /> Send on WhatsApp
           </a>
         ) : (
           <>
@@ -344,7 +345,7 @@ function PipelineTab({ leads, state, pending, onOpen, onFind, onReview }: {
           <button onClick={onReview} disabled={pending || !state.config.hasAnthropicKey}
             title={state.config.hasAnthropicKey ? undefined : "Add an Anthropic key in Setup"}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-sm hover:bg-accent disabled:opacity-50">
-            {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Ask Claude for a review
+            {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BrandIcon name="claude" className="w-3.5 h-3.5" />} Ask Claude for a review
           </button>
         </div>
         {variants.length === 0 ? (
