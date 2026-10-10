@@ -7,7 +7,7 @@ import { format, isToday, isTomorrow } from "date-fns";
 import { CalendarClock, ExternalLink, Mic, RefreshCw, Search, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { relativeStart, type Meeting } from "@/lib/calendar";
-import { getUpcomingMeetings } from "@/lib/actions/calendar";
+import { getUpcomingMeetings } from "@/lib/client/calendar";
 import { useCommandStore } from "@/lib/store/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BrandIcon } from "@/components/brand-icon";

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { Lead } from "@/lib/db/schema";
-import type { OutreachState } from "@/lib/actions/outreach";
+import type { OutreachState } from "@/lib/client/outreach";
 
 const updateLead = vi.fn(async (id: number, patch: object) => ({ id, ...patch }));
-vi.mock("@/lib/actions/outreach", () => ({
+vi.mock("@/lib/client/outreach", () => ({
   updateLead: (id: number, patch: object) => updateLead(id, patch),
   redraftLead: vi.fn(),
   releaseBatchNow: vi.fn(),

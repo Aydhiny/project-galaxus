@@ -10,7 +10,7 @@ import { OSM_TYPES, osmType } from "@/lib/outreach";
 import {
   addLeadSearch, deleteLeadSearch, importLeads, removePushSubscription, saveOutreachSettings, savePushSubscription,
   sendTestPush, updateLeadSearch, type OutreachState,
-} from "@/lib/actions/outreach";
+} from "@/lib/client/outreach";
 
 const HOURS = Array.from({ length: 25 }, (_, h) => h);
 

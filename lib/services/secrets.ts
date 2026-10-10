@@ -28,9 +28,20 @@ export async function getSecret(userId: number, name: SecretName): Promise<strin
   return null;
 }
 
+/** Reject obviously wrong pastes before they're saved (and fail later). */
+export function checkSecretFormat(name: SecretName, v: string) {
+  if ((name === "google" || name === "youtube") && !/^AIza[0-9A-Za-z_-]{35}$/.test(v)) {
+    throw new Error("That isn't a Google API key — those start with \"AIza\" and are 39 characters. In Google Cloud → Credentials, copy the API key (not the project ID or a client ID).");
+  }
+  if (name === "anthropic" && !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(v)) {
+    throw new Error("That isn't an Anthropic API key — those start with \"sk-ant-\".");
+  }
+}
+
 /** "" or null removes the key. */
 export async function setSecret(userId: number, name: SecretName, value: string | null) {
   const v = value?.trim();
+  if (v) checkSecretFormat(name, v);
   if (!v) {
     await db.delete(userSecrets).where(and(eq(userSecrets.userId, userId), eq(userSecrets.name, name)));
     if (name === "anthropic") await db.update(outreachSettings).set({ anthropicKeyEnc: null }).where(eq(outreachSettings.userId, userId));

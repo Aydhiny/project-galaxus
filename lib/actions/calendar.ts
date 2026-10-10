@@ -1,5 +1,6 @@
 "use server";
 
+import { toResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-session";
 import { addCalendarFor, calendarStatusFor, removeCalendarFor, upcomingMeetingsFor } from "@/lib/services/calendar";
@@ -18,11 +19,15 @@ export async function getCalendarStatus() {
 }
 
 export async function addCalendar(input: { url: string; label?: string }) {
-  await addCalendarFor(await requireUserId(), input);
-  revalidatePath("/connections");
+  return toResult(async () => {
+    await addCalendarFor(await requireUserId(), input);
+    revalidatePath("/connections");
+  });
 }
 
 export async function removeCalendar(index: number) {
-  await removeCalendarFor(await requireUserId(), index);
-  revalidatePath("/connections");
+  return toResult(async () => {
+    await removeCalendarFor(await requireUserId(), index);
+    revalidatePath("/connections");
+  });
 }

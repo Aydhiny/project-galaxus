@@ -7,7 +7,7 @@ import { Check, Loader2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandIcon } from "@/components/brand-icon";
 import type { VoiceCommand } from "@/lib/db/schema";
-import { saveVoiceGithubKey } from "@/lib/actions/voice";
+import { saveVoiceGithubKey } from "@/lib/client/voice";
 import { VoicePanel } from "./voice-panel";
 
 const STATUS_STYLE: Record<string, string> = {

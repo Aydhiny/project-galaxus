@@ -8,7 +8,7 @@ import { Check, CheckSquare, Keyboard, Loader2, Mic, RotateCcw, Repeat, Square, 
 import { cn } from "@/lib/utils";
 import type { VoiceCommand } from "@/lib/db/schema";
 import type { VoiceAction } from "@/lib/voice";
-import { getVoiceCommand, retryVoiceCommand, submitVoiceCommand } from "@/lib/actions/voice";
+import { getVoiceCommand, retryVoiceCommand, submitVoiceCommand } from "@/lib/client/voice";
 import { useStoredValue } from "@/lib/hooks/client-values";
 import { BrandIcon } from "@/components/brand-icon";
 

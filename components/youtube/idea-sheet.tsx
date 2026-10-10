@@ -6,7 +6,7 @@ import { Loader2, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { YoutubeIdea } from "@/lib/db/schema";
 import { IDEA_STAGES, STAGE_LABEL } from "@/lib/youtube";
-import { deleteIdea, updateIdea, writeScript, type StudioState } from "@/lib/actions/youtube";
+import { deleteIdea, updateIdea, writeScript, type StudioState } from "@/lib/client/youtube";
 import { SheetDescription, SheetTitle } from "@/components/ui/sheet";
 
 type Idea = StudioState["ideas"][number] | YoutubeIdea;

@@ -13,7 +13,7 @@ import {
 } from "@/lib/youtube";
 import {
   connectChannel, createIdea, removeChannel, runChannelReport, saveYoutubeKeys, syncChannel, type StudioState,
-} from "@/lib/actions/youtube";
+} from "@/lib/client/youtube";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { VideoDetail } from "./video-sheet";
 import { IssueList, ReportText } from "./shared";

@@ -12,7 +12,13 @@ async function get<T>(path: string, params: Record<string, string>, key: string)
   const url = `${BASE}/${path}?${new URLSearchParams({ ...params, key })}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
   const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
-  if (!res.ok) throw new Error(`YouTube API: ${json.error?.message ?? `HTTP ${res.status}`}`);
+  if (!res.ok) {
+    const msg = json.error?.message ?? `HTTP ${res.status}`;
+    if (/API key not valid/i.test(msg)) throw new Error("YouTube rejected your API key — paste a valid one in YouTube → Setup (it starts with \"AIza\").");
+    if (/has not been used|is disabled|blocked/i.test(msg)) throw new Error("Your Google key can't use the YouTube Data API yet — enable \"YouTube Data API v3\" for that key's project in Google Cloud.");
+    if (/quota/i.test(msg)) throw new Error("YouTube's free daily quota is used up — try again tomorrow.");
+    throw new Error(`YouTube API: ${msg}`);
+  }
   return json;
 }
 

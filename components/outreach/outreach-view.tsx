@@ -12,7 +12,7 @@ import {
 } from "@/lib/outreach";
 import {
   redraftLead, releaseBatchNow, runMonthlyReview, runOutreachPipeline, updateLead, type OutreachState,
-} from "@/lib/actions/outreach";
+} from "@/lib/client/outreach";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { SetupPanel } from "./setup-panel";
 import { GapChips, STATUS_STYLE } from "./shared";

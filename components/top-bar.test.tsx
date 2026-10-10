@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 const getUpcomingMeetings = vi.fn();
-vi.mock("@/lib/actions/calendar", () => ({ getUpcomingMeetings: () => getUpcomingMeetings() }));
+vi.mock("@/lib/client/calendar", () => ({ getUpcomingMeetings: () => getUpcomingMeetings() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/tasks" }));
 
 import { MeetingsPill } from "./top-bar";

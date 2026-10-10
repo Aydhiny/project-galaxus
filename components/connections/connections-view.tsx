@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { ArrowRight, Check, Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Connections } from "@/lib/actions/connections";
-import { addCalendar, removeCalendar } from "@/lib/actions/calendar";
-import { saveYoutubeKeys } from "@/lib/actions/youtube";
+import { addCalendar, removeCalendar } from "@/lib/client/calendar";
+import { saveYoutubeKeys } from "@/lib/client/youtube";
 import { BrandTile, type Brand } from "@/components/brand-icon";
 
 function Status({ on, label }: { on: boolean; label?: string }) {

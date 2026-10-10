@@ -7,7 +7,7 @@ import { ExternalLink, Loader2, Sparkles } from "lucide-react";
 import type { YoutubeVideo } from "@/lib/db/schema";
 import { BrandIcon } from "@/components/brand-icon";
 import { compactNumber, formatDuration, likeRate, type Issue } from "@/lib/youtube";
-import { improveVideo, updateVideo } from "@/lib/actions/youtube";
+import { improveVideo, updateVideo } from "@/lib/client/youtube";
 import { SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { IssueList, ReportText } from "./shared";
 
