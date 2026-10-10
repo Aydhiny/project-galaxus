@@ -56,7 +56,7 @@ export async function revokeApiTokenFor(userId: number, id: number): Promise<boo
 }
 
 /** Resolve a raw bearer token to its user, or null if unknown/revoked. */
-export type TokenScope = "full" | "voice";
+export type TokenScope = "full" | "voice" | "game";
 
 export async function verifyApiToken(raw: string | undefined): Promise<{ userId: number; tokenId: number; scope: TokenScope } | null> {
   if (!raw || !raw.startsWith(PREFIX) || raw.length > 100) return null;
@@ -73,5 +73,6 @@ export async function verifyApiToken(raw: string | undefined): Promise<{ userId:
     .update(apiTokens)
     .set({ lastUsedAt: new Date() })
     .where(and(eq(apiTokens.id, row.id), or(isNull(apiTokens.lastUsedAt), lt(apiTokens.lastUsedAt, cutoff))));
-  return { userId: row.userId, tokenId: row.id, scope: row.scope === "voice" ? "voice" : "full" };
+  const scope: TokenScope = row.scope === "voice" || row.scope === "game" ? row.scope : "full";
+  return { userId: row.userId, tokenId: row.id, scope };
 }

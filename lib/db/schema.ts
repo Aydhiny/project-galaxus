@@ -401,6 +401,7 @@ export const apiTokens = pgTable(
     prefix: varchar("prefix", { length: 16 }).notNull(), // first chars, so users can tell tokens apart
     // 'full' = every MCP tool. 'voice' = the voice runner: voice endpoints +
     // MCP without destructive tools (see lib/voice.ts VOICE_BLOCKED_TOOLS).
+    // 'game' = can only POST commit messages to /api/game/commits.
     scope: varchar("scope", { length: 20 }).notNull().default("full"),
     lastUsedAt: timestamp("last_used_at"),
     revokedAt: timestamp("revoked_at"),
@@ -755,6 +756,21 @@ export const gameSettings = pgTable("game_settings", {
   playtestThemesAt: timestamp("playtest_themes_at"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+/** Commit messages pushed to Galaxus by a GitHub Action in the game repo (no GitHub token stored here). */
+export const gameCommits = pgTable(
+  "game_commits",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    repo: varchar("repo", { length: 140 }).notNull(),
+    sha: varchar("sha", { length: 64 }).notNull(),
+    message: text("message").notNull(),
+    committedAt: timestamp("committed_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_game_commits_user_sha").on(t.userId, t.sha), index("idx_game_commits_user_date").on(t.userId, t.committedAt)]
+);
 
 export const playtestFeedback = pgTable(
   "playtest_feedback",

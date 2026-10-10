@@ -12,6 +12,6 @@ export const config = {
   // signature check instead). Everything else — every dashboard page and
   // /api/register/upload — passes through authConfig.callbacks.authorized above.
   matcher: [
-    "/((?!api/auth|api/cron|api/stripe|api/mcp|api/voice|_next/static|_next/image|favicon.ico|manifest.json|sw.js|offline.html|icons/).*)",
+    "/((?!api/auth|api/cron|api/stripe|api/mcp|api/voice|api/game|_next/static|_next/image|favicon.ico|manifest.json|sw.js|offline.html|icons/).*)",
   ],
 };

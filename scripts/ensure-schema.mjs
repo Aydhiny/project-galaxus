@@ -370,6 +370,19 @@ const STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS "idx_playtest_feedback_user" ON "playtest_feedback" ("user_id")`,
 
+  `CREATE TABLE IF NOT EXISTS "game_commits" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "repo" varchar(140) NOT NULL,
+    "sha" varchar(64) NOT NULL,
+    "message" text NOT NULL,
+    "committed_at" timestamp NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "game_commits_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_game_commits_user_sha" ON "game_commits" ("user_id", "sha")`,
+  `CREATE INDEX IF NOT EXISTS "idx_game_commits_user_date" ON "game_commits" ("user_id", "committed_at")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

@@ -68,8 +68,17 @@ function DevlogCard({ state }: { state: GameState }) {
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitCommitHorizontal className="w-4 h-4" />} Draft devlog from new commits
         </button>
         <span className="text-xs text-muted-foreground" suppressHydrationWarning>
-          {s.lastDevlogAt ? `Last devlog ${format(new Date(s.lastDevlogAt), "d MMM")}` : "First run looks at the last 2 weeks"}
+          {s.lastDevlogAt ? `Last devlog ${format(new Date(s.lastDevlogAt), "d MMM")}` : "First run uses your latest 30 commits"}
         </span>
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-xs">
+        {state.feed.commits > 0 ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/12 px-2.5 py-1 font-medium text-emerald-700 dark:text-emerald-300" suppressHydrationWarning>
+            <Check className="w-3 h-3" /> Connected · {state.feed.commits} commits received{state.feed.lastReceivedAt ? ` · last ${format(new Date(state.feed.lastReceivedAt), "d MMM, HH:mm")}` : ""}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">Not connected yet — add the GitHub Action or a read-only token below.</span>
+        )}
       </div>
       {job && <div className="mt-3"><ClaudeJob jobId={job.id} dispatched={job.dispatched} label={job.label} /></div>}
 
@@ -87,7 +96,7 @@ function DevlogCard({ state }: { state: GameState }) {
             className="h-9 px-3 rounded-lg border border-border text-sm hover:bg-accent">Save</button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Private repo? Create a <a className="underline" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">fine-grained token</a> for only this repo with <b>Contents: Read-only</b>. It can read commits, nothing else, and is stored encrypted.
+          Connected repos send their commit messages to Galaxus from a small GitHub Action on every push — no GitHub token is stored here. Prefer a token? A <a className="underline" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">fine-grained token</a> for only this repo with <b>Contents: Read-only</b> works too.
         </p>
       </details>
     </section>

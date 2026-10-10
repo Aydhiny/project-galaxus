@@ -4,9 +4,9 @@
 // fine-grained, that ONE repo, "Contents: Read-only" — stored encrypted as
 // user_secrets "github_read", separate from the Actions-only voice token.
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { gameSettings, playtestFeedback, tasks } from "@/lib/db/schema";
+import { gameCommits, gameSettings, playtestFeedback, tasks } from "@/lib/db/schema";
 import { getSecret, setSecret } from "@/lib/services/secrets";
 import { enqueueJobFor } from "@/lib/services/claude-jobs";
 import type { DevlogCommit } from "@/lib/claude-jobs";
@@ -21,12 +21,44 @@ async function settingsFor(userId: number) {
 }
 
 export async function gameStateFor(userId: number) {
-  const [settings, feedback, token] = await Promise.all([
+  const [settings, feedback, token, feed] = await Promise.all([
     settingsFor(userId),
     db.select().from(playtestFeedback).where(eq(playtestFeedback.userId, userId)).orderBy(desc(playtestFeedback.id)).limit(300),
     getSecret(userId, "github_read"),
+    db.select({ n: sql<number>`count(*)::int`, last: sql<Date | null>`max(${gameCommits.createdAt})` }).from(gameCommits).where(eq(gameCommits.userId, userId)),
   ]);
-  return { settings, feedback, hasRepoToken: !!token };
+  return { settings, feedback, hasRepoToken: !!token, feed: { commits: feed[0]?.n ?? 0, lastReceivedAt: feed[0]?.last ?? null } };
+}
+
+/** Called by the game repo's GitHub Action on every push (scope "game" token). */
+export async function receiveCommitsFor(userId: number, repo: string, commits: { sha?: unknown; message?: unknown; date?: unknown }[]) {
+  if (!REPO_RE.test(repo)) throw new Error("Bad repo.");
+  const rows = commits
+    .slice(0, 200)
+    .filter((c) => typeof c.sha === "string" && /^[a-f0-9]{7,64}$/.test(c.sha) && typeof c.message === "string")
+    .map((c) => ({
+      userId,
+      repo,
+      sha: String(c.sha),
+      message: String(c.message).slice(0, 4000),
+      committedAt: Number.isNaN(new Date(String(c.date)).getTime()) ? new Date() : new Date(String(c.date)),
+    }));
+  if (rows.length === 0) return 0;
+  const inserted = await db.insert(gameCommits).values(rows).onConflictDoNothing({ target: [gameCommits.userId, gameCommits.sha] }).returning({ id: gameCommits.id });
+  return inserted.length;
+}
+
+/** Commits the Action already delivered, newer than the last devlog (first time: the latest 30). */
+async function storedCommits(userId: number, since: Date | null): Promise<DevlogCommit[]> {
+  const rows = await db
+    .select()
+    .from(gameCommits)
+    .where(since ? and(eq(gameCommits.userId, userId), gt(gameCommits.committedAt, since)) : eq(gameCommits.userId, userId))
+    .orderBy(desc(gameCommits.committedAt))
+    .limit(since ? 60 : 30);
+  return rows
+    .filter((r) => !/^Merge (branch|pull request)/.test(r.message))
+    .map((r) => ({ sha: r.sha, message: r.message, date: r.committedAt.toISOString() }));
 }
 
 export async function saveRepoFor(userId: number, repo: string, token?: string) {
@@ -43,8 +75,9 @@ export async function saveRepoFor(userId: number, repo: string, token?: string) 
 
 async function fetchCommits(repo: string, token: string | null, since: { sha: string | null; at: Date | null }): Promise<DevlogCommit[]> {
   const params = new URLSearchParams({ per_page: "60" });
-  // First devlog: the last two weeks. After that: everything since the last one.
-  params.set("since", (since.at ?? new Date(Date.now() - 14 * 86_400_000)).toISOString());
+  // First devlog: the latest 30 commits. After that: everything since the last one.
+  if (since.at) params.set("since", since.at.toISOString());
+  else params.set("per_page", "30");
   const res = await fetch(`https://api.github.com/repos/${repo}/commits?${params}`, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -72,7 +105,12 @@ async function fetchCommits(repo: string, token: string | null, since: { sha: st
 export async function devlogFromCommitsFor(userId: number) {
   const s = await settingsFor(userId);
   if (!s.repo) throw new Error("Set your game's GitHub repo first.");
-  const commits = await fetchCommits(s.repo, await getSecret(userId, "github_read"), { sha: s.lastDevlogSha, at: s.lastDevlogAt });
+  // Commits pushed in by the repo's GitHub Action need no GitHub token here;
+  // a read-only token is the fallback for repos without the Action.
+  const token = await getSecret(userId, "github_read");
+  const commits = token
+    ? await fetchCommits(s.repo, token, { sha: s.lastDevlogSha, at: s.lastDevlogAt })
+    : await storedCommits(userId, s.lastDevlogAt);
   if (commits.length === 0) throw new Error("No new commits since the last devlog — push some work first.");
   return enqueueJobFor(userId, "devlog", `Devlog from ${commits.length} commit${commits.length === 1 ? "" : "s"}`, {
     game: s.repo.split("/")[1].replace(/[-_]/g, " "),

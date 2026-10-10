@@ -42,7 +42,7 @@ const authed = withMcpAuth(
   handler,
   async (_req, bearerToken) => {
     const hit = await verifyApiToken(bearerToken);
-    if (!hit) return undefined; // → 401 with a WWW-Authenticate challenge
+    if (!hit || hit.scope === "game") return undefined; // → 401 with a WWW-Authenticate challenge
     // Generous limit for AI tool calls, but stops a leaked token being hammered.
     if (!checkRateLimit(`mcp:${hit.tokenId}`, 120, 60_000).allowed) return undefined;
     return {
