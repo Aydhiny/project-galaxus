@@ -10,17 +10,24 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("@/lib/services/api-tokens", () => ({
-  verifyApiToken: vi.fn(async (raw?: string) => (raw === "glx_valid" ? { userId: 42, tokenId: 7 } : null)),
+  verifyApiToken: vi.fn(async (raw?: string) =>
+    raw === "glx_valid" ? { userId: 42, tokenId: 7, scope: "full" }
+      : raw === "glx_voice" ? { userId: 42, tokenId: 8, scope: "voice" }
+      : null),
 }));
+
+const recordToolResultFor = vi.fn(async () => {});
+vi.mock("@/lib/services/voice", () => ({ recordToolResultFor: (...a: unknown[]) => recordToolResultFor(...(a as [])) }));
 
 const createGoalPlanFor = vi.fn();
 const listTasksFor = vi.fn();
+const deleteGoalFor = vi.fn(async () => true);
 vi.mock("@/lib/services/goals", () => ({
   createGoalPlanFor: (...a: unknown[]) => createGoalPlanFor(...a),
   goalsWithProgressFor: vi.fn(async () => []),
   getGoalFor: vi.fn(async () => null),
   updateGoalFor: vi.fn(),
-  deleteGoalFor: vi.fn(),
+  deleteGoalFor: (...a: unknown[]) => deleteGoalFor(...(a as [])),
 }));
 const createRoutineFor = vi.fn();
 const ensureRoutineInstancesFor = vi.fn(async (...args: unknown[]) => ({ created: 1, archived: 0, args }));
@@ -137,5 +144,29 @@ describe("MCP endpoint", () => {
     expect(createRoutineFor).toHaveBeenCalledWith(42, expect.objectContaining({ title: "Workout", days: "1101011", area: "training" }));
     expect(ensureRoutineInstancesFor).toHaveBeenCalledWith(42, "2026-10-09");
     await client.close();
+  });
+});
+
+describe("voice-scoped tokens", () => {
+  it("can't delete goals — refused by the server, not just by the client", async () => {
+    deleteGoalFor.mockClear();
+    const client = await connect("glx_voice");
+    const res = await client.callTool({ name: "delete_goal", arguments: { goal_id: 1 } });
+    expect(res.isError).toBe(true);
+    expect(JSON.stringify(res.content)).toMatch(/isn't available to voice commands/);
+    expect(deleteGoalFor).not.toHaveBeenCalled();
+  });
+
+  it("records what a voice call changed; full tokens aren't recorded", async () => {
+    recordToolResultFor.mockClear();
+    createRoutineFor.mockResolvedValue({ id: 5, title: "Read", days: "1111111", time: "22:00", priority: "none", area: null, active: true });
+    const voice = await connect("glx_voice");
+    await voice.callTool({ name: "create_routine", arguments: { title: "Read", days: "daily", time: "22:00" } });
+    expect(recordToolResultFor).toHaveBeenCalledWith(42, "create_routine", expect.stringContaining('"title": "Read"'));
+
+    recordToolResultFor.mockClear();
+    const full = await connect("glx_valid");
+    await full.callTool({ name: "create_routine", arguments: { title: "Read", days: "daily", time: "22:00" } });
+    expect(recordToolResultFor).not.toHaveBeenCalled();
   });
 });

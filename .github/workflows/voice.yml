@@ -1,0 +1,116 @@
+# Voice runner: turns what you said in Galaxus into tasks / routines / goals,
+# using Claude Code on YOUR Claude subscription.
+#
+# Security (this repo is PUBLIC, so assume everyone can read this file and the
+# run logs):
+#   • CLAUDE_CODE_OAUTH_TOKEN (your subscription) and GALAXUS_VOICE_TOKEN are
+#     encrypted repo secrets. GitHub masks them, never exposes them to forks,
+#     and this workflow can't be triggered by pull requests.
+#   • No checkout, no third-party actions: only curl, jq and a PINNED Claude
+#     Code release run here. Nothing from the repo executes with the secrets.
+#   • permissions: {} — the job's own GITHUB_TOKEN can do nothing.
+#   • Transcripts arrive from Galaxus at claim time (not as workflow inputs,
+#     which are public) and Claude's output goes to a private temp dir; the
+#     log only ever says "Command #N: ok/failed".
+#   • Claude gets NO built-in tools (--tools ""): no shell, files or web. Only
+#     the Galaxus MCP tools listed below, and the Galaxus server separately
+#     refuses destructive tools for this token's "voice" scope.
+name: Voice
+run-name: Voice
+
+on:
+  workflow_dispatch: {} # Galaxus starts it the moment you send a command
+  schedule:
+    - cron: "*/10 5-21 * * *" # fallback if no GitHub key is set in Galaxus
+
+permissions: {}
+
+concurrency:
+  group: voice
+  cancel-in-progress: false
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GALAXUS_URL: https://project-galaxus.vercel.app
+      CLAUDE_CODE_VERSION: "2.1.296"
+    steps:
+      - name: Check queue
+        id: queue
+        env:
+          VOICE_TOKEN: ${{ secrets.GALAXUS_VOICE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VOICE_TOKEN:-}" ]; then echo "GALAXUS_VOICE_TOKEN secret is not set"; exit 1; fi
+          n=$(curl -sS --fail --max-time 20 -H "Authorization: Bearer $VOICE_TOKEN" "$GALAXUS_URL/api/voice/peek" | jq -r '.queued // 0')
+          echo "queued=$n" >> "$GITHUB_OUTPUT"
+          echo "Queued commands: $n"
+
+      - name: Install Claude Code (pinned)
+        if: steps.queue.outputs.queued != '0'
+        run: npm install -g --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" > /dev/null 2>&1
+
+      - name: Run voice commands
+        if: steps.queue.outputs.queued != '0'
+        env:
+          VOICE_TOKEN: ${{ secrets.GALAXUS_VOICE_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          DISABLE_TELEMETRY: "1"
+          DISABLE_ERROR_REPORTING: "1"
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+        run: |
+          set -uo pipefail
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then echo "CLAUDE_CODE_OAUTH_TOKEN secret is not set"; exit 1; fi
+
+          work="$RUNNER_TEMP/voice"
+          mkdir -p "$work" && chmod 700 "$work" && cd "$work"
+          umask 077
+          printf '{"mcpServers":{"galaxus":{"type":"http","url":"%s/api/mcp","headers":{"Authorization":"Bearer %s"}}}}' \
+            "$GALAXUS_URL" "$VOICE_TOKEN" > mcp.json
+
+          allowed=(
+            mcp__galaxus__get_overview mcp__galaxus__list_goals mcp__galaxus__get_goal
+            mcp__galaxus__create_goal_plan mcp__galaxus__update_goal
+            mcp__galaxus__list_tasks mcp__galaxus__add_tasks mcp__galaxus__update_task
+            mcp__galaxus__complete_task mcp__galaxus__delete_task
+            mcp__galaxus__list_routines mcp__galaxus__create_routine mcp__galaxus__update_routine
+          )
+
+          for _ in 1 2 3; do
+            code=$(curl -sS --max-time 20 -o job.json -w "%{http_code}" -X POST \
+              -H "Authorization: Bearer $VOICE_TOKEN" "$GALAXUS_URL/api/voice/claim")
+            [ "$code" = "204" ] && break
+            if [ "$code" != "200" ]; then echo "Claim failed (HTTP $code)"; exit 1; fi
+
+            id=$(jq -r '.id' job.json)
+            jq -r '.prompt' job.json > prompt.txt
+            system=$(jq -r '.system' job.json)
+
+            timeout 300 claude -p \
+              --append-system-prompt "$system" \
+              --tools "" \
+              --mcp-config "$work/mcp.json" --strict-mcp-config \
+              --allowedTools "${allowed[@]}" \
+              --permission-mode dontAsk \
+              --model sonnet \
+              --output-format json \
+              --no-session-persistence \
+              < prompt.txt > out.json 2> err.log
+            status=$?
+
+            if [ $status -eq 0 ] && jq -e '.is_error == false' out.json > /dev/null 2>&1; then
+              jq --argjson id "$id" '{id: $id, ok: true, summary: (.result // "")}' out.json > done.json
+              echo "Command #$id: ok"
+            else
+              # Details go privately to Galaxus, never into this public log.
+              detail=$( (jq -r '.result // empty' out.json 2>/dev/null; tail -c 300 err.log) | tr '\n' ' ' | cut -c1-400)
+              jq -n --argjson id "$id" --arg e "Claude exited with $status. $detail" '{id: $id, ok: false, error: $e}' > done.json
+              echo "Command #$id: failed (exit $status)"
+            fi
+            curl -sS --max-time 20 -o /dev/null -X POST -H "Authorization: Bearer $VOICE_TOKEN" \
+              -H "Content-Type: application/json" --data @done.json "$GALAXUS_URL/api/voice/complete"
+            rm -f job.json prompt.txt out.json err.log done.json
+          done
+          rm -f mcp.json

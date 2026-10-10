@@ -25,6 +25,7 @@ const AmbientThree = dynamic(() => import("@/components/ambient-three").then((m)
 const CommandPalette = dynamic(() => import("@/components/command-palette").then((m) => m.CommandPalette), { ssr: false });
 const QuickCapture = dynamic(() => import("@/components/quick-capture").then((m) => m.QuickCapture), { ssr: false });
 const QuickCaptureButton = dynamic(() => import("@/components/quick-capture").then((m) => m.QuickCaptureButton), { ssr: false });
+const VoiceButton = dynamic(() => import("@/components/voice/voice-button").then((m) => m.VoiceButton), { ssr: false });
 const Screensaver = dynamic(() => import("@/components/screensaver").then((m) => m.Screensaver), { ssr: false });
 const FloatingPomodoro = dynamic(() => import("@/components/pomodoro-float").then((m) => m.FloatingPomodoro), { ssr: false });
 const ShortcutCheatsheet = dynamic(() => import("@/components/shortcut-cheatsheet").then((m) => m.ShortcutCheatsheet), { ssr: false });
@@ -157,6 +158,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Floating widgets */}
       <FloatingPomodoro />
       <QuickCaptureButton />
+      <VoiceButton />
     </div>
   );
 }

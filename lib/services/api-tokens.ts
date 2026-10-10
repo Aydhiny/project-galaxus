@@ -56,10 +56,12 @@ export async function revokeApiTokenFor(userId: number, id: number): Promise<boo
 }
 
 /** Resolve a raw bearer token to its user, or null if unknown/revoked. */
-export async function verifyApiToken(raw: string | undefined): Promise<{ userId: number; tokenId: number } | null> {
+export type TokenScope = "full" | "voice";
+
+export async function verifyApiToken(raw: string | undefined): Promise<{ userId: number; tokenId: number; scope: TokenScope } | null> {
   if (!raw || !raw.startsWith(PREFIX) || raw.length > 100) return null;
   const [row] = await db
-    .select({ id: apiTokens.id, userId: apiTokens.userId })
+    .select({ id: apiTokens.id, userId: apiTokens.userId, scope: apiTokens.scope })
     .from(apiTokens)
     .where(and(eq(apiTokens.tokenHash, hashApiToken(raw)), isNull(apiTokens.revokedAt)))
     .limit(1);
@@ -71,5 +73,5 @@ export async function verifyApiToken(raw: string | undefined): Promise<{ userId:
     .update(apiTokens)
     .set({ lastUsedAt: new Date() })
     .where(and(eq(apiTokens.id, row.id), or(isNull(apiTokens.lastUsedAt), lt(apiTokens.lastUsedAt, cutoff))));
-  return { userId: row.userId, tokenId: row.id };
+  return { userId: row.userId, tokenId: row.id, scope: row.scope === "voice" ? "voice" : "full" };
 }

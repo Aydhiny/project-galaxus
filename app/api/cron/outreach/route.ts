@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 async function handle(req: NextRequest) {
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const hit = await verifyApiToken(bearer);
-  if (!hit) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Least privilege: the voice runner's token can't drive outreach.
+  if (!hit || hit.scope !== "full") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!checkRateLimit(`outreach-tick:${hit.tokenId}`, 10, 60_000).allowed) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }

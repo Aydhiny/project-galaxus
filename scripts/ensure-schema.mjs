@@ -295,6 +295,27 @@ const STATEMENTS = [
   `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_calls" integer DEFAULT 0 NOT NULL`,
   `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_monthly_cap" integer DEFAULT 900 NOT NULL`,
 
+  // ── 2026-10 · Voice commands (Claude Code runner) ───────────────────────
+  `ALTER TABLE "api_tokens" ADD COLUMN IF NOT EXISTS "scope" varchar(20) DEFAULT 'full' NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS "voice_commands" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "transcript" text NOT NULL,
+    "local_date" varchar(10) NOT NULL,
+    "local_time" varchar(5) NOT NULL,
+    "timezone" varchar(50) NOT NULL,
+    "status" varchar(10) DEFAULT 'queued' NOT NULL,
+    "actions" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "summary" text,
+    "error" text,
+    "attempts" integer DEFAULT 0 NOT NULL,
+    "started_at" timestamp,
+    "finished_at" timestamp,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "voice_commands_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_voice_commands_user_status" ON "voice_commands" ("user_id", "status")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

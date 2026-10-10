@@ -16,6 +16,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { Block } from "@/lib/blocks";
 import type { TaskAttachment } from "@/lib/attachments";
+import type { VoiceAction } from "@/lib/voice";
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = pgTable("users", {
@@ -398,6 +399,9 @@ export const apiTokens = pgTable(
     name: varchar("name", { length: 100 }).notNull(),
     tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
     prefix: varchar("prefix", { length: 16 }).notNull(), // first chars, so users can tell tokens apart
+    // 'full' = every MCP tool. 'voice' = the voice runner: voice endpoints +
+    // MCP without destructive tools (see lib/voice.ts VOICE_BLOCKED_TOOLS).
+    scope: varchar("scope", { length: 20 }).notNull().default("full"),
     lastUsedAt: timestamp("last_used_at"),
     revokedAt: timestamp("revoked_at"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -685,6 +689,31 @@ export const youtubeIdeas = pgTable(
   (t) => [index("idx_youtube_ideas_user").on(t.userId)]
 );
 
+// ─── Voice commands ────────────────────────────────────────────────────────────
+// A spoken command, queued until the GitHub Actions runner (Claude Code on the
+// user's own subscription) claims it. `actions` is filled server-side from the
+// actual MCP tool results, so the UI shows what really changed.
+export const voiceCommands = pgTable(
+  "voice_commands",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    transcript: text("transcript").notNull(),
+    localDate: varchar("local_date", { length: 10 }).notNull(),
+    localTime: varchar("local_time", { length: 5 }).notNull(),
+    timezone: varchar("timezone", { length: 50 }).notNull(),
+    status: varchar("status", { length: 10 }).notNull().default("queued"), // queued | running | done | failed
+    actions: jsonb("actions").$type<VoiceAction[]>().notNull().default([]),
+    summary: text("summary"), // Claude's own one-line recap
+    error: text("error"),
+    attempts: integer("attempts").notNull().default(0),
+    startedAt: timestamp("started_at"),
+    finishedAt: timestamp("finished_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_voice_commands_user_status").on(t.userId, t.status)]
+);
+
 export type User = typeof users.$inferSelect;
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
@@ -720,3 +749,4 @@ export type OutreachDay = typeof outreachDays.$inferSelect;
 export type YoutubeChannel = typeof youtubeChannels.$inferSelect;
 export type YoutubeVideo = typeof youtubeVideos.$inferSelect;
 export type YoutubeIdea = typeof youtubeIdeas.$inferSelect;
+export type VoiceCommand = typeof voiceCommands.$inferSelect;

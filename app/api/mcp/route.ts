@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { registerGalaxusTools } from "@/lib/mcp/tools";
 import { verifyApiToken } from "@/lib/services/api-tokens";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { recordToolResultFor } from "@/lib/services/voice";
 
 export const maxDuration = 60;
 
@@ -24,6 +25,9 @@ const handler = createMcpHandler(
         revalidatePath("/productivity");
         revalidatePath("/review");
       },
+      // Voice runner: record what each call actually changed, for the UI.
+      onToolResult: ({ tool, text, userId, scope }) =>
+        scope === "voice" ? recordToolResultFor(userId, tool, text) : undefined,
     });
   },
   {
@@ -45,7 +49,7 @@ const authed = withMcpAuth(
       token: bearerToken!,
       clientId: `galaxus-token-${hit.tokenId}`,
       scopes: ["tasks:read", "tasks:write"],
-      extra: { userId: hit.userId },
+      extra: { userId: hit.userId, scope: hit.scope },
     };
   },
   { required: true }

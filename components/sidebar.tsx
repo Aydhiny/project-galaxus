@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -24,6 +24,7 @@ type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>
 // The handful of things you open every day — always visible.
 const PRIMARY: NavItem[] = [
   { href: "/overview", icon: Sunrise,     label: "Today"          },
+  { href: "/voice",    icon: Mic,         label: "Voice"          },
   { href: "/productivity", icon: Gauge,  label: "Productivity"   },
   { href: "/tasks",    icon: ListTodo,    label: "Tasks"          },
   { href: "/pages",    icon: FileText,    label: "Pages"          },
