@@ -67,7 +67,7 @@ export default async function DemoPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-white text-slate-900" style={{ ["--accent" as string]: c.accent }}>
       <div className="bg-slate-900 text-white text-center text-xs sm:text-sm px-4 py-2">
-        ✨ Prijedlog dizajna za <b>{d.name}</b> — izradio {d.senderName}. Ovo nije službena stranica.
+        ✨ Prijedlog dizajna za <b>{d.name}</b> · autor: {d.senderName}. Ovo nije službena stranica.
       </div>
 
       <header className="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between">
