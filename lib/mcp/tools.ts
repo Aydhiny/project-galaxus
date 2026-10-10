@@ -154,6 +154,8 @@ export function registerGalaxusTools(rawServer: McpServer, hooks: McpHooks = {})
         const userId = userIdOf(ctx);
         const t = today(given);
         const m = t.slice(0, 7);
+        // Same daily pass as the app: skipped goal steps slide forward first.
+        if (given) await goalsSvc.rescheduleMissedStepsFor(userId, t);
         const goals = await goalsSvc.goalsWithProgressFor(userId, { month: m });
         const open = await tasksSvc.listTasksFor(userId, { to: t, includeDone: false });
         return ok({

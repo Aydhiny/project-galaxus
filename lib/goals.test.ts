@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayInMonth, daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, isValidMonth, monthBounds, monthLabel, nextStep, scheduledPct, shiftMonth, todaysSteps } from "./goals";
+import { dayInMonth, daysInMonth, expectedPct, goalPace, goalProgress, groupByPhase, isValidMonth, monthBounds, monthLabel, finalStretch, nextStep, scheduledPct, shiftMissedSteps, shiftMonth, todaysSteps } from "./goals";
 
 describe("month helpers", () => {
   it("validates, labels and bounds months", () => {
@@ -100,5 +100,56 @@ describe("pace on the day of a step", () => {
     const plan = [{ status: "todo", dueDate: "2026-10-10" }, { status: "todo", dueDate: "2026-10-11" }];
     expect(goalPace("2026-10", "2026-10-10", goalProgress(plan), plan)).toBe("on-track");
     expect(goalPace("2026-10", "2026-10-11", goalProgress(plan), plan)).toBe("behind"); // yesterday's step was missed
+  });
+});
+
+describe("skipped days slide the plan", () => {
+  const plan = [
+    { id: 1, status: "done", dueDate: "2026-10-08" },
+    { id: 2, status: "todo", dueDate: "2026-10-09" }, // skipped yesterday
+    { id: 3, status: "todo", dueDate: "2026-10-11" },
+    { id: 4, status: "todo", dueDate: "2026-10-14" },
+  ];
+  it("moves the missed step to today and shifts the rest by the same amount", () => {
+    expect(shiftMissedSteps(plan, "2026-10-10", "2026-10-31")).toEqual({
+      packed: false,
+      moves: [
+        { id: 2, from: "2026-10-09", dueDate: "2026-10-10" },
+        { id: 3, from: "2026-10-11", dueDate: "2026-10-12" },
+        { id: 4, from: "2026-10-14", dueDate: "2026-10-15" },
+      ],
+    });
+  });
+  it("shifts by the whole gap after several skipped days, keeping order", () => {
+    expect(shiftMissedSteps(plan, "2026-10-12", "2026-10-31").moves.map((x) => x.dueDate)).toEqual(["2026-10-12", "2026-10-14", "2026-10-17"]);
+  });
+  it("does nothing when nothing was missed (idempotent)", () => {
+    const { moves } = shiftMissedSteps(plan, "2026-10-10", "2026-10-31");
+    const after = plan.map((t) => ({ ...t, dueDate: moves.find((m) => m.id === t.id)?.dueDate ?? t.dueDate }));
+    expect(shiftMissedSteps(after, "2026-10-10", "2026-10-31").moves).toEqual([]);
+  });
+  it("never pushes steps past the end of the month — packs them into the days left", () => {
+    const late = [
+      { id: 1, status: "todo", dueDate: "2026-10-27" }, // missed
+      { id: 2, status: "todo", dueDate: "2026-10-29" },
+      { id: 3, status: "todo", dueDate: "2026-10-30" },
+      { id: 4, status: "todo", dueDate: "2026-10-31" },
+    ];
+    const r = shiftMissedSteps(late, "2026-10-30", "2026-10-31");
+    expect(r.packed).toBe(true);
+    const final = late.map((t) => r.moves.find((m) => m.id === t.id)?.dueDate ?? t.dueDate);
+    expect(final).toEqual(["2026-10-30", "2026-10-30", "2026-10-31", "2026-10-31"]);
+    expect(final.every((d) => d! <= "2026-10-31")).toBe(true);
+  });
+  it("leaves a finished month alone", () => {
+    expect(shiftMissedSteps(plan, "2026-11-02", "2026-10-31").moves).toEqual([]);
+  });
+});
+
+describe("final stretch", () => {
+  it("appears only when there are more steps than days left", () => {
+    const steps = ["2026-10-30", "2026-10-30", "2026-10-31", "2026-10-31"].map((d) => ({ status: "todo", dueDate: d }));
+    expect(finalStretch(steps, "2026-10-30", "2026-10")).toEqual({ steps: 4, days: 2 });
+    expect(finalStretch(steps.slice(0, 2), "2026-10-30", "2026-10")).toBeNull();
   });
 });

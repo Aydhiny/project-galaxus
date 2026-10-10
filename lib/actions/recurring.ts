@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-session";
 import type { RoutineStat } from "@/lib/tasks";
+import { rescheduleMissedStepsFor, type RescheduledGoal } from "@/lib/services/goals";
 import {
   createRoutineFor, deleteRoutineFor, ensureRoutineInstancesFor, listRoutinesFor, routineStatsFor, updateRoutineFor, type RoutineInput,
 } from "@/lib/services/recurring";
@@ -37,12 +38,21 @@ export async function deleteRecurring(id: number) {
 }
 
 /** Called by the client on load with the viewer's LOCAL date. */
-export async function ensureRecurringInstances(localToday: string): Promise<{ changed: boolean; streaks: Record<number, RoutineStat> }> {
+export async function ensureRecurringInstances(localToday: string): Promise<{
+  changed: boolean;
+  streaks: Record<number, RoutineStat>;
+  rescheduled: RescheduledGoal[];
+}> {
   const userId = await requireUserId();
   const { created, archived } = await ensureRoutineInstancesFor(userId, localToday);
-  const changed = created > 0 || archived > 0;
-  if (changed) revalidateTaskViews();
-  return { changed, streaks: await routineStatsFor(userId, localToday) };
+  // Same daily pass: goal steps you skipped slide forward instead of piling up.
+  const rescheduled = await rescheduleMissedStepsFor(userId, localToday);
+  const changed = created > 0 || archived > 0 || rescheduled.length > 0;
+  if (changed) {
+    revalidateTaskViews();
+    revalidatePath("/goal/[id]", "page");
+  }
+  return { changed, streaks: await routineStatsFor(userId, localToday), rescheduled };
 }
 
 /** Streaks for the routines sheet. */

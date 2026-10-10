@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { deleteMonthlyGoal, updateMonthlyGoal } from "@/lib/actions/monthly-goals";
-import { goalPace, goalProgress, groupByPhase, monthLabel, nextStep, shiftMonth, todaysSteps, PACE_LABEL, type Pace } from "@/lib/goals";
+import { finalStretch, goalPace, goalProgress, groupByPhase, monthLabel, nextStep, shiftMonth, todaysSteps, PACE_LABEL, type Pace } from "@/lib/goals";
 import { useTasks } from "@/components/tasks/use-tasks";
 import { useLocalToday } from "@/lib/hooks/client-values";
 import { SortableTaskList } from "@/components/tasks/task-list";
@@ -47,6 +47,7 @@ export function GoalPage({ goal: initialGoal, initialTasks, goals, serverToday }
   const today_ = todaysSteps(mine.map((t) => (lingering.has(t.id) ? { ...t, status: "todo" } : t)), today)
     .map((t) => mine.find((x) => x.id === t.id)!);
   const upcoming = nextStep(mine, today);
+  const stretch = goal.status === "achieved" ? null : finalStretch(mine, today, goal.month);
 
   function update(patch: Parameters<typeof updateMonthlyGoal>[1]) {
     setGoal((g) => ({ ...g, ...patch }) as MonthlyGoal);
@@ -88,6 +89,11 @@ export function GoalPage({ goal: initialGoal, initialTasks, goals, serverToday }
         <div className="h-2 rounded-full bg-muted overflow-hidden">
           <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${progress.pct}%` }} />
         </div>
+        {stretch && (
+          <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+            🔥 Final stretch: {stretch.steps} steps in the last {stretch.days} day{stretch.days === 1 ? "" : "s"} of {monthLabel(goal.month).split(" ")[0]}. Skipped steps stay inside the month, so a couple of days have two.
+          </p>
+        )}
       </div>
 
       {/* ── Today ─────────────────────────────────────────────────────── */}

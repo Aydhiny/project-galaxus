@@ -2,8 +2,8 @@
 
 import { db } from "@/lib/db";
 import { monthlyGoals, tasks, type MonthlyGoal, type Task } from "@/lib/db/schema";
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
-import { GOAL_STATUSES, dayInMonth, daysInMonth, goalProgress, isValidMonth, type GoalStatus } from "@/lib/goals";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
+import { GOAL_STATUSES, dayInMonth, daysInMonth, goalProgress, isValidMonth, monthBounds, shiftMissedSteps, type GoalStatus } from "@/lib/goals";
 import { createTasksFor, isDateKey, type TaskInput } from "@/lib/services/tasks";
 import type { TaskPriority } from "@/lib/tasks";
 import { isArea, type Area } from "@/lib/areas";
@@ -175,4 +175,44 @@ export async function createGoalPlanFor(
   }));
   const created = await createTasksFor(userId, rows);
   return { goal, tasks: created };
+}
+
+export type RescheduledGoal = { goalId: number; title: string; emoji: string | null; moved: number; days: number; packed: boolean };
+
+/**
+ * Daily: for every active goal, slide missed steps forward (see
+ * shiftMissedSteps). Idempotent — once shifted, nothing is missed any more.
+ */
+export async function rescheduleMissedStepsFor(userId: number, localToday: string): Promise<RescheduledGoal[]> {
+  if (!isDateKey(localToday)) return [];
+  const rows = await db
+    .select({ id: tasks.id, dueDate: tasks.dueDate, status: tasks.status, goalId: tasks.goalId, title: monthlyGoals.title, emoji: monthlyGoals.emoji, month: monthlyGoals.month })
+    .from(tasks)
+    .innerJoin(monthlyGoals, eq(tasks.goalId, monthlyGoals.id))
+    .where(and(
+      eq(tasks.userId, userId),
+      eq(monthlyGoals.status, "active"),
+      isNull(tasks.deletedAt),
+      isNull(tasks.recurringId),
+      isNotNull(tasks.dueDate),
+      ne(tasks.status, "done"),
+    ));
+  const byGoal = new Map<number, typeof rows>();
+  for (const r of rows) {
+    if (!byGoal.has(r.goalId!)) byGoal.set(r.goalId!, []);
+    byGoal.get(r.goalId!)!.push(r);
+  }
+  const out: RescheduledGoal[] = [];
+  const now = new Date();
+  for (const [goalId, steps] of byGoal) {
+    const { moves, packed } = shiftMissedSteps(steps, localToday, monthBounds(steps[0].month).end);
+    if (moves.length === 0) continue;
+    for (const m of moves) {
+      await db.update(tasks).set({ dueDate: m.dueDate, updatedAt: now }).where(and(eq(tasks.id, m.id), eq(tasks.userId, userId)));
+    }
+    const first = moves.reduce((a, b) => (a.from < b.from ? a : b));
+    const days = Math.round((new Date(first.dueDate + "T12:00:00").getTime() - new Date(first.from + "T12:00:00").getTime()) / 86_400_000);
+    out.push({ goalId, title: steps[0].title, emoji: steps[0].emoji, moved: moves.length, days, packed });
+  }
+  return out;
 }

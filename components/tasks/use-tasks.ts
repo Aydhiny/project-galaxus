@@ -49,7 +49,17 @@ export function useTasks(initialTasks: Task[], today: string, opts: { goals?: Mo
     if (ensuredFor.current === today) return;
     ensuredFor.current = today;
     ensureRecurringInstances(today)
-      .then((r) => setStreaks(r.streaks))
+      .then((r) => {
+        setStreaks(r.streaks);
+        // Say what moved, so a shifted plan is never a surprise.
+        for (const g of r.rescheduled) {
+          toast(`${g.emoji ?? "🎯"} ${g.title}: missed step moved to today`, {
+            description: g.packed
+              ? `The month is ending, so ${g.moved} step${g.moved === 1 ? "" : "s"} now share the days left — still all in this month.`
+              : `${g.moved} step${g.moved === 1 ? "" : "s"} shifted ${g.days} day${g.days === 1 ? "" : "s"} later — no pile-up.`,
+          });
+        }
+      })
       .catch(() => { /* offline / signed out — try next load */ });
   }, [today]);
 

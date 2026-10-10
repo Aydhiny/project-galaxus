@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { createMonthlyGoal } from "@/lib/actions/monthly-goals";
 import {
-  daysInMonth, expectedProgress, goalPace, goalProgress, monthLabel, nextStep, shiftMonth, todaysSteps, PACE_LABEL, type Pace,
+  daysInMonth, expectedProgress, finalStretch, goalPace, goalProgress, monthLabel, nextStep, shiftMonth, todaysSteps, PACE_LABEL, type Pace,
 } from "@/lib/goals";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
@@ -85,7 +85,7 @@ export function GoalsPanel({ goals: initialGoals, tasks, today, compact }: {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{g.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {cardLine(mine, today, progress.total)}
+                    {cardLine(mine, today, progress.total, g.status === "achieved" ? undefined : g.month)}
                   </p>
                 </div>
                 <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", PACE_STYLE[pace])}>{PACE_LABEL[pace]}</span>
@@ -206,8 +206,10 @@ function NewGoalSheet({ open, onOpenChange, month, onCreated }: {
 }
 
 /** One line per goal card: what to do today, else when the next step is. */
-function cardLine(tasks: Task[], today: string, total: number): string {
+function cardLine(tasks: Task[], today: string, total: number, month?: string): string {
   if (total === 0) return "No plan yet";
+  const stretch = month ? finalStretch(tasks, today, month) : null;
+  if (stretch) return `🔥 Final stretch · ${stretch.steps} steps in ${stretch.days} day${stretch.days === 1 ? "" : "s"}`;
   const open = todaysSteps(tasks, today).filter((t) => t.status !== "done");
   if (open.length === 1) return `Today: ${open[0].title}`;
   if (open.length > 1) return `Today: ${open[0].title} +${open.length - 1}`;

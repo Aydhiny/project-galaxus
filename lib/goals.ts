@@ -1,7 +1,7 @@
 // Pure monthly-goal helpers — shared by the UI, server actions and MCP tools.
 // Months are "YYYY-MM" strings and days "YYYY-MM-DD", matching the DB columns.
 
-import { format, getDaysInMonth } from "date-fns";
+import { addDays, differenceInCalendarDays, format, getDaysInMonth } from "date-fns";
 
 export const GOAL_STATUSES = ["active", "achieved", "abandoned"] as const;
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
@@ -152,4 +152,60 @@ export function nextStep<T extends GoalTaskLike>(tasks: T[], today: string): T |
       .filter((t) => t.status !== "done" && !!t.dueDate && t.dueDate > today)
       .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!) || (a.orderIndex ?? 0) - (b.orderIndex ?? 0))[0] ?? null
   );
+}
+
+/**
+ * Skipped a day? Slide the plan instead of piling up overdue steps.
+ * The earliest missed open step moves to today and every later open step
+ * moves by the same number of days — order and spacing stay intact.
+ *
+ * Steps never leave the goal's month: if sliding would pass `monthEnd`, the
+ * moving steps are spread evenly over the days that are left instead
+ * (`packed: true`). After the month is over nothing moves.
+ * Done steps never move. Returns only the steps whose date changes.
+ */
+export function shiftMissedSteps(
+  steps: { id: number; dueDate: string | null; status: string }[],
+  today: string,
+  monthEnd?: string
+): { moves: { id: number; dueDate: string; from: string }[]; packed: boolean } {
+  const none = { moves: [], packed: false };
+  if (monthEnd && today > monthEnd) return none;
+  const open = steps.filter((t) => t.status !== "done" && !!t.dueDate);
+  const missed = open.filter((t) => t.dueDate! < today).map((t) => t.dueDate!).sort();
+  if (missed.length === 0) return none;
+  const earliest = missed[0];
+  const at = (d: string) => new Date(d + "T12:00:00");
+  const key = (d: Date) => format(d, "yyyy-MM-dd");
+  const days = differenceInCalendarDays(at(today), at(earliest));
+  if (days <= 0) return none;
+
+  const moving = open
+    .filter((t) => t.dueDate! >= earliest)
+    .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!) || a.id - b.id);
+  const shifted = moving.map((t) => ({ id: t.id, from: t.dueDate!, dueDate: key(addDays(at(t.dueDate!), days)) }));
+  if (!monthEnd || shifted.every((m) => m.dueDate <= monthEnd)) return { moves: shifted, packed: false };
+
+  // Not enough month left at the old spacing: spread evenly over today…monthEnd.
+  const left = differenceInCalendarDays(at(monthEnd), at(today)) + 1;
+  const moves = moving
+    .map((t, i) => ({ id: t.id, from: t.dueDate!, dueDate: key(addDays(at(today), Math.floor((i * left) / moving.length))) }))
+    .filter((m) => m.dueDate !== m.from);
+  return { moves, packed: true };
+}
+
+/**
+ * More open steps left than days left in the month → "final stretch".
+ * Returns null while there's at most one step per remaining day.
+ */
+export function finalStretch(
+  steps: { dueDate: string | null; status: string }[],
+  today: string,
+  month: string
+): { steps: number; days: number } | null {
+  const end = monthBounds(month).end;
+  if (today > end || today.slice(0, 7) !== month) return null;
+  const open = steps.filter((t) => t.status !== "done" && !!t.dueDate && t.dueDate >= today && t.dueDate <= end).length;
+  const days = differenceInCalendarDays(new Date(end + "T12:00:00"), new Date(today + "T12:00:00")) + 1;
+  return open > days ? { steps: open, days } : null;
 }
