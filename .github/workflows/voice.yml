@@ -61,6 +61,10 @@ jobs:
           DISABLE_ERROR_REPORTING: "1"
           CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
         run: |
+          # GitHub runs steps with `bash -e`: a failing Claude run would end the
+          # script before it reports back, leaving the job stuck "running".
+          # So: no errexit here — every outcome is reported to Galaxus.
+          set +e
           set -uo pipefail
           if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then echo "CLAUDE_CODE_OAUTH_TOKEN secret is not set"; exit 1; fi
 
