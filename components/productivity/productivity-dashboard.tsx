@@ -9,7 +9,7 @@ import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { GoalsPanel } from "@/components/goals/goals-panel";
 import { useTasks } from "@/components/tasks/use-tasks";
 import { SortableTaskList, TaskRow, tomorrowOf } from "@/components/tasks/task-list";
-import { compareTasks, parseQuickAdd } from "@/lib/tasks";
+import { compareTasks, parseQuickAdd, isOverdue, isPastRoutine } from "@/lib/tasks";
 import { useHydrated, useLocalToday } from "@/lib/hooks/client-values";
 import { bestDay, completionStreak, completionsByDay, heatmapWeeks, mergeHistory, pointsSummary, dayKey, type CompletableTask } from "@/lib/productivity";
 import { CompletionsChart } from "@/components/productivity/completions-chart";
@@ -29,7 +29,7 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
 }) {
   const today = useLocalToday(serverToday);
   const tomorrow = tomorrowOf(today);
-  const { tasks, lingering, toggleDone, addTask, patchTask, move, drop } = useTasks(initialTasks, today, { goals });
+  const { tasks, lingering, streaks, toggleDone, addTask, patchTask, move, drop } = useTasks(initialTasks, today, { goals });
   const hydrated = useHydrated();
   const [range, setRange] = useState<Range>(14);
   const [planDay, setPlanDay] = useState<PlanDay>("today");
@@ -50,7 +50,8 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
 
   // Plan list: Today = due today or overdue; Tomorrow = due tomorrow.
   // Just-checked tasks linger so the checkmark is visible for a moment.
-  const inPlan = (t: Task) => (planDay === "today" ? !!t.dueDate && t.dueDate <= today : t.dueDate === tomorrow);
+  const inPlan = (t: Task) =>
+    planDay === "today" ? !!t.dueDate && t.dueDate <= today && !isPastRoutine(t, today) : t.dueDate === tomorrow;
   const plan = tasks
     .filter((t) => (t.status !== "done" || lingering.has(t.id)) && inPlan(t))
     .sort(compareTasks);
@@ -58,7 +59,7 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
     .filter((t) => t.status === "done" && !lingering.has(t.id) && t.completedAt && dayKey(new Date(t.completedAt)) === today)
     .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
   const tomorrowCount = tasks.filter((t) => t.status !== "done" && t.dueDate === tomorrow).length;
-  const overdue = tasks.filter((t) => t.status !== "done" && t.dueDate && t.dueDate < today).length;
+  const overdue = tasks.filter((t) => isOverdue(t, today)).length;
   const open = tasks.filter((t) => t.status !== "done").length;
   const completedTodayCount = all.filter((t) => t.status === "done" && t.completedAt && dayKey(new Date(t.completedAt)) === today).length;
   const planTotal = plan.length + (planDay === "today" ? doneToday.length : 0);
@@ -173,6 +174,7 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
               onDrop={drop}
               onSchedule={(t, d) => patchTask(t.id, { dueDate: d })}
               goalsById={goalsById}
+              streaks={streaks}
             />
           )}
 

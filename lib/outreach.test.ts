@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  OPT_OUT_LINE, analyzeHtml, batchSizes, gapsFor, isMobileBA, localNow, normalizePhone,
+  OPT_OUT_LINE, analyzeHtml, extractPhone, parsePastedLeads, batchSizes, gapsFor, isMobileBA, localNow, normalizePhone,
   outreachStats, planSlots, scoreLead, templateMessage, whatsappLink,
 } from "./outreach";
 
@@ -109,5 +109,20 @@ describe("stats", () => {
     );
     expect(s).toMatchObject({ sent: 3, replies: 2, replyRate: 67, meetings: 1, clients: 1 });
     expect(s.byVariant.a).toEqual({ sent: 2, replied: 1 });
+  });
+});
+
+describe("free lead sources", () => {
+  it("prefers a mobile from tel: links, then falls back to numbers in the text", () => {
+    expect(extractPhone('<a href="tel:+38733123456">033</a> <a href="tel:061 222 333">mob</a>')).toBe("+38761222333");
+    expect(extractPhone("<p>Pozovite: 033/213-507</p>")).toBe("+38733213507");
+    expect(extractPhone("<p>no phone here, open 08-16</p>")).toBeNull();
+  });
+  it("parses pasted businesses in any order", () => {
+    expect(parsePastedLeads("Dental Smile, 061 123 456, smile.ba\nZubić | https://www.zubic.ba/ | +387 33 444 555\n\nNo Phone Clinic")).toEqual([
+      { name: "Dental Smile", phone: "+38761123456", website: "https://smile.ba" },
+      { name: "Zubić", phone: "+38733444555", website: "https://www.zubic.ba/" },
+      { name: "No Phone Clinic", phone: null, website: null },
+    ]);
   });
 });

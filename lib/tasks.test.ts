@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseQuickAdd, bucketFor, groupByBucket, moveInList, moveTo, taskPoints, repeatsOn, describeDays, isValidDaysMask, isValidTime, formatTime } from "./tasks";
+import { parseQuickAdd, bucketFor, groupByBucket, moveInList, moveTo, taskPoints, repeatsOn, describeDays, isValidDaysMask, isValidTime, formatTime, isOverdue, isPastRoutine, liveStreak, routineStreak } from "./tasks";
 
 // Thursday 2026-10-08, local time
 const NOW = new Date(2026, 9, 8, 12, 0, 0);
@@ -86,5 +86,45 @@ describe("formatTime", () => {
   it("is deterministic 24h (no locale → no hydration mismatch)", () => {
     expect(formatTime("18:00")).toBe("18:00");
     expect(formatTime("7:05")).toBe("07:05");
+  });
+});
+
+describe("routines are never overdue", () => {
+  const today = "2026-10-10";
+  const base = { priority: "none", orderIndex: 0 };
+  it("hides a missed routine copy instead of calling it overdue", () => {
+    const list = [
+      { ...base, id: 1, status: "todo", dueDate: "2026-10-09", recurringId: 7 }, // missed routine
+      { ...base, id: 2, status: "todo", dueDate: "2026-10-09", recurringId: null }, // real overdue
+      { ...base, id: 3, status: "todo", dueDate: today, recurringId: 7 }, // today's copy
+    ];
+    const g = groupByBucket(list, today);
+    expect(g.overdue.map((t) => t.id)).toEqual([2]);
+    expect(g.today.map((t) => t.id)).toEqual([3]);
+    expect(isOverdue(list[0], today)).toBe(false);
+    expect(isPastRoutine(list[0], today)).toBe(true);
+  });
+});
+
+describe("routine streaks", () => {
+  // Weekdays only (Mon–Fri). 2026-10-10 is a Saturday.
+  const weekdays = "1111100";
+  it("counts consecutive scheduled days, skipping days off", () => {
+    const done = new Set(["2026-10-09", "2026-10-08", "2026-10-07", "2026-10-05"]); // missed Tue 10-06
+    const s = routineStreak(weekdays, done, "2026-10-10", "2026-09-01");
+    expect(s.streakBefore).toBe(3);
+    expect(s.best).toBe(3);
+  });
+  it("doesn't count today as a miss before it's over, and adds it live when done", () => {
+    const s = routineStreak("1111111", new Set(["2026-10-09"]), "2026-10-10", "2026-10-01");
+    expect(s.streakBefore).toBe(1);
+    expect(liveStreak(s, false)).toBe(1);
+    expect(liveStreak(s, true)).toBe(2);
+  });
+  it("stops at the day the routine was created", () => {
+    const s = routineStreak("1111111", new Set(["2026-10-08", "2026-10-09"]), "2026-10-10", "2026-10-08");
+    expect(s).toMatchObject({ streakBefore: 2, best: 2, rate30: null }); // too new for a rate
+    const t = routineStreak("1111111", new Set(["2026-10-07", "2026-10-09"]), "2026-10-10", "2026-10-07");
+    expect(t).toMatchObject({ streakBefore: 1, best: 1, rate30: 67 });
   });
 });

@@ -26,7 +26,7 @@ function summarize(tasks: Task[], start: string, end: string, today: string) {
   const completed = tasks.filter((t) => t.status === "done" && inWeek(localKey(t.completedAt)));
   const points = completed.reduce((s, t) => s + taskPoints(t), 0);
   // Due this week (and already in the past), not finished, not removed.
-  const slipped = tasks.filter((t) => t.status !== "done" && !t.deletedAt && !!t.dueDate && t.dueDate >= start && t.dueDate <= end && t.dueDate < today);
+  const slipped = tasks.filter((t) => t.recurringId == null && t.status !== "done" && !t.deletedAt && !!t.dueDate && t.dueDate >= start && t.dueDate <= end && t.dueDate < today);
   const removed = tasks.filter((t) => t.status !== "done" && !t.recurringId && inWeek(localKey(t.deletedAt)));
   const routine = tasks.filter((t) => t.recurringId !== null && !!t.dueDate && t.dueDate >= start && t.dueDate <= end && t.dueDate <= today);
   const routineDone = routine.filter((t) => t.status === "done").length;

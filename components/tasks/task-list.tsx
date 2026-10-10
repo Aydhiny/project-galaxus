@@ -6,7 +6,7 @@ import { Calendar, Check, ChevronDown, ChevronUp, Clock, Flag, GripVertical, Pap
 import { AREA_META, isArea } from "@/lib/areas";
 import { cn } from "@/lib/utils";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
-import { formatTime, toDateKey, type TaskPriority, type TaskStatus } from "@/lib/tasks";
+import { formatTime, isOverdue, liveStreak, toDateKey, type RoutineStat, type TaskPriority, type TaskStatus } from "@/lib/tasks";
 
 export const PRIORITY_COLOR: Record<TaskPriority, string> = {
   high: "text-red-500",
@@ -25,8 +25,8 @@ export function tomorrowOf(today: string): string {
   return toDateKey(addDays(new Date(today + "T12:00:00"), 1));
 }
 
-export function DueChip({ date, today, done, className }: { date: string; today: string; done: boolean; className?: string }) {
-  const overdue = !done && date < today;
+export function DueChip({ date, today, done, className, recurring }: { date: string; today: string; done: boolean; className?: string; recurring?: boolean }) {
+  const overdue = isOverdue({ status: done ? "done" : "todo", dueDate: date, recurringId: recurring ? 1 : null }, today);
   const isToday = date === today;
   const isTomorrow = date === tomorrowOf(today);
   return (
@@ -83,9 +83,11 @@ export interface TaskRowProps {
   dropIndicator?: "above" | "below" | null;
   /** Monthly goal this task belongs to (shows a small tag). */
   goal?: Pick<MonthlyGoal, "emoji" | "title"> | null;
+  /** Current streak, for routine copies. */
+  streak?: number;
 }
 
-export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onMoveDown, onSchedule, dragProps, dropIndicator, goal }: TaskRowProps) {
+export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onMoveDown, onSchedule, dragProps, dropIndicator, goal, streak }: TaskRowProps) {
   const done = task.status === "done";
   const reorderable = !!(onMoveUp || onMoveDown);
   const tomorrow = tomorrowOf(today);
@@ -144,7 +146,11 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
           2×
         </span>
       )}
-      {task.recurringId && <Repeat className="hidden sm:block w-3 h-3 shrink-0 text-muted-foreground" aria-label="Recurring" />}
+      {task.recurringId && (streak ?? 0) > 0 ? (
+        <span className="shrink-0 inline-flex items-center gap-0.5 text-xs tabular-nums font-medium text-orange-600 dark:text-orange-400" title={`${streak}-day streak`} aria-label={`${streak}-day streak`}>
+          🔥{streak}
+        </span>
+      ) : task.recurringId ? <Repeat className="hidden sm:block w-3 h-3 shrink-0 text-muted-foreground" aria-label="Recurring" /> : null}
       {task.dueTime && (
         <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted-foreground whitespace-nowrap">
           <Clock className="w-3 h-3" /> {formatTime(task.dueTime)}
@@ -156,7 +162,9 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
         </span>
       )}
       {/* On phones, "Today" just repeats the section heading — give the title the room instead. */}
-      {task.dueDate && <DueChip date={task.dueDate} today={today} done={done} className={task.dueDate === today ? "hidden sm:inline-flex" : undefined} />}
+      {task.dueDate && !(task.recurringId && task.dueDate === today) && (
+        <DueChip date={task.dueDate} today={today} done={done} recurring={task.recurringId != null} className={task.dueDate === today ? "hidden sm:inline-flex" : undefined} />
+      )}
       {task.priority !== "none" && <Flag className={cn("w-3.5 h-3.5 shrink-0", PRIORITY_COLOR[task.priority as TaskPriority])} />}
 
       {/* Row actions: always visible on touch screens, on hover/focus with a mouse */}
@@ -205,7 +213,7 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
  * get ↑/↓ buttons. All three funnel into the same onMove/onDrop callbacks.
  */
 export function SortableTaskList({
-  tasks, today, lingering, realOf, onToggle, onOpen, onMove, onDrop, onSchedule, className, goalsById,
+  tasks, today, lingering, realOf, onToggle, onOpen, onMove, onDrop, onSchedule, className, goalsById, streaks,
 }: {
   tasks: Task[];
   today: string;
@@ -220,6 +228,8 @@ export function SortableTaskList({
   className?: string;
   /** Show a goal tag on tasks linked to one of these goals. */
   goalsById?: Map<number, MonthlyGoal>;
+  /** Routine streaks (from useTasks). */
+  streaks?: Record<number, RoutineStat>;
 }) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [target, setTarget] = useState<{ id: number; position: "above" | "below" } | null>(null);
@@ -242,6 +252,7 @@ export function SortableTaskList({
             onMoveDown={i < tasks.length - 1 ? () => onMove(ids, t.id, 1) : undefined}
             onSchedule={onSchedule ? (d) => onSchedule(rt, d) : undefined}
             goal={rt.goalId ? goalsById?.get(rt.goalId) ?? null : null}
+            streak={rt.recurringId ? liveStreak(streaks?.[rt.recurringId], rt.status === "done" && rt.dueDate === today) : undefined}
             dropIndicator={target?.id === t.id && dragId !== t.id ? target.position : null}
             dragProps={{
               draggable: t.id > 0 && tasks.length > 1,

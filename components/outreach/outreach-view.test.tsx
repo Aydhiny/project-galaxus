@@ -17,6 +17,7 @@ vi.mock("@/lib/actions/outreach", () => ({
   savePushSubscription: vi.fn(),
   removePushSubscription: vi.fn(),
   sendTestPush: vi.fn(),
+  importLeads: vi.fn(),
 }));
 
 import { OutreachView } from "./outreach-view";
@@ -37,6 +38,7 @@ const state = {
   config: {
     active: true, senderName: "Ajdin", offer: "", dailyVolume: 15, batches: 3, windowStart: 8, windowEnd: 18,
     timezone: "Europe/Sarajevo", hasGoogleKey: true, hasAnthropicKey: false, lastReview: null, lastReviewAt: null,
+    placesCalls: 3, placesCap: 900,
   },
   searches: [],
   leads: [
@@ -82,6 +84,7 @@ describe("OutreachView", () => {
     fireEvent.click(screen.getByRole("button", { name: "pipeline" }));
     expect(screen.getByPlaceholderText("Search leads")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "setup" }));
-    expect(screen.getByText("Google Places API key (finds businesses)")).toBeInTheDocument();
+    expect(screen.getByText(/Google Places API key — optional · 3\/900 requests this month/)).toBeInTheDocument();
+    expect(screen.getByText("Paste businesses")).toBeInTheDocument();
   });
 });

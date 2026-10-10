@@ -289,6 +289,12 @@ const STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS "idx_youtube_ideas_user" ON "youtube_ideas" ("user_id")`,
 
+  // ── 2026-10 · Free lead sources + Places free-tier guard ────────────────
+  `ALTER TABLE "lead_searches" ADD COLUMN IF NOT EXISTS "source" varchar(10) DEFAULT 'google' NOT NULL`,
+  `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_month" varchar(7)`,
+  `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_calls" integer DEFAULT 0 NOT NULL`,
+  `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_monthly_cap" integer DEFAULT 900 NOT NULL`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

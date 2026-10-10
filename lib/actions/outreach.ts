@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { requireUserId } from "@/lib/auth-session";
 import { localNow } from "@/lib/outreach";
 import {
-  addSearchFor, deleteSearchFor, getPublicConfigFor, getTodayFor, listLeadsFor, listSearchesFor,
+  addSearchFor, deleteSearchFor, importLeadsFor, getPublicConfigFor, getTodayFor, listLeadsFor, listSearchesFor,
   pipelineCountsFor, redraftLeadFor, releaseBatchFor, runMonthlyReviewFor, runPipelineFor,
   saveSettingsFor, statsFor, updateLeadFor, updateSearchFor, getConfigFor,
   type LeadPatch, type SettingsPatch,
@@ -37,7 +37,7 @@ export async function saveOutreachSettings(patch: SettingsPatch) {
   refresh();
 }
 
-export async function addLeadSearch(input: { query: string; city: string; category?: string }) {
+export async function addLeadSearch(input: { query: string; city: string; category?: string; source?: "google" | "osm" }) {
   const row = await addSearchFor(await requireUserId(), input);
   refresh();
   return row;
@@ -103,4 +103,11 @@ export async function sendTestPush() {
     url: "/outreach",
     tag: "outreach-test",
   });
+}
+
+/** Paste businesses found by hand (one per line) — they go through the same audit. */
+export async function importLeads(text: string, opts: { city?: string; category?: string }) {
+  const r = await importLeadsFor(await requireUserId(), text, opts);
+  refresh();
+  return r;
 }

@@ -490,6 +490,10 @@ export const outreachSettings = pgTable("outreach_settings", {
   anthropicKeyEnc: text("anthropic_key_enc"),
   lastReview: text("last_review"),
   lastReviewAt: timestamp("last_review_at"),
+  // Google Places guard: never leave the free monthly allowance.
+  placesMonth: varchar("places_month", { length: 7 }),
+  placesCalls: integer("places_calls").notNull().default(0),
+  placesMonthlyCap: integer("places_monthly_cap").notNull().default(900),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -499,6 +503,8 @@ export const leadSearches = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: userIdCol(),
+    // 'google' (Places API, text query) | 'osm' (OpenStreetMap, free; query = OSM_TYPES key)
+    source: varchar("source", { length: 10 }).notNull().default("google"),
     query: varchar("query", { length: 200 }).notNull(),
     city: varchar("city", { length: 100 }).notNull(),
     category: varchar("category", { length: 60 }), // label, e.g. "Dentist"

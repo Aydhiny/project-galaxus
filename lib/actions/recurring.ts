@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-session";
+import type { RoutineStat } from "@/lib/tasks";
 import {
-  createRoutineFor, deleteRoutineFor, ensureRoutineInstancesFor, listRoutinesFor, updateRoutineFor, type RoutineInput,
+  createRoutineFor, deleteRoutineFor, ensureRoutineInstancesFor, listRoutinesFor, routineStatsFor, updateRoutineFor, type RoutineInput,
 } from "@/lib/services/recurring";
 
 function revalidateTaskViews() {
@@ -36,9 +37,19 @@ export async function deleteRecurring(id: number) {
 }
 
 /** Called by the client on load with the viewer's LOCAL date. */
-export async function ensureRecurringInstances(localToday: string): Promise<{ changed: boolean }> {
-  const { created, archived } = await ensureRoutineInstancesFor(await requireUserId(), localToday);
+export async function ensureRecurringInstances(localToday: string): Promise<{ changed: boolean; streaks: Record<number, RoutineStat> }> {
+  const userId = await requireUserId();
+  const { created, archived } = await ensureRoutineInstancesFor(userId, localToday);
   const changed = created > 0 || archived > 0;
   if (changed) revalidateTaskViews();
-  return { changed };
+  return { changed, streaks: await routineStatsFor(userId, localToday) };
+}
+
+/** Streaks for the routines sheet. */
+export async function getRoutineStats(localToday: string): Promise<Record<number, RoutineStat>> {
+  try {
+    return await routineStatsFor(await requireUserId(), localToday);
+  } catch {
+    return {};
+  }
 }

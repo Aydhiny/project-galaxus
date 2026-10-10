@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Bell, Check, KeyRound, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Bell, Check, ClipboardPaste, KeyRound, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { OSM_TYPES, osmType } from "@/lib/outreach";
 import {
-  addLeadSearch, deleteLeadSearch, removePushSubscription, saveOutreachSettings, savePushSubscription,
+  addLeadSearch, deleteLeadSearch, importLeads, removePushSubscription, saveOutreachSettings, savePushSubscription,
   sendTestPush, updateLeadSearch, type OutreachState,
 } from "@/lib/actions/outreach";
 
@@ -110,7 +111,7 @@ export function SetupPanel({ state, onFind, finding }: { state: OutreachState; o
       <Card title="API keys" icon={<KeyRound className="w-4 h-4" />}
         hint="Stored encrypted in your database. Never shown again after saving.">
         <KeyField
-          label="Google Places API key (finds businesses)"
+          label={`Google Places API key — optional · ${c.placesCalls}/${c.placesCap} requests this month`}
           isSet={c.hasGoogleKey}
           onSave={(v) => save({ googleKey: v }, v ? "Google key saved." : "Google key removed.")}
           help={
@@ -118,7 +119,11 @@ export function SetupPanel({ state, onFind, finding }: { state: OutreachState; o
               <li>Open <a className="underline" href="https://console.cloud.google.com/apis/library/places.googleapis.com" target="_blank" rel="noreferrer">Places API (New)</a> in Google Cloud and click <b>Enable</b> (needs a billing account — light use stays inside the free monthly allowance).</li>
               <li>Go to <a className="underline" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Credentials</a> → Create credentials → API key.</li>
               <li>Restrict the key to <b>Places API (New)</b>, then paste it here.</li>
+              <li>Optional belt-and-braces: in Google Cloud → Quotas, cap Text Search at 30 requests/day.</li>
             </ol>
+          }
+          footnote={
+            <>Free up to 1,000 requests a month (each finds up to 20 businesses). Galaxus stops at {c.placesCap}, so it never bills you. No key? The free OpenStreetMap search and paste-import still work.</>
           }
         />
         <KeyField
@@ -130,6 +135,7 @@ export function SetupPanel({ state, onFind, finding }: { state: OutreachState; o
       </Card>
 
       <SearchesCard state={state} onFind={onFind} finding={finding} />
+      <PasteCard />
     </div>
   );
 }
@@ -143,7 +149,7 @@ function Field({ label, children, className }: { label: string; children: React.
   );
 }
 
-function KeyField({ label, isSet, onSave, help }: { label: string; isSet: boolean; onSave: (v: string) => void; help: React.ReactNode }) {
+function KeyField({ label, isSet, onSave, help, footnote }: { label: string; isSet: boolean; onSave: (v: string) => void; help: React.ReactNode; footnote?: React.ReactNode }) {
   const [value, setValue] = useState("");
   return (
     <div className="py-3 first:pt-0 border-b border-border last:border-0 last:pb-0">
@@ -166,6 +172,7 @@ function KeyField({ label, isSet, onSave, help }: { label: string; isSet: boolea
         {isSet && <button onClick={() => onSave("")} className="h-9 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:text-destructive">Remove</button>}
       </div>
       <div className="text-xs text-muted-foreground mt-2">{help}</div>
+      {footnote && <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-2">{footnote}</p>}
     </div>
   );
 }
@@ -255,7 +262,9 @@ function NotificationsCard({ state }: { state: OutreachState }) {
 // ─── Searches ─────────────────────────────────────────────────────────────────
 
 function SearchesCard({ state, onFind, finding }: { state: OutreachState; onFind: () => void; finding: boolean }) {
+  const [source, setSource] = useState<"osm" | "google">(state.config.hasGoogleKey ? "google" : "osm");
   const [query, setQuery] = useState("");
+  const [osmKey, setOsmKey] = useState<string>(OSM_TYPES[0].key);
   const [city, setCity] = useState("Sarajevo");
   const [category, setCategory] = useState("");
   const [busy, startBusy] = useTransition();
@@ -266,7 +275,7 @@ function SearchesCard({ state, onFind, finding }: { state: OutreachState; onFind
 
   return (
     <Card title="Who to find" icon={<Search className="w-4 h-4" />}
-      hint="Each search is a Google Maps query. When one runs out of results (60 max), add another city or business type.">
+      hint="OpenStreetMap is free and needs no key (fewer phone numbers — Galaxus reads them off websites). Google finds more but needs a key. When a search runs out, add another city or business type.">
       {state.searches.length === 0 ? (
         <p className="text-sm text-muted-foreground">Turn the campaign on to start with dentists in Sarajevo, or add your own below.</p>
       ) : (
@@ -276,7 +285,12 @@ function SearchesCard({ state, onFind, finding }: { state: OutreachState; onFind
             return (
               <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border border-border px-3 py-2", !s.active && "opacity-55")}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{s.query} · {s.city}</p>
+                  <p className="text-sm truncate">
+                    {s.source === "osm" ? osmType(s.query)?.label ?? s.query : s.query} · {s.city}
+                    <span className={cn("ml-2 rounded px-1.5 py-px text-[10px] font-medium", s.source === "osm" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground")}>
+                      {s.source === "osm" ? "OSM · free" : "Google"}
+                    </span>
+                  </p>
                   <p className="text-xs text-muted-foreground">{s.category ?? "—"} · {exhausted ? "all results used" : s.pagesFetched ? `${s.pagesFetched}/3 pages` : "not run yet"}</p>
                 </div>
                 {exhausted && (
@@ -293,22 +307,73 @@ function SearchesCard({ state, onFind, finding }: { state: OutreachState; onFind
           })}
         </ul>
       )}
-      <div className="grid grid-cols-[1fr_1fr] sm:grid-cols-[2fr_1fr_1fr_auto] gap-2 mt-4">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. frizerski salon" className="input-base col-span-2 sm:col-span-1" />
+      <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50 mt-4">
+        {(["osm", "google"] as const).map((src) => (
+          <button key={src} onClick={() => setSource(src)}
+            className={cn("px-2.5 h-7 rounded-md text-xs", source === src ? "bg-background shadow-xs font-medium" : "text-muted-foreground")}>
+            {src === "osm" ? "OpenStreetMap (free)" : "Google"}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-[1fr_1fr] sm:grid-cols-[2fr_1fr_1fr_auto] gap-2 mt-2">
+        {source === "osm" ? (
+          <select value={osmKey} onChange={(e) => setOsmKey(e.target.value)} className="input-base col-span-2 sm:col-span-1">
+            {OSM_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+          </select>
+        ) : (
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. frizerski salon" className="input-base col-span-2 sm:col-span-1" />
+        )}
         <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="input-base" />
-        <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Label (Salon)" className="input-base" />
+        <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Label (optional)" className="input-base" />
         <button
-          onClick={() => act(async () => { await addLeadSearch({ query, city, category }); setQuery(""); setCategory(""); })}
-          disabled={busy || !query.trim() || !city.trim()}
+          onClick={() => act(async () => {
+            await addLeadSearch({ source, query: source === "osm" ? osmKey : query, city, category });
+            setQuery(""); setCategory("");
+          })}
+          disabled={busy || (source === "google" && !query.trim()) || !city.trim()}
           className="inline-flex items-center justify-center gap-1 h-9 px-3 rounded-lg border border-border text-sm hover:bg-accent disabled:opacity-50 col-span-2 sm:col-span-1"
         >
           <Plus className="w-4 h-4" /> Add
         </button>
       </div>
-      <button onClick={onFind} disabled={finding || !state.config.hasGoogleKey} className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
+      {source === "google" && !state.config.hasGoogleKey && <p className="text-xs text-muted-foreground mt-2">Google searches run once you add a key above.</p>}
+      <button onClick={onFind} disabled={finding} className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
         {finding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Find leads now
       </button>
-      {!state.config.hasGoogleKey && <p className="text-xs text-muted-foreground mt-2">Add your Google Places key above first.</p>}
+      <p className="text-[11px] text-muted-foreground mt-3">Map data © OpenStreetMap contributors (ODbL).</p>
+    </Card>
+  );
+}
+
+// ─── Paste import ─────────────────────────────────────────────────────────────
+
+function PasteCard() {
+  const [text, setText] = useState("");
+  const [city, setCity] = useState("Sarajevo");
+  const [category, setCategory] = useState("");
+  const [busy, startBusy] = useTransition();
+  return (
+    <Card title="Paste businesses" icon={<ClipboardPaste className="w-4 h-4" />}
+      hint="Free, and works with any source: copy from Google Maps, a directory or your notes. One per line — name, phone and website in any order.">
+      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5}
+        placeholder={"Dental Studio Smile, 061 123 456, smile.ba\nOrdinacija Zubić | +387 33 444 555"}
+        className="input-base h-auto py-2 font-mono text-xs" />
+      <div className="flex flex-wrap gap-2 mt-2">
+        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="input-base w-36" />
+        <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Label (Dentist)" className="input-base w-36" />
+        <button
+          onClick={() => startBusy(async () => {
+            try {
+              const r = await importLeads(text, { city, category });
+              toast.success(`Added ${r.added} of ${r.parsed} — they'll be checked and drafted on the next run.`);
+              setText("");
+            } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't import."); }
+          })}
+          disabled={busy || !text.trim()}
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />} Import
+        </button>
+      </div>
     </Card>
   );
 }

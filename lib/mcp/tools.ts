@@ -11,7 +11,7 @@ import * as goalsSvc from "@/lib/services/goals";
 import * as tasksSvc from "@/lib/services/tasks";
 import * as routinesSvc from "@/lib/services/recurring";
 import { AREAS } from "@/lib/areas";
-import { describeDays } from "@/lib/tasks";
+import { describeDays, isPastRoutine } from "@/lib/tasks";
 import { goalPace, goalProgress, groupByPhase, monthKey, monthLabel, PACE_LABEL } from "@/lib/goals";
 import type { Task } from "@/lib/db/schema";
 
@@ -127,7 +127,8 @@ export function registerGalaxusTools(server: McpServer, hooks: McpHooks = {}) {
             id: g.id, title: g.title, emoji: g.emoji, status: g.status,
             progress: g.progress, pace: PACE_LABEL[goalPace(g.month, t, g.progress, g.tasks)],
           })),
-          due_today_or_overdue: open.filter((x) => x.dueDate).map(slimTask),
+          // Missed routine copies aren't overdue — the routine comes back tomorrow.
+          due_today_or_overdue: open.filter((x) => x.dueDate && !isPastRoutine(x, t)).map(slimTask),
         });
       } catch (e) { return fail(e); }
     }

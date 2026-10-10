@@ -36,7 +36,7 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
   const [showEarlier, setShowEarlier] = useState(false);
   // "Today" must be the user's local date, not the server's (UTC).
   const today = useLocalToday(serverToday);
-  const { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask, move, drop } = useTasks(initialTasks, today, { goals });
+  const { tasks, setTasks, lingering, streaks, patchTask, toggleDone, addTask, removeTask, move, drop } = useTasks(initialTasks, today, { goals });
   const [recurringOpen, setRecurringOpen] = useState(false);
   const goalsById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
   // Secondary filter by area of life — the main view stays time-based.
@@ -142,6 +142,7 @@ export function TasksView({ initialTasks, goals, serverToday }: { initialTasks: 
                   onDrop={drop}
                   onSchedule={(t, d) => patchTask(t.id, { dueDate: d })}
                   goalsById={goalsById}
+                  streaks={streaks}
                 />
               </section>
             )
@@ -371,7 +372,7 @@ function Board({ tasks, today, onMove, onOpen, onAdd }: {
                   <p className={cn("text-sm leading-snug", t.status === "done" && "line-through text-muted-foreground")}>{t.title}</p>
                   {(t.dueDate || t.priority !== "none") && (
                     <div className="flex items-center gap-3 mt-2">
-                      {t.dueDate && <DueChip date={t.dueDate} today={today} done={t.status === "done"} />}
+                      {t.dueDate && <DueChip date={t.dueDate} today={today} done={t.status === "done"} recurring={t.recurringId != null} />}
                       {t.priority !== "none" && (
                         <span className={cn("inline-flex items-center gap-1 text-xs", PRIORITY_COLOR[t.priority as TaskPriority])}>
                           <Flag className="w-3 h-3" /> {PRIORITY_LABEL[t.priority as TaskPriority]}

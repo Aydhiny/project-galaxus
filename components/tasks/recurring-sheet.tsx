@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 import type { RecurringTask } from "@/lib/db/schema";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { createRecurring, deleteRecurring, listRecurring, updateRecurring, ensureRecurringInstances } from "@/lib/actions/recurring";
-import { PRIORITY_LABEL, TASK_PRIORITIES, WEEKDAY_SHORT, describeDays, formatTime, type TaskPriority } from "@/lib/tasks";
+import { createRecurring, deleteRecurring, listRecurring, updateRecurring, ensureRecurringInstances, getRoutineStats } from "@/lib/actions/recurring";
+import { PRIORITY_LABEL, TASK_PRIORITIES, WEEKDAY_SHORT, describeDays, formatTime, type RoutineStat, type TaskPriority } from "@/lib/tasks";
 import { AREAS, AREA_META, isArea, type Area } from "@/lib/areas";
 
 const PRESETS: { label: string; days: string }[] = [
@@ -19,6 +19,7 @@ const PRESETS: { label: string; days: string }[] = [
 
 export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; onOpenChange: (o: boolean) => void; today: string }) {
   const [items, setItems] = useState<RecurringTask[] | null>(null);
+  const [stats, setStats] = useState<Record<number, RoutineStat>>({});
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("08:00");
   const [days, setDays] = useState("1111111");
@@ -31,8 +32,9 @@ export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; o
     if (!open) return;
     let alive = true;
     listRecurring().then((rows) => { if (alive) setItems(rows); });
+    getRoutineStats(today).then((st) => { if (alive) setStats(st); });
     return () => { alive = false; };
-  }, [open]);
+  }, [open, today]);
 
   function toggleDay(i: number) {
     const next = days.split("");
@@ -159,6 +161,17 @@ export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; o
                     <p className="text-xs text-muted-foreground">
                       {describeDays(r.days)}{r.time ? ` · ${formatTime(r.time)}` : ""}{r.active ? "" : " · paused"}
                     </p>
+                    {stats[r.id] && (stats[r.id].best > 0 || stats[r.id].rate30 !== null) && (
+                      <p className="text-xs mt-0.5 tabular-nums">
+                        {stats[r.id].streakBefore > 0
+                          ? <span className="text-orange-600 dark:text-orange-400 font-medium">🔥 {stats[r.id].streakBefore}-day streak</span>
+                          : <span className="text-muted-foreground">No streak yet</span>}
+                        <span className="text-muted-foreground">
+                          {stats[r.id].best > 0 && ` · best ${stats[r.id].best}`}
+                          {stats[r.id].rate30 !== null && ` · ${stats[r.id].rate30}% last 30 days`}
+                        </span>
+                      </p>
+                    )}
                   </div>
                   <Switch
                     checked={r.active}
@@ -184,7 +197,7 @@ export function RecurringSheet({ open, onOpenChange, today }: { open: boolean; o
             </ul>
           )}
           <p className="text-xs text-muted-foreground mt-4">
-            Deleting a routine keeps the tasks it already created. Missed days are archived quietly — no pile of overdue copies.
+            Routines are never overdue — a missed day just resets the streak, and a fresh copy shows up next time. Deleting a routine keeps its history.
           </p>
         </div>
       </SheetContent>

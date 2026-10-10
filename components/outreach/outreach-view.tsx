@@ -28,7 +28,7 @@ export function OutreachView({ state }: { state: OutreachState }) {
     setSource(state.leads);
     setLeads(state.leads);
   }
-  const needsSetup = !state.config.hasGoogleKey || !state.config.active;
+  const needsSetup = !state.config.active;
   const [tab, setTab] = useState<Tab>(needsSetup && state.leads.length === 0 ? "setup" : "send");
   const [openId, setOpenId] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -388,7 +388,7 @@ function PipelineTab({ leads, state, pending, onOpen, onFind, onReview }: {
         </div>
         {shown.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-            {leads.length === 0 ? "No leads yet. Add your Google key in Setup, then tap Find leads." : "Nothing matches."}
+            {leads.length === 0 ? "No leads yet. Tap Find leads (free OpenStreetMap search), or paste businesses in Setup." : "Nothing matches."}
           </p>
         ) : (
           <ul className="rounded-xl border border-border divide-y divide-border">

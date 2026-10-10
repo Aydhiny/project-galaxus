@@ -32,6 +32,21 @@ export interface TaskLike {
   priority: string;
   dueDate: string | null;
   orderIndex: number;
+  recurringId?: number | null;
+}
+
+/**
+ * A routine's copy from a past day that wasn't done. Routines come back on
+ * their own, so a missed one is never "overdue" — it just stops showing and
+ * breaks the streak (see routineStreak).
+ */
+export function isPastRoutine(t: Pick<TaskLike, "status" | "dueDate" | "recurringId">, today: string): boolean {
+  return t.recurringId != null && t.status !== "done" && !!t.dueDate && t.dueDate < today;
+}
+
+/** Overdue = a one-off task past its date. Routines never are. */
+export function isOverdue(t: Pick<TaskLike, "status" | "dueDate" | "recurringId">, today: string): boolean {
+  return t.recurringId == null && t.status !== "done" && !!t.dueDate && t.dueDate < today;
 }
 
 export type DueBucket = "overdue" | "today" | "upcoming" | "later" | "done";
@@ -74,7 +89,7 @@ export function compareByPriority(a: TaskLike, b: TaskLike): number {
 
 export function groupByBucket<T extends TaskLike>(list: T[], today: string): Record<DueBucket, T[]> {
   const groups: Record<DueBucket, T[]> = { overdue: [], today: [], upcoming: [], later: [], done: [] };
-  for (const t of list) groups[bucketFor(t, today)].push(t);
+  for (const t of list) if (!isPastRoutine(t, today)) groups[bucketFor(t, today)].push(t);
   for (const k of Object.keys(groups) as DueBucket[]) {
     groups[k].sort(k === "done" ? (a, b) => b.orderIndex - a.orderIndex : compareTasks);
   }
@@ -186,4 +201,46 @@ export function describeDays(days: string): string {
 export function formatTime(t: string): string {
   const [h, m] = t.split(":");
   return `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
+}
+
+export type RoutineStat = { streakBefore: number; best: number; rate30: number | null };
+
+/**
+ * Streak for one routine, counting only the days it's scheduled on.
+ * `streakBefore` stops at yesterday: today isn't a miss until it's over, so
+ * the UI adds 1 live when today's copy is ticked.
+ */
+export function routineStreak(days: string, doneDates: Set<string>, today: string, since: string): RoutineStat {
+  let current = 0;
+  let counting = true;
+  let run = 0;
+  let best = 0;
+  let scheduled30 = 0;
+  let done30 = 0;
+  const base = new Date(today + "T12:00:00");
+  for (let i = 1; i <= 366; i++) {
+    const d = toDateKey(addDays(base, -i));
+    if (d < since) break;
+    if (!repeatsOn(days, d)) continue;
+    const ok = doneDates.has(d);
+    if (i <= 30) {
+      scheduled30++;
+      if (ok) done30++;
+    }
+    if (ok) {
+      run++;
+      best = Math.max(best, run);
+      if (counting) current++;
+    } else {
+      counting = false;
+      run = 0;
+    }
+  }
+  // A rate over 1–2 days says nothing yet — wait for a little history.
+  return { streakBefore: current, best, rate30: scheduled30 >= 3 ? Math.round((done30 / scheduled30) * 100) : null };
+}
+
+/** Live streak: yesterday's run plus today if it's already done. */
+export function liveStreak(stat: RoutineStat | undefined, doneToday: boolean): number {
+  return (stat?.streakBefore ?? 0) + (doneToday ? 1 : 0);
 }

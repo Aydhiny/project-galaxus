@@ -3,8 +3,9 @@
 
 import { db } from "@/lib/db";
 import { recurringTasks, tasks, type RecurringTask } from "@/lib/db/schema";
-import { and, asc, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
-import { TASK_PRIORITIES, isValidDaysMask, isValidTime, repeatsOn, type TaskPriority } from "@/lib/tasks";
+import { and, asc, eq, gte, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { TASK_PRIORITIES, isValidDaysMask, isValidTime, repeatsOn, routineStreak, toDateKey, type RoutineStat, type TaskPriority } from "@/lib/tasks";
+import { subDays } from "date-fns";
 import { isArea, type Area } from "@/lib/areas";
 
 const isPriority = (v: unknown): v is TaskPriority => TASK_PRIORITIES.includes(v as TaskPriority);
@@ -132,4 +133,30 @@ export async function ensureRoutineInstancesFor(userId: number, localToday: stri
     .returning({ id: tasks.id });
 
   return { created, archived: archived.length };
+}
+
+/** Streaks per routine id, computed from a year of completed copies. */
+export async function routineStatsFor(userId: number, localToday: string): Promise<Record<number, RoutineStat>> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localToday)) return {};
+  const templates = await db.select().from(recurringTasks).where(eq(recurringTasks.userId, userId));
+  if (templates.length === 0) return {};
+  const from = toDateKey(subDays(new Date(localToday + "T12:00:00"), 366));
+  // Archived (soft-deleted) copies are misses; only done copies count, and
+  // done copies are never archived — so no deletedAt filter is needed.
+  const done = await db
+    .select({ recurringId: tasks.recurringId, dueDate: tasks.dueDate })
+    .from(tasks)
+    .where(and(eq(tasks.userId, userId), isNotNull(tasks.recurringId), eq(tasks.status, "done"), gte(tasks.dueDate, from)));
+  const byRoutine = new Map<number, Set<string>>();
+  for (const d of done) {
+    if (!d.recurringId || !d.dueDate) continue;
+    if (!byRoutine.has(d.recurringId)) byRoutine.set(d.recurringId, new Set());
+    byRoutine.get(d.recurringId)!.add(d.dueDate);
+  }
+  const out: Record<number, RoutineStat> = {};
+  for (const t of templates) {
+    const since = t.createdAt ? toDateKey(t.createdAt) : from;
+    out[t.id] = routineStreak(t.days, byRoutine.get(t.id) ?? new Set(), localToday, since);
+  }
+  return out;
 }

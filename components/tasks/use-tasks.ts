@@ -8,7 +8,7 @@ import { celebrationFor } from "@/lib/celebrate";
 import { fireConfetti } from "@/lib/confetti";
 import { createTask, updateTask, deleteTask, reorderTasks } from "@/lib/actions/tasks";
 import { ensureRecurringInstances } from "@/lib/actions/recurring";
-import { moveInList, moveTo, type TaskPriority, type TaskStatus } from "@/lib/tasks";
+import { moveInList, moveTo, type RoutineStat, type TaskPriority, type TaskStatus } from "@/lib/tasks";
 
 export type TaskPatch = Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "dueTime" | "goalId" | "phase" | "area" | "attachments">>;
 
@@ -43,10 +43,14 @@ export function useTasks(initialTasks: Task[], today: string, opts: { goals?: Mo
   // revalidates the page when it changes anything, which flows back in via
   // initialTasks above. Once per day per mount.
   const ensuredFor = useRef<string | null>(null);
+  // Routine streaks up to yesterday; rows add today live when it's ticked.
+  const [streaks, setStreaks] = useState<Record<number, RoutineStat>>({});
   useEffect(() => {
     if (ensuredFor.current === today) return;
     ensuredFor.current = today;
-    ensureRecurringInstances(today).catch(() => { /* offline / signed out — try next load */ });
+    ensureRecurringInstances(today)
+      .then((r) => setStreaks(r.streaks))
+      .catch(() => { /* offline / signed out — try next load */ });
   }, [today]);
 
   const patchTask = useCallback((id: number, patch: TaskPatch) => {
@@ -170,5 +174,5 @@ export function useTasks(initialTasks: Task[], today: string, opts: { goals?: Mo
     }
   }, [router, tasks]);
 
-  return { tasks, setTasks, lingering, patchTask, toggleDone, addTask, removeTask, move, drop };
+  return { tasks, setTasks, lingering, streaks, patchTask, toggleDone, addTask, removeTask, move, drop };
 }

@@ -256,3 +256,76 @@ export function outreachStats(leads: StatLead[], month: string) {
   };
 }
 export type OutreachStats = ReturnType<typeof outreachStats>;
+
+// ─── Free lead sources ────────────────────────────────────────────────────────
+
+/** OpenStreetMap business types (free, no key). Tags are OSM key=value pairs. */
+export const OSM_TYPES = [
+  { key: "dentist", label: "Dentists", tags: ["amenity=dentist", "healthcare=dentist"] },
+  { key: "clinic", label: "Clinics & doctors", tags: ["amenity=clinic", "amenity=doctors"] },
+  { key: "physio", label: "Physiotherapy", tags: ["healthcare=physiotherapist"] },
+  { key: "veterinary", label: "Vets", tags: ["amenity=veterinary"] },
+  { key: "hairdresser", label: "Hair salons & barbers", tags: ["shop=hairdresser"] },
+  { key: "beauty", label: "Beauty salons", tags: ["shop=beauty"] },
+  { key: "gym", label: "Gyms", tags: ["leisure=fitness_centre"] },
+  { key: "restaurant", label: "Restaurants", tags: ["amenity=restaurant"] },
+  { key: "cafe", label: "Cafés", tags: ["amenity=cafe"] },
+  { key: "hotel", label: "Hotels & apartments", tags: ["tourism=hotel", "tourism=guest_house", "tourism=apartment"] },
+  { key: "car_repair", label: "Car repair", tags: ["shop=car_repair"] },
+  { key: "lawyer", label: "Lawyers", tags: ["office=lawyer"] },
+  { key: "accountant", label: "Accountants", tags: ["office=accountant"] },
+  { key: "estate_agent", label: "Real estate agents", tags: ["office=estate_agent"] },
+] as const;
+export type OsmTypeKey = (typeof OSM_TYPES)[number]["key"];
+export const osmType = (key: string) => OSM_TYPES.find((t) => t.key === key) ?? null;
+
+/**
+ * Best phone number on a web page: tel: links first (they're deliberate),
+ * then anything that looks like a Bosnian number. Mobiles win (WhatsApp).
+ */
+export function extractPhone(html: string): string | null {
+  const found: string[] = [];
+  for (const m of html.matchAll(/href=["']tel:([^"']+)["']/gi)) {
+    const raw = decodeURIComponent(m[1]).replace(/[^\d+]/g, "");
+    const p = raw.startsWith("+") ? normalizePhone(raw, null) : normalizePhone(null, raw.replace(/^00387/, "0").replace(/^387/, "0"));
+    if (p) found.push(p);
+  }
+  if (found.length === 0) {
+    const text = html.replace(/<[^>]+>/g, " ");
+    for (const m of text.matchAll(/(?:\+387|00387|\b0)[\s/.-]?(\d{2})[\s/.-]?(\d{3})[\s/.-]?(\d{3,4})\b/g)) {
+      const p = normalizePhone(null, `0${m[1]}${m[2]}${m[3]}`);
+      if (p) found.push(p);
+    }
+  }
+  return found.find(isMobileBA) ?? found[0] ?? null;
+}
+
+export type PastedLead = { name: string; phone: string | null; website: string | null };
+
+/**
+ * One business per line, in any order: "Dental Smile, 061 123 456, smile.ba".
+ * Pulls out the phone and the website; whatever's left is the name.
+ */
+export function parsePastedLeads(text: string): PastedLead[] {
+  const out: PastedLead[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    let rest = line.trim();
+    if (!rest) continue;
+    const url = rest.match(/\b((?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:ba|com|net|org|info|hr|rs|me|eu|site|online)(?:\/\S*)?)/i);
+    let website: string | null = null;
+    if (url) {
+      website = url[1].startsWith("http") ? url[1] : `https://${url[1]}`;
+      rest = rest.replace(url[0], " ");
+    }
+    const phoneMatch = rest.match(/(\+?\d[\d\s/().-]{6,}\d)/);
+    let phone: string | null = null;
+    if (phoneMatch) {
+      const digits = phoneMatch[1].replace(/[^\d+]/g, "");
+      phone = digits.startsWith("+") ? normalizePhone(digits, null) : normalizePhone(null, digits.replace(/^00387/, "0").replace(/^387/, "0"));
+      rest = rest.replace(phoneMatch[0], " ");
+    }
+    const name = rest.replace(/[|,;\t·–-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 255);
+    if (name) out.push({ name, phone, website });
+  }
+  return out;
+}

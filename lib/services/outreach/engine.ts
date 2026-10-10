@@ -18,10 +18,11 @@ import { db } from "@/lib/db";
 import { leads, leadSearches, outreachDays, outreachSettings, users, type Lead, type OutreachSlot } from "@/lib/db/schema";
 import { getSecret, setSecret } from "@/lib/services/secrets";
 import {
-  batchSizes, isLeadStatus, isMobileBA, localNow, normalizePhone, outreachStats, planSlots,
+  batchSizes, isLeadStatus, isMobileBA, localNow, normalizePhone, osmType, outreachStats, parsePastedLeads, planSlots,
   REPLIED_STATUSES, scoreLead, type LeadStatus,
 } from "@/lib/outreach";
-import { searchPlaces } from "./places";
+import { searchPlaces, type Place } from "./places";
+import { searchOsm } from "./osm";
 import { auditWebsite } from "./audit";
 import { draftMessage, monthlyReview } from "./messages";
 import { notifyUser } from "./push";
@@ -60,6 +61,8 @@ export async function getPublicConfigFor(userId: number) {
     hasAnthropicKey: !!anthropicKey,
     lastReview: settings.lastReview,
     lastReviewAt: settings.lastReviewAt,
+    placesCalls: settings.placesMonth === localNow(settings.timezone).day.slice(0, 7) ? settings.placesCalls : 0,
+    placesCap: settings.placesMonthlyCap,
   };
 }
 export type PublicOutreachConfig = Awaited<ReturnType<typeof getPublicConfigFor>>;
@@ -103,9 +106,10 @@ export async function saveSettingsFor(userId: number, patch: SettingsPatch) {
 
 /** First campaign: dentists in Sarajevo, phrased the ways people search. */
 const DEFAULT_SEARCHES = [
-  { query: "stomatološka ordinacija", city: "Sarajevo", category: "Dentist" },
-  { query: "zubar", city: "Sarajevo", category: "Dentist" },
-  { query: "dental clinic", city: "Sarajevo", category: "Dentist" },
+  { source: "osm", query: "dentist", city: "Sarajevo", category: "Dentist" }, // free, runs without any key
+  { source: "google", query: "stomatološka ordinacija", city: "Sarajevo", category: "Dentist" },
+  { source: "google", query: "zubar", city: "Sarajevo", category: "Dentist" },
+  { source: "google", query: "dental clinic", city: "Sarajevo", category: "Dentist" },
 ];
 
 export async function ensureDefaultSearchesFor(userId: number) {
@@ -117,14 +121,14 @@ export async function listSearchesFor(userId: number) {
   return db.select().from(leadSearches).where(eq(leadSearches.userId, userId)).orderBy(leadSearches.createdAt);
 }
 
-export async function addSearchFor(userId: number, input: { query: string; city: string; category?: string }) {
+export async function addSearchFor(userId: number, input: { query: string; city: string; category?: string; source?: string }) {
+  const source = input.source === "osm" ? "osm" : "google";
   const query = String(input.query ?? "").trim().slice(0, 200);
   const city = String(input.city ?? "").trim().slice(0, 100);
   if (!query || !city) throw new Error("Search and city are required.");
-  const [row] = await db
-    .insert(leadSearches)
-    .values({ userId, query, city, category: String(input.category ?? "").trim().slice(0, 60) || null })
-    .returning();
+  if (source === "osm" && !osmType(query)) throw new Error("Pick a business type for OpenStreetMap.");
+  const category = String(input.category ?? "").trim().slice(0, 60) || (source === "osm" ? osmType(query)!.label : null);
+  const [row] = await db.insert(leadSearches).values({ userId, source, query, city, category }).returning();
   return row;
 }
 
@@ -141,52 +145,110 @@ export async function deleteSearchFor(userId: number, id: number) {
 
 // ─── Pipeline steps ───────────────────────────────────────────────────────────
 
+const FREE_TIER_HINT = "Google's free allowance is 1,000 requests a month; Galaxus stops below your cap so you're never billed.";
+
+/** Count a Places request against this month's cap, or refuse if it would pass it. */
+async function takePlacesCall(userId: number) {
+  const { settings } = await getConfigFor(userId);
+  const month = localNow(settings.timezone).day.slice(0, 7);
+  const used = settings.placesMonth === month ? settings.placesCalls : 0;
+  if (used >= settings.placesMonthlyCap) {
+    throw new Error(`Google Places paused: ${used}/${settings.placesMonthlyCap} requests used this month. ${FREE_TIER_HINT}`);
+  }
+  await db.update(outreachSettings).set({ placesMonth: month, placesCalls: used + 1 }).where(eq(outreachSettings.userId, userId));
+}
+
 /** Fetch one page from the next search that still has results. */
-async function discoverPage(userId: number, googleKey: string): Promise<number | null> {
+async function discoverPage(userId: number, googleKey: string | null): Promise<number | null> {
   const searches = await db
     .select()
     .from(leadSearches)
     .where(and(eq(leadSearches.userId, userId), eq(leadSearches.active, true)))
     .orderBy(sql`${leadSearches.lastRunAt} asc nulls first`);
-  const search = searches.find((s) => s.pagesFetched === 0 || s.nextPageToken);
-  if (!search) return null; // every search exhausted — add a new city/category
+  // Without a Google key, only the free OpenStreetMap searches can run.
+  const search = searches.find((s) => (s.source === "osm" || googleKey) && (s.pagesFetched === 0 || s.nextPageToken));
+  if (!search) return null; // every usable search exhausted — add a new city/category
 
-  let result;
-  try {
-    result = await searchPlaces(googleKey, `${search.query} ${search.city}`, search.nextPageToken);
-  } catch (e) {
-    // An expired page token shouldn't wedge the search forever.
-    if (search.nextPageToken) {
-      await db.update(leadSearches).set({ nextPageToken: null, lastRunAt: new Date() }).where(eq(leadSearches.id, search.id));
+  let places: Place[];
+  let nextPageToken: string | null = null;
+  if (search.source === "osm") {
+    try {
+      places = await searchOsm(search.query, search.city); // all results at once, no pages
+    } catch (e) {
+      // OSM's free servers are sometimes overloaded: move this search to the
+      // back of the queue so other searches get a turn, and retry later.
+      await db.update(leadSearches).set({ lastRunAt: new Date() }).where(eq(leadSearches.id, search.id));
+      throw e;
     }
-    throw e;
+  } else {
+    await takePlacesCall(userId);
+    try {
+      const result = await searchPlaces(googleKey!, `${search.query} ${search.city}`, search.nextPageToken);
+      places = result.places;
+      nextPageToken = result.nextPageToken;
+    } catch (e) {
+      // An expired page token shouldn't wedge the search forever.
+      if (search.nextPageToken) {
+        await db.update(leadSearches).set({ nextPageToken: null, lastRunAt: new Date() }).where(eq(leadSearches.id, search.id));
+      }
+      throw e;
+    }
   }
-  const rows = result.places.map((p) => {
+
+  const inserted = await insertLeads(userId, places, { searchId: search.id, city: search.city, category: search.category });
+  await db
+    .update(leadSearches)
+    .set({ nextPageToken, pagesFetched: search.pagesFetched + 1, lastRunAt: new Date() })
+    .where(eq(leadSearches.id, search.id));
+  return inserted;
+}
+
+async function insertLeads(userId: number, places: Place[], ctx: { searchId: number | null; city: string | null; category: string | null }) {
+  const rows = places.map((p) => {
     const phone = normalizePhone(p.internationalPhone, p.nationalPhone);
     return {
       userId,
-      searchId: search.id,
+      searchId: ctx.searchId,
       placeId: p.placeId,
       name: p.name.slice(0, 255),
-      category: search.category,
+      category: ctx.category,
       phone,
       channel: isMobileBA(phone) ? "whatsapp" : "call",
       address: p.address,
-      city: search.city,
+      city: ctx.city,
       website: p.website,
       mapsUrl: p.mapsUrl,
       rating: p.rating,
       reviewCount: p.reviewCount,
     };
   });
-  const inserted = rows.length
-    ? await db.insert(leads).values(rows).onConflictDoNothing({ target: [leads.userId, leads.placeId] }).returning({ id: leads.id })
-    : [];
-  await db
-    .update(leadSearches)
-    .set({ nextPageToken: result.nextPageToken, pagesFetched: search.pagesFetched + 1, lastRunAt: new Date() })
-    .where(eq(leadSearches.id, search.id));
+  if (rows.length === 0) return 0;
+  const inserted = await db.insert(leads).values(rows).onConflictDoNothing({ target: [leads.userId, leads.placeId] }).returning({ id: leads.id });
   return inserted.length;
+}
+
+/** Businesses you found yourself, pasted one per line. */
+export async function importLeadsFor(userId: number, text: string, opts: { city?: string; category?: string }) {
+  const parsed = parsePastedLeads(String(text ?? "").slice(0, 50_000)).slice(0, 300);
+  if (parsed.length === 0) throw new Error("Paste one business per line: name, phone, website.");
+  const places: Place[] = parsed.map((p) => ({
+    // Stable id so pasting the same list twice doesn't duplicate leads.
+    placeId: `manual:${(p.phone ?? p.name).toLowerCase().replace(/\s+/g, "")}`.slice(0, 255),
+    name: p.name,
+    address: null,
+    internationalPhone: p.phone,
+    nationalPhone: null,
+    website: p.website,
+    mapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(`${p.name} ${opts.city ?? ""}`.trim())}`,
+    rating: null,
+    reviewCount: null,
+  }));
+  const added = await insertLeads(userId, places, {
+    searchId: null,
+    city: String(opts.city ?? "").trim().slice(0, 100) || null,
+    category: String(opts.category ?? "").trim().slice(0, 60) || null,
+  });
+  return { parsed: parsed.length, added };
 }
 
 async function inChunks<T>(items: T[], size: number, fn: (item: T) => Promise<void>, deadline: number) {
@@ -218,14 +280,18 @@ async function auditNew(userId: number, limit: number, deadline: number): Promis
   let done = 0;
   await inChunks(batch, 5, async (lead) => {
     let patch: Partial<Lead>;
-    if (!lead.phone) patch = { status: "skipped", skipReason: "no_phone" };
-    else if (contacted.has(lead.phone)) patch = { status: "skipped", skipReason: "duplicate_phone" };
+    if (!lead.phone && !lead.website) patch = { status: "skipped", skipReason: "no_phone" };
+    else if (lead.phone && contacted.has(lead.phone)) patch = { status: "skipped", skipReason: "duplicate_phone" };
     else {
-      const gaps = await auditWebsite(lead.website);
-      patch = gaps.length === 0
-        ? { status: "skipped", skipReason: "no_gaps", gaps }
-        : { status: "audited", gaps, score: scoreLead({ ...lead, gaps }) };
-      contacted.add(lead.phone);
+      const { gaps, phone: sitePhone } = await auditWebsite(lead.website);
+      // OpenStreetMap often has the website but not the phone — take it from the site.
+      const phone = lead.phone ?? sitePhone;
+      const channel = isMobileBA(phone) ? "whatsapp" : "call";
+      if (!phone) patch = { status: "skipped", skipReason: "no_phone", gaps };
+      else if (!lead.phone && contacted.has(phone)) patch = { status: "skipped", skipReason: "duplicate_phone", phone, channel };
+      else if (gaps.length === 0) patch = { status: "skipped", skipReason: "no_gaps", gaps, phone, channel };
+      else patch = { status: "audited", gaps, phone, channel, score: scoreLead({ ...lead, gaps, channel }) };
+      if (phone) contacted.add(phone);
     }
     await db.update(leads).set({ ...patch, updatedAt: new Date() }).where(eq(leads.id, lead.id));
     done++;
@@ -276,18 +342,15 @@ export async function runPipelineFor(userId: number, opts: { deadline?: number }
   const target = cfg.settings.dailyVolume * 2;
 
   if (stock < target) {
-    if (!cfg.googleKey) out.errors.push("Add a Google Places API key in Setup to find new leads.");
-    else {
-      await ensureDefaultSearchesFor(userId);
-      for (let page = 0; page < 3 && out.found + stock < target && Date.now() < deadline - 20_000; page++) {
-        try {
-          const n = await discoverPage(userId, cfg.googleKey);
-          if (n === null) { out.exhausted = true; break; }
-          out.found += n;
-        } catch (e) {
-          out.errors.push(e instanceof Error ? e.message : String(e));
-          break;
-        }
+    await ensureDefaultSearchesFor(userId);
+    for (let page = 0; page < 3 && out.found + stock < target && Date.now() < deadline - 20_000; page++) {
+      try {
+        const n = await discoverPage(userId, cfg.googleKey);
+        if (n === null) { out.exhausted = true; break; }
+        out.found += n;
+      } catch (e) {
+        out.errors.push(e instanceof Error ? e.message : String(e));
+        break;
       }
     }
   }
