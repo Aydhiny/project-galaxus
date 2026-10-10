@@ -130,6 +130,7 @@ export function scoreLead(l: {
   rating?: number | null;
   revenueKm?: number | null;
   channel?: string | null;
+  tags?: string[] | null;
 }): number {
   let score = 0;
   for (const g of l.gaps) score += GAP_META[g as Gap]?.weight ?? 0;
@@ -138,6 +139,8 @@ export function scoreLead(l: {
   if ((l.rating ?? 0) >= 4.5) score += 5;
   if (l.revenueKm != null) score += l.revenueKm >= 100_000 ? 20 : l.revenueKm < 30_000 ? -15 : 0;
   if (l.channel === "whatsapp") score += 10;
+  if (l.tags?.includes("new_business")) score += 15; // just opened: needs a site now
+  if (l.tags?.includes("site_broke")) score += 30; // their site is down today
   return score;
 }
 
@@ -328,4 +331,54 @@ export function parsePastedLeads(text: string): PastedLead[] {
     if (name) out.push({ name, phone, website });
   }
   return out;
+}
+
+// ─── Automations ──────────────────────────────────────────────────────────────
+
+/** Public base for links that go into messages (stable domain, not a deploy URL). */
+export const PUBLIC_BASE = "https://project-galaxus.vercel.app";
+export const demoUrl = (slug: string) => `${PUBLIC_BASE}/p/${slug}`;
+
+/** Put the demo link into a message once, just above the opt-out line. */
+export function withDemoLink(text: string, url: string): string {
+  if (text.includes(url)) return text;
+  const line = `Evo kratkog prijedloga kako bi vaša nova stranica mogla izgledati: ${url}`;
+  return text.includes(OPT_OUT_LINE) ? text.replace(OPT_OUT_LINE, `${line}\n\n${OPT_OUT_LINE}`) : `${text}\n\n${line}`;
+}
+
+/** One polite follow-up, gender-neutral (present tense), always with the opt-out. */
+export function followUpMessage(p: { name: string; senderName: string; demo?: string | null }): string {
+  return [
+    `Dobar dan! Ovdje ${p.senderName} — samo kratko podsjećam na moju poruku od prije par dana za ${p.name}.`,
+    p.demo ? `Prijedlog nove stranice je i dalje ovdje: ${p.demo}` : "",
+    "Ako vas zanima, rado ću vam ga pokazati za 10 minuta — uživo u Sarajevu ili online.",
+    "",
+    OPT_OUT_LINE,
+  ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n");
+}
+
+/** Uptime % and average response time from a list of checks. */
+export function uptimeSummary(checks: { ok: boolean; ms: number | null }[]) {
+  if (checks.length === 0) return null;
+  const ok = checks.filter((c) => c.ok);
+  const ms = ok.map((c) => c.ms ?? 0).filter((m) => m > 0);
+  return {
+    checks: checks.length,
+    uptimePct: Math.round((ok.length / checks.length) * 1000) / 10,
+    avgMs: ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : null,
+  };
+}
+
+/** The monthly report you send a client (Bosnian, ready for WhatsApp). */
+export function uptimeReport(p: { client: string; monthLabel: string; site: string; uptimePct: number; avgMs: number | null; checks: number; senderName: string }): string {
+  return [
+    `Dobar dan! Mjesečni izvještaj za ${p.client} — ${p.monthLabel}`,
+    "",
+    `🌐 ${p.site}`,
+    `✅ Dostupnost: ${p.uptimePct}% (${p.checks} provjera)`,
+    p.avgMs ? `⚡ Prosječna brzina odgovora: ${p.avgMs} ms` : "",
+    "",
+    p.uptimePct >= 99.5 ? "Stranica je radila bez problema cijeli mjesec." : "Bilo je kratkih prekida — već pratim i rješavam.",
+    `Pozdrav, ${p.senderName}`,
+  ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n");
 }

@@ -4,7 +4,7 @@
 
 import type { PlaytestTheme } from "@/lib/db/schema";
 
-export const JOB_KINDS = ["voice", "devlog", "hooks", "comment_replies", "playtest", "digest"] as const;
+export const JOB_KINDS = ["voice", "devlog", "hooks", "comment_replies", "playtest", "digest", "gigs"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const JOB_LABEL: Record<JobKind, string> = {
@@ -14,6 +14,7 @@ export const JOB_LABEL: Record<JobKind, string> = {
   comment_replies: "Comment replies",
   playtest: "Playtest themes",
   digest: "Daily brief",
+  gigs: "Gig scoring",
 };
 
 /** Only voice commands may use Galaxus tools. Everything else reads untrusted

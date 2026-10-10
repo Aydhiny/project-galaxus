@@ -4,7 +4,7 @@ import { toResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { requireUserId } from "@/lib/auth-session";
-import { localNow } from "@/lib/outreach";
+import { localNow, uptimeReport, uptimeSummary, whatsappLink } from "@/lib/outreach";
 import {
   addSearchFor, deleteSearchFor, importLeadsFor, getPublicConfigFor, getTodayFor, listLeadsFor, listSearchesFor,
   pipelineCountsFor, redraftLeadFor, releaseBatchFor, runMonthlyReviewFor, runPipelineFor,
@@ -136,5 +136,26 @@ export async function importLeads(text: string, opts: { city?: string; category?
     const r = await importLeadsFor(await requireUserId(), text, opts);
     refresh();
     return r;
+  });
+}
+
+/** Uptime for a client's site (last 31 days) + the ready-to-send monthly report. */
+export async function getClientUptime(leadId: number) {
+  return toResult(async () => {
+    const userId = await requireUserId();
+    const [{ clientChecksFor }, { getConfigFor: cfgFor }, { leads }, { db }, { and, eq }] = await Promise.all([
+      import("@/lib/services/leads-auto"), import("@/lib/services/outreach/engine"), import("@/lib/db/schema"), import("@/lib/db"), import("drizzle-orm"),
+    ]);
+    const [lead] = await db.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.userId, userId))).limit(1);
+    if (!lead) throw new Error("Lead not found.");
+    const summary = uptimeSummary(await clientChecksFor(userId, leadId));
+    if (!summary || !lead.clientSiteUrl) return { summary: null, report: null, whatsapp: null };
+    const prev = new Date();
+    prev.setDate(0); // last day of previous month → its label
+    const report = uptimeReport({
+      client: lead.name, monthLabel: prev.toLocaleString("bs-BA", { month: "long", year: "numeric" }), site: lead.clientSiteUrl,
+      uptimePct: summary.uptimePct, avgMs: summary.avgMs, checks: summary.checks, senderName: (await cfgFor(userId)).senderName,
+    });
+    return { summary, report, whatsapp: lead.phone ? whatsappLink(lead.phone, report) : null };
   });
 }

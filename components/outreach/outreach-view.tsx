@@ -263,7 +263,15 @@ function SendCard({ lead, canRewrite, onSent, onSkip, onMessage, onRewritten, on
           </a>
         )}
       </div>
-      <div className="mt-2"><GapChips gaps={lead.gaps} /></div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        {lead.tags.includes("follow_up") && lead.followUpCount > 0 && <span className="rounded-md bg-sky-500/12 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 text-[11px] font-semibold">↩ Follow-up</span>}
+        {lead.tags.includes("site_broke") && <span className="rounded-md bg-red-500/12 text-red-700 dark:text-red-300 px-1.5 py-0.5 text-[11px] font-semibold">⚠ Site down now</span>}
+        {lead.tags.includes("new_business") && <span className="rounded-md bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 text-[11px] font-semibold">🆕 New business</span>}
+        <GapChips gaps={lead.gaps} />
+        {lead.demoSlug && (
+          <a href={`/p/${lead.demoSlug}`} target="_blank" rel="noreferrer" className="ml-auto text-[11px] font-medium underline underline-offset-4 text-muted-foreground hover:text-foreground">View their demo site ↗</a>
+        )}
+      </div>
       <textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -34,6 +34,8 @@ const TONE: Record<string, string> = {
   "/daily":        "bg-lime-500/12 text-lime-700 dark:text-lime-400",
   "/goals":        "bg-rose-500/12 text-rose-600 dark:text-rose-400",
   "/outreach":     "bg-teal-500/12 text-teal-600 dark:text-teal-400",
+  "/gigs":         "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+  "/money":        "bg-green-500/12 text-green-600 dark:text-green-400",
   "/youtube":      "bg-red-500/12 text-red-600 dark:text-red-400",
   "/game":         "bg-violet-500/12 text-violet-600 dark:text-violet-400",
   "/dashboard":    "bg-cyan-500/12 text-cyan-600 dark:text-cyan-400",
@@ -66,7 +68,9 @@ const PRIMARY: NavItem[] = [
   { href: "/review",   icon: BarChart3,   label: "Weekly Review"  },
   { href: "/daily",    icon: CheckSquare, label: "Daily Check-in" },
   { href: "/goals",    icon: Target,      label: "Goals"          },
+  { href: "/gigs",     icon: Radar,       label: "Gig radar"      },
   { href: "/outreach", icon: Send,        label: "Outreach"       },
+  { href: "/money",    icon: Wallet,      label: "Money"          },
   { href: "/youtube",  icon: Clapperboard, label: "YouTube"        },
   { href: "/game",     icon: Gamepad2,    label: "Game dev"       },
 ];

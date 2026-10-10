@@ -7,15 +7,16 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { digests, gameSettings, playtestFeedback, voiceCommands, youtubeChannels, youtubeComments, youtubeIdeas, youtubeVideos, type VoiceCommand } from "@/lib/db/schema";
+import { digests, gameSettings, gigProfiles, gigs, playtestFeedback, voiceCommands, youtubeChannels, youtubeComments, youtubeIdeas, youtubeVideos, type VoiceCommand } from "@/lib/db/schema";
 import {
   commentRepliesPrompt, devlogPrompt, hooksPrompt, parseDevlog, parseHooks, parseReplies, parseThemes, playtestPrompt,
-  type DevlogCommit, type JobKind,
+  parseJsonReply, type DevlogCommit, type JobKind,
 } from "@/lib/claude-jobs";
 import { checkRateLimit } from "@/lib/ratelimit";
 import { VOICE_RATE } from "@/lib/voice";
 import { dispatchRunner } from "@/lib/services/voice";
 import { digestPrompt } from "@/lib/digest";
+import { gigsPrompt, parseGigScores } from "@/lib/gigs";
 import { applyDigestResult } from "@/lib/services/digest";
 
 export async function enqueueJobFor(userId: number, kind: Exclude<JobKind, "voice">, label: string, payload: Record<string, unknown>) {
@@ -79,6 +80,17 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       const feedback = await db.select().from(playtestFeedback).where(eq(playtestFeedback.userId, row.userId)).orderBy(desc(playtestFeedback.id)).limit(200);
       return playtestPrompt({ game: String(p.game ?? "my game"), feedback });
     }
+    case "gigs": {
+      const ids = ((p.gigIds as number[]) ?? []).slice(0, 15);
+      const rows = ids.length ? await db.select().from(gigs).where(and(eq(gigs.userId, row.userId), inArray(gigs.id, ids))) : [];
+      if (rows.length === 0) throw new Error("Nothing to score.");
+      const [profile] = await db.select().from(gigProfiles).where(eq(gigProfiles.id, rows[0].profileId ?? -1)).limit(1);
+      return gigsPrompt({
+        profile: profile?.name ?? "Freelancer",
+        pitch: profile?.pitch ?? "",
+        gigs: rows.map((g) => ({ id: g.id, title: g.title, body: g.body ?? "", budget: g.budget, source: g.source })),
+      });
+    }
     case "digest": {
       const [d] = await db.select().from(digests).where(and(eq(digests.id, Number(p.digestId)), eq(digests.userId, row.userId))).limit(1);
       if (!d) throw new Error("Digest not found.");
@@ -130,6 +142,16 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
     }
     case "digest":
       return applyDigestResult(row.userId, Number(p.digestId), text);
+    case "gigs": {
+      const scores = parseGigScores(parseJsonReply(text));
+      if (scores.length === 0) throw new Error("Claude's gig scores couldn't be read.");
+      for (const g of scores) {
+        await db.update(gigs).set({ score: g.score, reason: g.reason, draft: g.reply, scoredBy: "claude" })
+          .where(and(eq(gigs.id, g.id), eq(gigs.userId, row.userId)));
+      }
+      const best = Math.max(...scores.map((g) => g.score));
+      return `${scores.length} gigs scored — best match ${best}/100`;
+    }
     default:
       return "Done";
   }

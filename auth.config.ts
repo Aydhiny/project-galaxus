@@ -11,7 +11,7 @@ const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/t
 // /api/auth/* is excluded from the proxy matcher entirely, but /api/register
 // isn't, so it needs an explicit allowance here. Reset/verify links are visited
 // by definition while logged out (or from a different device/session).
-const GUEST_ALLOWED_PREFIXES = ["/api/register", "/reset-password/", "/verify-email/"];
+const GUEST_ALLOWED_PREFIXES = ["/api/register", "/reset-password/", "/verify-email/", "/p/"]; // /p/<slug> = public demo sites for leads
 
 /**
  * Edge-safe base config — no Credentials provider here (it needs bcrypt +

@@ -13,13 +13,14 @@
 // (.github/workflows/outreach-tick.yml → /api/cron/outreach). Every step is
 // bounded and idempotent, so a missed or doubled tick is harmless.
 
+import { randomBytes } from "crypto";
 import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leads, leadSearches, outreachDays, outreachSettings, users, type Lead, type OutreachSlot } from "@/lib/db/schema";
 import { getSecret, setSecret } from "@/lib/services/secrets";
 import {
   batchSizes, isLeadStatus, isMobileBA, localNow, normalizePhone, osmType, outreachStats, parsePastedLeads, planSlots,
-  REPLIED_STATUSES, scoreLead, type LeadStatus,
+  REPLIED_STATUSES, demoUrl, scoreLead, withDemoLink, type LeadStatus,
 } from "@/lib/outreach";
 import { searchPlaces, type Place } from "./places";
 import { searchOsm } from "./osm";
@@ -313,7 +314,9 @@ async function draftAudited(userId: number, cfg: Awaited<ReturnType<typeof getCo
       offer: cfg.settings.offer,
       anthropicKey: cfg.anthropicKey,
     });
-    await db.update(leads).set({ status: "ready", message: text, messageVariant: variant, updatedAt: new Date() }).where(eq(leads.id, lead.id));
+    // Every lead gets a demo page; its link goes into the message.
+    const slug = lead.demoSlug ?? randomBytes(8).toString("base64url").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10).padEnd(10, "x");
+    await db.update(leads).set({ status: "ready", message: withDemoLink(text, demoUrl(slug)), messageVariant: variant, demoSlug: slug, updatedAt: new Date() }).where(eq(leads.id, lead.id));
     done++;
   }, deadline);
   return done;
@@ -443,7 +446,7 @@ export async function listLeadsFor(userId: number) {
   return db.select().from(leads).where(eq(leads.userId, userId)).orderBy(desc(leads.updatedAt)).limit(1000);
 }
 
-export type LeadPatch = Partial<{ status: LeadStatus; message: string; revenueKm: number | null; notes: string }>;
+export type LeadPatch = Partial<{ status: LeadStatus; message: string; revenueKm: number | null; notes: string; clientSiteUrl: string | null; retainerKm: number | null }>;
 
 export async function updateLeadFor(userId: number, id: number, patch: LeadPatch) {
   const [lead] = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.userId, userId))).limit(1);
@@ -460,6 +463,12 @@ export async function updateLeadFor(userId: number, id: number, patch: LeadPatch
   }
   if (patch.message !== undefined) set.message = String(patch.message).slice(0, 2000);
   if (patch.notes !== undefined) set.notes = String(patch.notes).slice(0, 5000) || null;
+  if (patch.clientSiteUrl !== undefined) {
+    const u = String(patch.clientSiteUrl ?? "").trim();
+    if (u && !/^https?:\/\/[^\s]+\.[^\s]+$/.test(u)) throw new Error("Use a full link, like https://example.ba");
+    set.clientSiteUrl = u || null;
+  }
+  if (patch.retainerKm !== undefined) set.retainerKm = patch.retainerKm == null || Number.isNaN(Number(patch.retainerKm)) ? null : Math.max(0, Math.round(Number(patch.retainerKm)));
   if (patch.revenueKm !== undefined) {
     const rev = patch.revenueKm === null || Number.isNaN(Number(patch.revenueKm)) ? null : Math.max(0, Math.round(Number(patch.revenueKm)));
     set.revenueKm = rev;

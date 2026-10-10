@@ -12,7 +12,7 @@ import type { Place } from "./places";
 
 const UA = "Galaxus/1.0 (personal lead finder; https://project-galaxus.vercel.app)";
 
-async function cityBox(city: string): Promise<[number, number, number, number]> {
+export async function cityBox(city: string): Promise<[number, number, number, number]> {
   const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q: city, countrycodes: "ba", format: "json", limit: "1" })}`;
   const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(15_000), cache: "no-store" });
   const [hit] = (await res.json().catch(() => [])) as { boundingbox?: string[] }[];
@@ -31,7 +31,7 @@ const OVERPASS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 
-async function overpass(query: string): Promise<unknown> {
+export async function overpass(query: string): Promise<unknown> {
   for (const url of OVERPASS) {
     try {
       const res = await fetch(url, {

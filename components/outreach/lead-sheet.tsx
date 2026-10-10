@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Building2, Globe, MapPin, MessageCircle, Phone, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/db/schema";
 import { STATUS_LABEL, formatPhone, whatsappLink, type LeadStatus } from "@/lib/outreach";
 import type { LeadPatch } from "@/lib/services/outreach/engine";
+import { getClientUptime } from "@/lib/client/outreach";
 import { SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { GapChips, STATUS_STYLE } from "./shared";
 
@@ -80,6 +81,14 @@ export function LeadDetail({ lead, onPatch }: { lead: Lead; onPatch: (p: LeadPat
           </p>
         </div>
 
+        {lead.demoSlug && (
+          <a href={`/p/${lead.demoSlug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-xs hover:bg-accent">
+            <Globe className="w-3.5 h-3.5" /> Their demo site ↗
+          </a>
+        )}
+
+        {lead.status === "client" && <ClientPanel lead={lead} onPatch={onPatch} />}
+
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground">Annual revenue (KM) — from CompanyWall</span>
           <input
@@ -134,5 +143,43 @@ function LinkPill({ href, icon, label }: { href: string; icon: React.ReactNode; 
     <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border text-xs hover:bg-accent">
       {icon} {label}
     </a>
+  );
+}
+
+/** For paying clients: the site you built (uptime-checked daily), retainer, monthly report. */
+function ClientPanel({ lead, onPatch }: { lead: Lead; onPatch: (p: LeadPatch) => void }) {
+  const [site, setSite] = useState(lead.clientSiteUrl ?? "");
+  const [retainer, setRetainer] = useState(lead.retainerKm?.toString() ?? "");
+  const [up, setUp] = useState<{ summary: { uptimePct: number; avgMs: number | null; checks: number } | null; report: string | null; whatsapp: string | null } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (lead.clientSiteUrl) getClientUptime(lead.id).then((r) => { if (alive) setUp(r); }).catch(() => {});
+    return () => { alive = false; };
+  }, [lead.id, lead.clientSiteUrl]);
+  return (
+    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] p-4 space-y-3">
+      <p className="text-sm font-semibold">Client</p>
+      <label className="block">
+        <span className="text-xs text-muted-foreground">Their site (checked for uptime daily)</span>
+        <input value={site} onChange={(e) => setSite(e.target.value)} onBlur={() => { if (site !== (lead.clientSiteUrl ?? "")) onPatch({ clientSiteUrl: site || null }); }}
+          placeholder="https://their-new-site.ba" className="input-base mt-1" />
+      </label>
+      <label className="block">
+        <span className="text-xs text-muted-foreground">Monthly maintenance fee (KM)</span>
+        <input inputMode="numeric" value={retainer} onChange={(e) => setRetainer(e.target.value.replace(/\D/g, ""))}
+          onBlur={() => { const n = retainer ? Number(retainer) : null; if (n !== lead.retainerKm) onPatch({ retainerKm: n }); }}
+          placeholder="e.g. 80" className="input-base mt-1 tabular-nums" />
+      </label>
+      {up?.summary ? (
+        <div className="text-sm">
+          <p><b>{up.summary.uptimePct}%</b> uptime · {up.summary.checks} checks{up.summary.avgMs ? ` · ${up.summary.avgMs} ms avg` : ""} (31 days)</p>
+          {up.whatsapp && (
+            <a href={up.whatsapp} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 text-white text-xs font-semibold">
+              <MessageCircle className="w-3.5 h-3.5" /> Send monthly report on WhatsApp
+            </a>
+          )}
+        </div>
+      ) : lead.clientSiteUrl ? <p className="text-xs text-muted-foreground">First uptime check runs tomorrow morning.</p> : null}
+    </div>
   );
 }

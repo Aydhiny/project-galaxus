@@ -344,6 +344,9 @@ export const userSettings = pgTable("user_settings", {
   notifyDailyCheckinHour: integer("notify_daily_checkin_hour").default(20),
   notifyWeeklyDigest: boolean("notify_weekly_digest").default(true),
   notifyDailyBrief: boolean("notify_daily_brief").default(true),
+  notifyGigs: boolean("notify_gigs").default(true),
+  incomeGoalKm: integer("income_goal_km"),
+  usdToKm: real("usd_to_km").default(1.8),
   leaderboardOptIn: boolean("leaderboard_opt_in").default(false),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -558,6 +561,14 @@ export const leads = pgTable(
     sentAt: timestamp("sent_at"),
     repliedAt: timestamp("replied_at"),
     notes: text("notes"),
+    // Automations (lib/services/leads-auto.ts)
+    tags: jsonb("tags").$type<string[]>().notNull().default([]), // new_business | site_broke | follow_up
+    demoSlug: varchar("demo_slug", { length: 24 }), // public preview at /p/<slug>
+    followUpCount: integer("follow_up_count").notNull().default(0),
+    siteCheckedAt: timestamp("site_checked_at"),
+    siteDownSince: timestamp("site_down_since"),
+    clientSiteUrl: text("client_site_url"), // the site you built them (uptime-monitored)
+    retainerKm: integer("retainer_km"), // monthly maintenance fee
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -803,6 +814,99 @@ export const digests = pgTable(
   (t) => [uniqueIndex("uq_digests_user_day").on(t.userId, t.day)]
 );
 
+// ─── Daily scheduler ───────────────────────────────────────────────────────────
+// When each automation last ran, per user (lib/services/scheduler.ts).
+export const taskRuns = pgTable(
+  "task_runs",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    task: varchar("task", { length: 40 }).notNull(),
+    lastRunAt: timestamp("last_run_at").notNull(),
+    lastResult: text("last_result"),
+  },
+  (t) => [uniqueIndex("uq_task_runs_user_task").on(t.userId, t.task)]
+);
+
+// ─── Gig radar ─────────────────────────────────────────────────────────────────
+export const gigProfiles = pgTable(
+  "gig_profiles",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    name: varchar("name", { length: 80 }).notNull(),
+    keywords: text("keywords").notNull(), // comma-separated: a post must match one
+    exclude: text("exclude"), // comma-separated: a post matching any is dropped
+    subreddits: text("subreddits"), // comma-separated, without r/
+    sources: jsonb("sources").$type<string[]>().notNull().default([]), // reddit | remotive | remoteok | wwr | hn
+    pitch: text("pitch"), // who you are, skills, rates — Claude writes replies from this
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_gig_profiles_user").on(t.userId)]
+);
+
+export const gigs = pgTable(
+  "gigs",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    profileId: integer("profile_id").references(() => gigProfiles.id, { onDelete: "cascade" }),
+    source: varchar("source", { length: 20 }).notNull(),
+    externalId: varchar("external_id", { length: 200 }).notNull(),
+    title: varchar("title", { length: 300 }).notNull(),
+    url: text("url").notNull(),
+    body: text("body"),
+    author: varchar("author", { length: 120 }),
+    budget: varchar("budget", { length: 60 }),
+    postedAt: timestamp("posted_at"),
+    score: integer("score"), // 0–100: Claude, or keyword fallback
+    scoredBy: varchar("scored_by", { length: 10 }), // 'claude' | 'keywords'
+    reason: text("reason"),
+    draft: text("draft"),
+    status: varchar("status", { length: 12 }).notNull().default("new"), // new | saved | applied | dismissed
+    notifiedAt: timestamp("notified_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_gigs_user_external").on(t.userId, t.externalId), index("idx_gigs_user_status").on(t.userId, t.status)]
+);
+
+// ─── Client uptime ─────────────────────────────────────────────────────────────
+export const siteChecks = pgTable(
+  "site_checks",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    leadId: integer("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    checkedAt: timestamp("checked_at").notNull().defaultNow(),
+    ok: boolean("ok").notNull(),
+    ms: integer("ms"),
+    httpStatus: integer("http_status"),
+  },
+  (t) => [index("idx_site_checks_lead_time").on(t.leadId, t.checkedAt)]
+);
+
+// ─── Money ─────────────────────────────────────────────────────────────────────
+// All amounts in KM (convertible mark). EUR is pegged (1 EUR = 1.95583 KM);
+// other currencies use the rate you set. Original amount kept for reference.
+export const income = pgTable(
+  "income",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    source: varchar("source", { length: 20 }).notNull(), // client | retainer | beat | stripe | gig | other
+    externalId: varchar("external_id", { length: 120 }), // e.g. Stripe charge id (dedupe)
+    amountKmCents: integer("amount_km_cents").notNull(),
+    originalAmountCents: integer("original_amount_cents"),
+    originalCurrency: varchar("original_currency", { length: 3 }),
+    description: varchar("description", { length: 300 }),
+    leadId: integer("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    receivedAt: timestamp("received_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_income_user_time").on(t.userId, t.receivedAt), uniqueIndex("uq_income_user_external").on(t.userId, t.externalId)]
+);
+
 export type User = typeof users.$inferSelect;
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
@@ -843,3 +947,6 @@ export type YoutubeComment = typeof youtubeComments.$inferSelect;
 export type GameSettings = typeof gameSettings.$inferSelect;
 export type PlaytestFeedback = typeof playtestFeedback.$inferSelect;
 export type Digest = typeof digests.$inferSelect;
+export type GigProfile = typeof gigProfiles.$inferSelect;
+export type Gig = typeof gigs.$inferSelect;
+export type Income = typeof income.$inferSelect;

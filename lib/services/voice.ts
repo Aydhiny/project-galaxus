@@ -18,7 +18,7 @@ import { checkRateLimit } from "@/lib/ratelimit";
 import { getSecret, setSecret } from "@/lib/services/secrets";
 import { notifyUser } from "@/lib/services/outreach/push";
 import { buildJobPrompt, applyJobResult } from "@/lib/services/claude-jobs";
-import { notifyBrief, ensureTodayDigestFor } from "@/lib/services/digest";
+import { notifyBrief } from "@/lib/services/digest";
 import { JOB_LABEL, jobUsesTools, type JobKind } from "@/lib/claude-jobs";
 
 export const VOICE_REPO = process.env.GALAXUS_VOICE_REPO ?? "Aydhiny/project-galaxus";
@@ -218,7 +218,7 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   return row;
 }
 
-const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief" };
+const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs" };
 
 async function notifyDone(userId: number, c: VoiceCommand) {
   // The brief sends its own notification (with an image) — and if Claude
@@ -243,8 +243,8 @@ async function notifyDone(userId: number, c: VoiceCommand) {
   }).catch(() => {});
 }
 
-/** Runner beat: build today's brief if it's time and it doesn't exist yet. */
+/** Runner beat (every 10 min): run every automation that's due — brief, gig radar, lead automations, money sync. */
 export async function dailyFor(userId: number) {
-  const d = await ensureTodayDigestFor(userId);
-  return { digest: d ? String(d.day) : null };
+  const { runScheduledTasksFor } = await import("@/lib/services/scheduler");
+  return runScheduledTasksFor(userId);
 }
