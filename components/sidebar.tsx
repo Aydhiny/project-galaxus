@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -25,6 +25,7 @@ type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>
 // strings (not built dynamically) so Tailwind keeps them in the build.
 const TONE: Record<string, string> = {
   "/overview":     "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  "/brief":        "bg-amber-500/12 text-amber-600 dark:text-amber-400",
   "/voice":        "bg-orange-500/12 text-orange-600 dark:text-orange-400",
   "/productivity": "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
   "/tasks":        "bg-sky-500/12 text-sky-600 dark:text-sky-400",
@@ -57,6 +58,7 @@ const TONE: Record<string, string> = {
 // The handful of things you open every day — always visible.
 const PRIMARY: NavItem[] = [
   { href: "/overview", icon: Sunrise,     label: "Today"          },
+  { href: "/brief",    icon: Newspaper,   label: "Daily brief"    },
   { href: "/voice",    icon: Mic,         label: "Voice"          },
   { href: "/productivity", icon: Gauge,  label: "Productivity"   },
   { href: "/tasks",    icon: ListTodo,    label: "Tasks"          },

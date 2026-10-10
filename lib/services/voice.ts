@@ -18,7 +18,8 @@ import { checkRateLimit } from "@/lib/ratelimit";
 import { getSecret, setSecret } from "@/lib/services/secrets";
 import { notifyUser } from "@/lib/services/outreach/push";
 import { buildJobPrompt, applyJobResult } from "@/lib/services/claude-jobs";
-import { JOB_LABEL, type JobKind } from "@/lib/claude-jobs";
+import { notifyBrief, ensureTodayDigestFor } from "@/lib/services/digest";
+import { JOB_LABEL, jobUsesTools, type JobKind } from "@/lib/claude-jobs";
 
 export const VOICE_REPO = process.env.GALAXUS_VOICE_REPO ?? "Aydhiny/project-galaxus";
 export const VOICE_WORKFLOW = "voice.yml";
@@ -150,7 +151,7 @@ export async function claimNextFor(userId: number) {
     // from fresh data. A job whose data vanished fails cleanly.
     try {
       const built = await buildJobPrompt({ userId, kind: String(row.kind), payload: row.payload as Record<string, unknown> });
-      return { id: Number(row.id), ...built };
+      return { id: Number(row.id), tools: jobUsesTools(String(row.kind)), ...built };
     } catch (e) {
       await completeFor(userId, Number(row.id), { ok: false, error: e instanceof Error ? e.message : "Couldn't prepare this job." });
       return claimNextFor(userId);
@@ -158,6 +159,7 @@ export async function claimNextFor(userId: number) {
   }
   return {
     id: Number(row.id),
+    tools: true,
     system: VOICE_SYSTEM,
     prompt: buildVoicePrompt({
       transcript: String(row.transcript),
@@ -216,9 +218,19 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   return row;
 }
 
-const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game" };
+const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief" };
 
 async function notifyDone(userId: number, c: VoiceCommand) {
+  // The brief sends its own notification (with an image) — and if Claude
+  // couldn't write it, the plain headlines are still worth announcing.
+  if (c.kind === "digest") {
+    if (c.status === "failed") {
+      const { digests } = await import("@/lib/db/schema");
+      const [d] = await db.select().from(digests).where(eq(digests.id, Number((c.payload ?? {}).digestId))).limit(1);
+      if (d) await notifyBrief(userId, d);
+    }
+    return;
+  }
   const n = c.actions.length;
   const label = JOB_LABEL[c.kind as JobKind] ?? "Claude job";
   await notifyUser(userId, {
@@ -229,4 +241,10 @@ async function notifyDone(userId: number, c: VoiceCommand) {
     url: JOB_URL[c.kind] ?? "/voice",
     tag: `voice-${c.id}`,
   }).catch(() => {});
+}
+
+/** Runner beat: build today's brief if it's time and it doesn't exist yet. */
+export async function dailyFor(userId: number) {
+  const d = await ensureTodayDigestFor(userId);
+  return { digest: d ? String(d.day) : null };
 }

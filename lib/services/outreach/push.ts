@@ -55,7 +55,7 @@ export async function countSubscriptionsFor(userId: number) {
  * Notify every device the user enabled, plus the in-app bell (so nothing is
  * lost if push isn't set up). Dead subscriptions (404/410) are removed.
  */
-export async function notifyUser(userId: number, msg: { title: string; body: string; url: string; tag?: string }) {
+export async function notifyUser(userId: number, msg: { title: string; body: string; url: string; tag?: string; image?: string }) {
   await db.insert(notifications).values({ userId, type: "outreach", title: msg.title, body: msg.body });
 
   const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));

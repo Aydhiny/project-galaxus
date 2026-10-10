@@ -21,7 +21,7 @@ run-name: Voice
 on:
   workflow_dispatch: {} # Galaxus starts it the moment you send a command
   schedule:
-    - cron: "*/10 5-21 * * *" # fallback if no GitHub key is set in Galaxus
+    - cron: "*/10 4-21 * * *" # queue fallback + the daily brief (built once after 06:00 your time)
 
 permissions: {}
 
@@ -44,6 +44,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${VOICE_TOKEN:-}" ]; then echo "GALAXUS_VOICE_TOKEN secret is not set"; exit 1; fi
+          # Daily brief: builds today's once (idempotent), queuing a Claude job.
+          curl -sS --max-time 55 -o /dev/null -X POST -H "Authorization: Bearer $VOICE_TOKEN" "$GALAXUS_URL/api/voice/daily" || true
           n=$(curl -sS --fail --max-time 20 -H "Authorization: Bearer $VOICE_TOKEN" "$GALAXUS_URL/api/voice/peek" | jq -r '.queued // 0')
           echo "queued=$n" >> "$GITHUB_OUTPUT"
           echo "Queued commands: $n"
@@ -91,12 +93,20 @@ jobs:
             id=$(jq -r '.id' job.json)
             jq -r '.prompt' job.json > prompt.txt
             system=$(jq -r '.system' job.json)
+            tools=$(jq -r '.tools // false' job.json)
 
+            # Only voice commands get the Galaxus tools. Jobs that read text
+            # from the internet (news, comments, commits) get none at all, so
+            # an instruction planted in a headline can't touch your data.
+            if [ "$tools" = "true" ]; then
+              tool_args=(--mcp-config "$work/mcp.json" --strict-mcp-config --allowedTools "${allowed[@]}")
+            else
+              tool_args=(--strict-mcp-config)
+            fi
             timeout 300 claude -p \
               --append-system-prompt "$system" \
               --tools "" \
-              --mcp-config "$work/mcp.json" --strict-mcp-config \
-              --allowedTools "${allowed[@]}" \
+              "${tool_args[@]}" \
               --permission-mode dontAsk \
               --model sonnet \
               --output-format json \

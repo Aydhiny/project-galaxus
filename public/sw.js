@@ -11,7 +11,7 @@
  *  • Only immutable build assets (/_next/static, hashed) and icons are cached.
  */
 
-const VERSION = "galaxus-v3";
+const VERSION = "galaxus-v4";
 const STATIC_CACHE = `${VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/apple-touch-icon.png"];
@@ -85,6 +85,7 @@ self.addEventListener("push", (event) => {
       badge: "/icons/icon-192.png",
       tag: msg.tag,
       renotify: !!msg.tag,
+      image: msg.image, // big picture on Android / Chrome desktop
       data: { url: msg.url },
     })
   );

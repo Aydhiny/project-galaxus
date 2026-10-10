@@ -383,6 +383,19 @@ const STATEMENTS = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_game_commits_user_sha" ON "game_commits" ("user_id", "sha")`,
   `CREATE INDEX IF NOT EXISTS "idx_game_commits_user_date" ON "game_commits" ("user_id", "committed_at")`,
 
+  // ── 2026-10 · Daily brief ───────────────────────────────────────────────
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "notify_daily_brief" boolean DEFAULT true`,
+  `CREATE TABLE IF NOT EXISTS "digests" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "day" date NOT NULL,
+    "items" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "briefing" jsonb,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "digests_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_digests_user_day" ON "digests" ("user_id", "day")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

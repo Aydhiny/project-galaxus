@@ -14,7 +14,7 @@ import { BrandIcon } from "@/components/brand-icon";
 import { openVoice } from "@/lib/voice-events";
 
 const TITLES: Record<string, string> = {
-  overview: "Today", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
+  overview: "Today", brief: "Daily brief", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
   review: "Weekly Review", daily: "Daily Check-in", goals: "Goals", goal: "Goal", outreach: "Outreach",
   youtube: "YouTube", game: "Game dev", connections: "Connections", settings: "Settings", dashboard: "Feed",
 };

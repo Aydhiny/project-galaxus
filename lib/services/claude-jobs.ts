@@ -7,7 +7,7 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { gameSettings, playtestFeedback, voiceCommands, youtubeChannels, youtubeComments, youtubeIdeas, youtubeVideos, type VoiceCommand } from "@/lib/db/schema";
+import { digests, gameSettings, playtestFeedback, voiceCommands, youtubeChannels, youtubeComments, youtubeIdeas, youtubeVideos, type VoiceCommand } from "@/lib/db/schema";
 import {
   commentRepliesPrompt, devlogPrompt, hooksPrompt, parseDevlog, parseHooks, parseReplies, parseThemes, playtestPrompt,
   type DevlogCommit, type JobKind,
@@ -15,6 +15,8 @@ import {
 import { checkRateLimit } from "@/lib/ratelimit";
 import { VOICE_RATE } from "@/lib/voice";
 import { dispatchRunner } from "@/lib/services/voice";
+import { digestPrompt } from "@/lib/digest";
+import { applyDigestResult } from "@/lib/services/digest";
 
 export async function enqueueJobFor(userId: number, kind: Exclude<JobKind, "voice">, label: string, payload: Record<string, unknown>) {
   if (!checkRateLimit(`voice:${userId}`, VOICE_RATE.max, VOICE_RATE.windowMs).allowed) {
@@ -77,6 +79,11 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       const feedback = await db.select().from(playtestFeedback).where(eq(playtestFeedback.userId, row.userId)).orderBy(desc(playtestFeedback.id)).limit(200);
       return playtestPrompt({ game: String(p.game ?? "my game"), feedback });
     }
+    case "digest": {
+      const [d] = await db.select().from(digests).where(and(eq(digests.id, Number(p.digestId)), eq(digests.userId, row.userId))).limit(1);
+      if (!d) throw new Error("Digest not found.");
+      return digestPrompt(d.items, String(d.day));
+    }
     default:
       throw new Error(`Unknown job kind "${row.kind}".`);
   }
@@ -121,6 +128,8 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
       await db.update(gameSettings).set({ playtestThemes: themes, playtestThemesAt: new Date(), updatedAt: new Date() }).where(eq(gameSettings.userId, row.userId));
       return `${themes.length} themes found in your playtest feedback`;
     }
+    case "digest":
+      return applyDigestResult(row.userId, Number(p.digestId), text);
     default:
       return "Done";
   }

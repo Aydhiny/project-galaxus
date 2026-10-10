@@ -343,6 +343,7 @@ export const userSettings = pgTable("user_settings", {
   notifyDailyCheckin: boolean("notify_daily_checkin").default(true),
   notifyDailyCheckinHour: integer("notify_daily_checkin_hour").default(20),
   notifyWeeklyDigest: boolean("notify_weekly_digest").default(true),
+  notifyDailyBrief: boolean("notify_daily_brief").default(true),
   leaderboardOptIn: boolean("leaderboard_opt_in").default(false),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -786,6 +787,22 @@ export const playtestFeedback = pgTable(
   (t) => [index("idx_playtest_feedback_user").on(t.userId)]
 );
 
+// ─── Daily brief ───────────────────────────────────────────────────────────────
+// One row per user per local day: the headlines (from public RSS feeds) and,
+// once the runner has run, Claude's brief that points at them by id.
+export const digests = pgTable(
+  "digests",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    day: date("day").notNull(),
+    items: jsonb("items").$type<import("@/lib/digest").DigestItem[]>().notNull().default([]),
+    briefing: jsonb("briefing").$type<import("@/lib/digest").Briefing>(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_digests_user_day").on(t.userId, t.day)]
+);
+
 export type User = typeof users.$inferSelect;
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type Book = typeof books.$inferSelect;
@@ -825,3 +842,4 @@ export type VoiceCommand = typeof voiceCommands.$inferSelect;
 export type YoutubeComment = typeof youtubeComments.$inferSelect;
 export type GameSettings = typeof gameSettings.$inferSelect;
 export type PlaytestFeedback = typeof playtestFeedback.$inferSelect;
+export type Digest = typeof digests.$inferSelect;
