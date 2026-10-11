@@ -25,7 +25,7 @@ import {
 import { searchPlaces, type Place } from "./places";
 import { searchOsm } from "./osm";
 import { searchFoursquare } from "./foursquare";
-import { auditWebsite } from "./audit";
+import { auditWebsite, findWebsite } from "./audit";
 import { draftMessage, monthlyReview } from "./messages";
 import { notifyUser } from "./push";
 
@@ -305,6 +305,25 @@ async function inChunks<T>(items: T[], size: number, fn: (item: T) => Promise<vo
   }
 }
 
+/** Leads judged "no website" before website discovery existed: look again, re-audit if one turns up. */
+async function recheckNoWebsite(userId: number, limit: number, deadline: number) {
+  const batch = await db.select().from(leads)
+    .where(and(eq(leads.userId, userId), inArray(leads.status, ["audited", "ready", "queued"]), sql`${leads.website} is null`, sql`${leads.gaps} @> '["no_website"]'::jsonb`,
+      sql`(${leads.siteCheckedAt} is null or ${leads.siteCheckedAt} < now() - interval '30 days')`))
+    .limit(limit);
+  await inChunks(batch, 4, async (lead) => {
+    const website = await findWebsite(lead.name, lead.city);
+    if (!website) { await db.update(leads).set({ siteCheckedAt: new Date() }).where(eq(leads.id, lead.id)); return; }
+    const { gaps, phone: sitePhone } = await auditWebsite(website);
+    const phone = lead.phone ?? sitePhone;
+    // A real site was found: the old message (built on "no website") is wrong — redo it, or drop the lead if the site is fine.
+    await db.update(leads).set(gaps.length === 0
+      ? { website, gaps, status: "skipped", skipReason: "no_gaps", siteCheckedAt: new Date(), updatedAt: new Date() }
+      : { website, gaps, phone, status: "audited", message: null, score: scoreLead({ ...lead, gaps }), siteCheckedAt: new Date(), updatedAt: new Date() })
+      .where(eq(leads.id, lead.id));
+  }, deadline);
+}
+
 async function auditNew(userId: number, limit: number, deadline: number): Promise<number> {
   const batch = await db
     .select()
@@ -328,10 +347,12 @@ async function auditNew(userId: number, limit: number, deadline: number): Promis
   let done = 0;
   await inChunks(batch, 5, async (lead) => {
     let patch: Partial<Lead>;
-    if (!lead.phone && !lead.website) patch = { status: "skipped", skipReason: "no_phone" };
+    // Before anyone is told "you have no website": look for one (accepted only if the page names them).
+    const website = lead.website ?? (await findWebsite(lead.name, lead.city));
+    if (!lead.phone && !website) patch = { status: "skipped", skipReason: "no_phone" };
     else if (lead.phone && contacted.has(lead.phone)) patch = { status: "skipped", skipReason: "duplicate_phone" };
     else {
-      const { gaps, phone: sitePhone } = await auditWebsite(lead.website);
+      const { gaps, phone: sitePhone } = await auditWebsite(website);
       // OpenStreetMap often has the website but not the phone — take it from the site.
       const phone = lead.phone ?? sitePhone;
       const channel = isMobileBA(phone) ? "whatsapp" : "call";
@@ -341,6 +362,7 @@ async function auditNew(userId: number, limit: number, deadline: number): Promis
       else patch = { status: "audited", gaps, phone, channel, score: scoreLead({ ...lead, gaps, channel }) };
       if (phone) contacted.add(phone);
     }
+    if (website && website !== lead.website) patch = { ...patch, website };
     await db.update(leads).set({ ...patch, updatedAt: new Date() }).where(eq(leads.id, lead.id));
     done++;
   }, deadline);
@@ -405,6 +427,7 @@ export async function runPipelineFor(userId: number, opts: { deadline?: number }
       }
     }
   }
+  await recheckNoWebsite(userId, 8, deadline - 25_000);
   out.audited = await auditNew(userId, 15, deadline - 12_000);
   out.drafted = await draftAudited(userId, cfg, cfg.anthropicKey ? 6 : 30, deadline);
   return out;

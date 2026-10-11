@@ -61,6 +61,14 @@ export const GIG_PRESETS: { name: string; emoji: string; keywords: string; exclu
     pitch: "Fast, reliable freelancer: video editing, websites, design and quick technical fixes. I can usually start today and deliver within 24–48 hours.",
   },
   {
+    name: "Vibe coding & AI automation", emoji: "🤖",
+    keywords: "vibe code, vibe coding, vibe coder, cursor, claude code, lovable, bolt.new, bolt, v0, replit, ai automation, automation, n8n, make.com, zapier, chatbot, ai agent, gpt, openai api, mvp, prototype, fix my app, supabase, firebase, landing page, web scraper, scraper, script",
+    exclude: "for hire, [for hire], unpaid, equity only, rev share, senior, full-time, full time",
+    subreddits: "forhire, slavelabour, freelance_forhire, hiring, Jobs4Bitcoins, n8n, nocode, lovable, cursor, vibecoding, automation, SideProject",
+    sources: ["reddit", "remotive", "remoteok"],
+    pitch: "I build fast with AI tools (Claude Code, Cursor, n8n) on a solid full-stack base (React, Next.js, .NET): MVPs, automations, scrapers and fixes to AI-built apps — delivered in days, not weeks.",
+  },
+  {
     name: "Thumbnails & graphic design", emoji: "🎨",
     keywords: "thumbnail, thumbnails, graphic designer, logo, banner, poster, flyer, photoshop, canva, illustrator, brand identity, social media graphics",
     exclude: "for hire, [for hire], unpaid, contest, spec work",
@@ -119,6 +127,7 @@ export function isOneTime(text: string, source: string = "reddit"): boolean {
   const t = text.toLowerCase();
   if (/\b(full[- ]?time|part[- ]?time|hiring editors|editors needed|daily|every day|per week|weekly|long[- ]term|ongoing|monthly retainer|per month|\/mo\b|salary|\/yr|per year|annual|benefits|401k)\b/.test(t)) return false;
   return /\b(one[- ]time|one[- ]off|single (video|task|job|logo|edit|project)|quick (task|job|fix|gig|edit)|small (task|job|project)|fixed price|just (one|a single)|for one (video|edit|logo|thumbnail))\b/.test(t)
+    || /\[\s*task\s*\]/.test(t) || /\b\d{1,3}\s(shorts|videos|clips|reels|edits|thumbnails)\b[^.]{0,30}(for|=)\s?[$€£]/.test(t)
     || /[$€£]\s?\d+\s*(?:for|to)\s+(?:a|one|this|the)\b/.test(t);
 }
 
@@ -321,4 +330,76 @@ export function parseGigScores(json: unknown): { id: number; score: number; reas
       subject: String(g.subject ?? "").replace(/[\r\n]+/g, " ").slice(0, 120),
       reply: String(g.reply).slice(0, 2000),
     }));
+}
+
+// ─── Quality filter: what's actually worth your time ──────────────────────────
+
+/** Someone advertising themselves, asking for advice, or offering unpaid "collabs" — not a client. */
+export function isNotAClient(text: string): string | null {
+  const t = text.toLowerCase();
+  if (/\[\s*for\s*hire\s*\]|\blooking for (clients|work|a job|projects|gigs)\b|\bhire me\b|\bmy (portfolio|services|rates) (is|are|here)\b|\bwhat i offer\b|\bi offer\b|\bi('| a)m (a|an) [\w\s-]{0,30}(editor|developer|designer) (looking|available|offering)|\bavailable for (work|hire|projects)\b|\bopen for (commissions|work)\b|\bcurrently looking for (my )?(first )?clients?\b/.test(t)) return "offering their own services";
+  if (/^\s*location:[\s\S]*\b(willing to relocate|résumé|resume\/cv)\b/.test(t) || /\bwilling to relocate\b/.test(t) && /\bresume|résumé|cv\b/.test(t)) return "job seeker, not a client";
+  if (/\b(where (can i|to) find|how do i find|any tips|advice|should i)\b[^.?]{0,80}\?/.test(t) && !/\b(paying|budget|\$\d|will pay)\b/.test(t)) return "asking for advice";
+  if (/\b(rev(enue)?[- ]?share|revenue split|split (the )?revenue|unpaid|for exposure|equity[- ]only|no budget|portfolio together|collab(oration)? only|partnership)\b/.test(t)) return "unpaid / revenue share";
+  return null;
+}
+
+/** Job boards: keep only freelance / contract / part-time work — no salaried, senior or management roles. */
+export function isBoardGig(text: string): boolean {
+  const t = text.toLowerCase();
+  if (/\b(senior|sr\.|staff|principal|lead|head of|manager|director|vp|chief|founding (engineer|team)|architect)\b/.test(t.slice(0, 160))) return false;
+  if (/\b(full[- ]?time|salary|\/yr|per year|annual|equity|401k|benefits package|years of (professional )?experience|\d\+ years)\b/.test(t)) return false;
+  return /\b(freelance|freelancer|contract|contractor|part[- ]?time|project[- ]based|per project|one[- ]off|hourly|gig)\b/.test(t);
+}
+
+const RATES_TO_USD: [RegExp, number][] = [
+  [/₹|inr\b|\brs\.?\s?\d|\b\d[\d,.]*\s?rs\b|rupees?/i, 1 / 84],
+  [/€|\beur\b|euros?/i, 1.08],
+  [/£|\bgbp\b/i, 1.27],
+  [/\bphp\b|₱|pesos?/i, 1 / 57],
+  [/\$|\busd\b|dollars?/i, 1],
+];
+
+/** The money in a post, in USD, and what it's per (video / month / project). */
+export function payInUsd(text: string): { usd: number; per: "unit" | "hour" | "month" | "total" } | null {
+  const t = text.toLowerCase();
+  const m = t.match(/(?:[$€£₹₱]|rs\.?\s?|inr\s?|usd\s?)\s?(\d[\d,.]*)\s?(k)?|(\d[\d,.]*)\s?(k)?\s?(?:usd|eur|inr|rs|rupees|dollars|euros)/i);
+  if (!m) return null;
+  const n = parseFloat((m[1] ?? m[3]).replace(/,/g, "")) * ((m[2] ?? m[4]) ? 1000 : 1);
+  if (!n || n > 1_000_000) return null;
+  const rate = RATES_TO_USD.find(([re]) => re.test(m[0]))?.[1] ?? 1;
+  const after = t.slice(t.indexOf(m[0]), t.indexOf(m[0]) + m[0].length + 30);
+  const per = /\/\s?(hr|hour)|per hour|an hour/.test(after) ? "hour"
+    : /\/\s?(mo|month)|per month|monthly|a month/.test(after) ? "month"
+    : /\/\s?(video|vid|short|clip|reel|edit|minute|min|page|logo|thumbnail)|per (video|vid|short|clip|reel|edit|minute|page|logo|thumbnail)|each/.test(after) ? "unit"
+    : "total";
+  return { usd: Math.round(n * rate * 100) / 100, per };
+}
+
+/** Too little money for the work: under $3 a video, $5 an hour, $250 a month, or $10 for a whole job. */
+export function isLowball(text: string): boolean {
+  const pay = payInUsd(text);
+  if (!pay) return false;
+  // A whole website / app for pocket money is a lowball even if it's "one job".
+  const bigJob = /\b(website|web ?site|web app|\d+\s?pages|shopify|wordpress|mobile app|full (video )?production)\b/i.test(text);
+  return pay.per === "unit" ? pay.usd < 3 : pay.per === "hour" ? pay.usd < 5 : pay.per === "month" ? pay.usd < 250 : pay.usd < (bigJob ? 100 : 10);
+}
+
+/**
+ * Keep or drop a post, and how to adjust its score: one-time paid work first,
+ * then part-time; salaried roles and people selling themselves are dropped.
+ */
+export function gigVerdict(g: Pick<RawGig, "title" | "body" | "source">): { keep: boolean; reason?: string; boost: number; tags: string[] } {
+  const text = `${g.title} ${g.body}`;
+  const notClient = isNotAClient(text);
+  if (notClient) return { keep: false, reason: notClient, boost: 0, tags: [] };
+  if (g.source !== "reddit" && !isBoardGig(text)) return { keep: false, reason: "salaried / senior role", boost: 0, tags: [] };
+  const tags: string[] = [];
+  let boost = 0;
+  if (isOneTime(text, g.source)) { tags.push("one-time"); boost += 20; }
+  else if (/\bpart[- ]?time\b/i.test(text)) { tags.push("part-time"); boost += 5; }
+  if (/\b(full[- ]?time|long[- ]term|daily|every day)\b/i.test(text)) boost -= 15;
+  if (isLowball(text)) { tags.push("low pay"); boost -= 30; }
+  if (!detectBudget(text) && g.body.trim().length < 40) boost -= 10; // title-only posts: little to go on
+  return { keep: true, boost, tags };
 }

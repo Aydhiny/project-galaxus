@@ -2,9 +2,11 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { isChunkError, reloadForNewBuild } from "@/components/chunk-reload";
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    if (isChunkError(error) && reloadForNewBuild()) return; // stale tab after a deploy
     Sentry.captureException(error);
     console.error("[app/global-error.tsx]", error);
   }, [error]);

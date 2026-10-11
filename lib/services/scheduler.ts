@@ -9,6 +9,7 @@ import { outreachSettings, taskRuns } from "@/lib/db/schema";
 import { localNow } from "@/lib/outreach";
 import { ensureTodayDigestFor } from "@/lib/services/digest";
 import { pruneGigsFor, scanGigsFor } from "@/lib/services/gigs";
+import { scanCommunitiesFor } from "@/lib/services/community";
 import { syncStripeFor } from "@/lib/services/money";
 import { runAutopilotFollowUpsFor, runAutopilotInboxFor, runAutopilotSendFor } from "@/lib/services/autopilot";
 import { runRedditDailyFor } from "@/lib/services/reddit";
@@ -25,6 +26,7 @@ export const TASKS: Task[] = [
   { id: "digest", when: { daily: 6 }, run: (u) => ensureTodayDigestFor(u) },
   { id: "gigs", when: { every: 60, from: 6, to: 23 }, run: (u) => scanGigsFor(u) },
   { id: "gigs_prune", when: { daily: 6 }, run: (u) => pruneGigsFor(u) },
+  { id: "community", when: { daily: 11 }, run: (u) => scanCommunitiesFor(u, { maxLookups: 25 }) },
   { id: "reddit_game", when: { daily: 12 }, run: (u) => runRedditDailyFor(u) },
   { id: "stripe", when: { daily: 6 }, run: (u) => syncStripeFor(u) },
   { id: "new_business", when: { daily: 7 }, needsOutreach: true, run: (u, c) => findNewBusinessesFor(u, c.lastRunAt) },

@@ -491,6 +491,26 @@ const STATEMENTS = [
     CONSTRAINT "gig_profiles_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
   )`,
   `CREATE INDEX IF NOT EXISTS "idx_gig_profiles_user" ON "gig_profiles" ("user_id")`,
+  `CREATE TABLE IF NOT EXISTS "communities" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "code" varchar(40) NOT NULL,
+    "guild_id" varchar(30) NOT NULL,
+    "name" varchar(120) NOT NULL,
+    "description" text,
+    "icon" text,
+    "members" integer,
+    "online" integer,
+    "topics" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "relevance" integer DEFAULT 0 NOT NULL,
+    "source" varchar(20) NOT NULL,
+    "source_url" text,
+    "status" varchar(10) DEFAULT 'new' NOT NULL,
+    "checked_at" timestamp,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "communities_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_communities_user_guild" ON "communities" ("user_id", "guild_id")`,
   `CREATE TABLE IF NOT EXISTS "gigs" (
     "id" serial PRIMARY KEY NOT NULL,
     "user_id" integer NOT NULL,

@@ -1070,3 +1070,28 @@ export type Gig = typeof gigs.$inferSelect;
 export type Income = typeof income.$inferSelect;
 export type AutopilotSettings = typeof autopilotSettings.$inferSelect;
 export type GigEmail = typeof gigEmails.$inferSelect;
+
+// Discord servers found by the community scout (verified via Discord's public invite API).
+export const communities = pgTable(
+  "communities",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    code: varchar("code", { length: 40 }).notNull(), // invite code (discord.gg/<code>)
+    guildId: varchar("guild_id", { length: 30 }).notNull(),
+    name: varchar("name", { length: 120 }).notNull(),
+    description: text("description"),
+    icon: text("icon"),
+    members: integer("members"),
+    online: integer("online"),
+    topics: jsonb("topics").$type<string[]>().notNull().default([]),
+    relevance: integer("relevance").notNull().default(0),
+    source: varchar("source", { length: 20 }).notNull(), // reddit | github
+    sourceUrl: text("source_url"),
+    status: varchar("status", { length: 10 }).notNull().default("new"), // new | joined | hidden
+    checkedAt: timestamp("checked_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_communities_user_guild").on(t.userId, t.guildId)]
+);
+export type Community = typeof communities.$inferSelect;

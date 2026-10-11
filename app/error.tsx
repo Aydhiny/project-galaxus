@@ -4,9 +4,11 @@ import { useEffect } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { isChunkError, reloadForNewBuild } from "@/components/chunk-reload";
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    if (isChunkError(error) && reloadForNewBuild()) return; // stale tab after a deploy
     Sentry.captureException(error);
     console.error("[app/error.tsx]", error);
   }, [error]);

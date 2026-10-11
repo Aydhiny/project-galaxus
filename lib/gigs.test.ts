@@ -55,3 +55,29 @@ describe("parsers", () => {
     expect(templateReply({ title: "[Hiring] Shorts editor", source: "reddit" }, "I edit shorts. Fast turnaround. Extra.")).toContain('"Shorts editor"');
   });
 });
+
+import { gigVerdict, isLowball, payInUsd } from "./gigs";
+describe("quality filter (real posts)", () => {
+  const r = (title: string, body = "", source: "reddit" | "wwr" | "hn" | "remoteok" = "reddit") => gigVerdict({ title, body, source });
+  it("drops people selling themselves, advice and unpaid collabs", () => {
+    expect(r("Looking for clients", "I'm currently looking for my client as a short-form video editor").keep).toBe(false);
+    expect(r("Professional video editor and canva experts", "What I Offer: Cinematic Video Editing").keep).toBe(false);
+    expect(r("Where to find YouTuber's who need a Video Editor?", "Is there a website/discord/reddit post which can connect me?").keep).toBe(false);
+    expect(r("Let's make a portfolio together | looking for Video Editor", "team up").keep).toBe(false);
+    expect(r("Looking for a football yt shorts editor", "We will work in revenue split of the channel.").keep).toBe(false);
+  });
+  it("drops salaried, senior and job-seeker posts from job boards", () => {
+    expect(r("Lemon.io: Senior React Full-stack Developer", "ability to work full-time remotely", "wwr").keep).toBe(false);
+    expect(r("Location: Bangalore, India", "Location: Bangalore Remote: Yes Willing to relocate: No Résumé/CV: x", "hn").keep).toBe(false);
+    expect(r("Freelance Copywriter", "This is a freelance, project-based writing role.", "wwr").keep).toBe(true);
+  });
+  it("puts one-time paid work first and flags lowballs", () => {
+    const task = r("[TASK] Looking for someone to create my 90% static website in WordPress. Payment rs2000.", "10-12 pages");
+    expect(task.tags).toContain("one-time");
+    expect(task.tags).toContain("low pay"); // ~$24 for 12 pages
+    expect(r("Need 20 shorts edited", "20 shorts for $200, paid upfront").tags).toContain("one-time");
+    expect(payInUsd("Payment: ₹350 per video")).toEqual({ usd: 4.17, per: "unit" });
+    expect(isLowball("Long Term Opportunity (15,000INR/Month)")).toBe(true);
+    expect(isLowball("$25 per short")).toBe(false);
+  });
+});

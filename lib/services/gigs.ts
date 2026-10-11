@@ -10,7 +10,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { gigProfiles, gigs, taskRuns, userSettings, voiceCommands, type GigProfile } from "@/lib/db/schema";
 import {
-  DEFAULT_PROFILES, detectBudget, isHiringPost, keywordScore, matchKeywords, parseHnComments, parseRedditListing,
+  DEFAULT_PROFILES, detectBudget, gigVerdict, isHiringPost, keywordScore, matchKeywords, parseHnComments, parseRedditListing,
   parseRedditRss, parseRemoteOk, parseRemotive, parseWwrRss, splitList, templateReply, type GigSource, type RawGig,
 } from "@/lib/gigs";
 import { getSecret, setSecret } from "@/lib/services/secrets";
@@ -179,6 +179,8 @@ export async function scanGigsFor(userId: number, opts: { forceBoards?: boolean 
   for (const g of raw) {
     if (g.postedAt && now.getTime() - g.postedAt.getTime() > MAX_AGE_DAYS[g.source] * 86_400_000) continue;
     if (!isHiringPost(g)) continue;
+    const verdict = gigVerdict(g);
+    if (!verdict.keep) continue; // not a paying client, or a salaried job
     for (const p of profiles) {
       if (!p.sources.includes(g.source)) continue;
       if (g.source === "reddit" && g.subreddit && !splitList(p.subreddits).includes(g.subreddit.toLowerCase())) continue;
@@ -187,7 +189,8 @@ export async function scanGigsFor(userId: number, opts: { forceBoards?: boolean 
       rows.push({
         userId, profileId: p.id, source: g.source, externalId: g.externalId.slice(0, 200), title: g.title, url: g.url,
         body: g.body.slice(0, 3000), author: g.author?.slice(0, 120) ?? null, budget: detectBudget(`${g.title} ${g.body}`),
-        postedAt: g.postedAt, score: keywordScore(g, hits, now), scoredBy: "keywords", reason: `Matches: ${hits.slice(0, 4).join(", ")}`,
+        postedAt: g.postedAt, score: Math.max(0, Math.min(100, keywordScore(g, hits, now) + verdict.boost)), scoredBy: "keywords",
+        reason: [verdict.tags.length ? verdict.tags.join(" · ") : null, `Matches: ${hits.slice(0, 4).join(", ")}`].filter(Boolean).join(" — "),
         draft: templateReply(g, p.pitch ?? ""),
         contactEmail: extractContactEmail(`${g.title}\n${g.body}`),
         image: g.image ?? null,
@@ -268,5 +271,11 @@ export async function setGigNotificationsFor(userId: number, on: boolean) {
 export async function pruneGigsFor(userId: number) {
   await db.update(gigs).set({ status: "dismissed" })
     .where(and(eq(gigs.userId, userId), eq(gigs.status, "new"), sql`${gigs.createdAt} < now() - interval '14 days'`));
+  // Re-check what's waiting against the current quality rules (they get stricter over time).
+  const waiting = await db.select({ id: gigs.id, title: gigs.title, body: gigs.body, source: gigs.source }).from(gigs)
+    .where(and(eq(gigs.userId, userId), eq(gigs.status, "new")));
+  const drop = waiting.filter((g) => !gigVerdict({ title: g.title, body: g.body ?? "", source: g.source as GigSource }).keep).map((g) => g.id);
+  if (drop.length) await db.update(gigs).set({ status: "dismissed" }).where(inArray(gigs.id, drop));
+  return drop.length;
 }
 

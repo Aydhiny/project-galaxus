@@ -462,8 +462,10 @@ const SOURCE_META = {
 
 /** Every business the scout found and hasn't contacted yet — remove the wrong ones before they're messaged. */
 function ScoutedSection({ leads, onOpen, onWrong }: { leads: Lead[]; onOpen: (l: Lead) => void; onWrong: (l: Lead) => void }) {
+  // Only verified leads (website checked, phone found). Fresh finds are still being checked.
+  const checking = leads.filter((l) => l.status === "new").length;
   const scouted = leads
-    .filter((l) => l.status === "new" || l.status === "audited" || l.status === "ready")
+    .filter((l) => l.status === "audited" || l.status === "ready")
     .sort((a, b) => +new Date(b.createdAt ?? 0) - +new Date(a.createdAt ?? 0));
   const cities = [...new Set(scouted.map((l) => l.city).filter(Boolean))] as string[];
   const [city, setCity] = useState<string>("all");
@@ -474,7 +476,7 @@ function ScoutedSection({ leads, onOpen, onWrong }: { leads: Lead[]; onOpen: (l:
       <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
         <div>
           <h2 id="scouted" className="text-sm font-semibold flex items-center gap-1.5"><Radar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Scouted businesses <span className="text-muted-foreground font-normal tabular-nums">{scouted.length}</span></h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Found but not contacted yet. Tap <Ban className="w-3 h-3 inline -mt-0.5" /> on anything that isn&apos;t a real fit — it&apos;s never messaged.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{checking > 0 && <span className="inline-flex items-center gap-1 mr-1"><Loader2 className="w-3 h-3 animate-spin" />{checking} still being checked ·</span>}Verified (phone found, website checked), not contacted yet. Tap <Ban className="w-3 h-3 inline -mt-0.5" /> on anything that isn&apos;t a real fit — it&apos;s never messaged.</p>
         </div>
         {cities.length > 1 && (
           <div className="flex flex-wrap gap-1">

@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
+import { ChunkReload } from "@/components/chunk-reload";
 
 const dmSans = DM_Sans({ variable: "--font-sans", subsets: ["latin"], weight: ["300","400","500","600"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -84,6 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       {/* suppressHydrationWarning: next-themes injects a script that changes className before hydration */}
       <body suppressHydrationWarning className="min-h-full flex flex-col antialiased bg-background text-foreground">
+        <ChunkReload />
         <Providers>
           {children}
           <Toaster richColors theme="system" />
