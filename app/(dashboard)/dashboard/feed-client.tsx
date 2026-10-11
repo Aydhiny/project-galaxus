@@ -45,10 +45,10 @@ function FocusCard({ initialText, fallbackQuote }: { initialText: string; fallba
 
   if (editing) {
     return (
-      <div className="rounded-2xl border border-[#173eff]/30 bg-[#173eff]/5 p-5 space-y-3">
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 space-y-3">
         <div className="flex items-center gap-2 mb-1">
-          <Pin className="w-3.5 h-3.5 text-[#173eff]" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#173eff]">Focus</span>
+          <Pin className="w-3.5 h-3.5 text-primary" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Focus</span>
         </div>
         <textarea
           autoFocus
@@ -59,8 +59,8 @@ function FocusCard({ initialText, fallbackQuote }: { initialText: string; fallba
         />
         <div className="flex gap-2">
           <button onClick={save} disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-[0_0_12px_#173eff40] disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg,#173eff,#3758f9)" }}>
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-60"
+            style={{ background: "var(--primary)" }}>
             <CheckIcon className="w-3 h-3" /> {saving ? "Saving…" : "Save"}
           </button>
           <button onClick={() => setEditing(false)}
@@ -80,17 +80,17 @@ function FocusCard({ initialText, fallbackQuote }: { initialText: string; fallba
 
   if (text) {
     return (
-      <div className="group rounded-2xl border border-[#173eff]/20 bg-[#173eff]/5 p-5 relative">
+      <div className="group rounded-2xl border border-primary/20 bg-primary/5 p-5 relative">
         <div className="flex items-center gap-2 mb-2">
-          <Pin className="w-3.5 h-3.5 text-[#173eff]" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#173eff]">Focus</span>
+          <Pin className="w-3.5 h-3.5 text-primary" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Focus</span>
           <button onClick={() => { setDraft(text); setEditing(true); }}
             className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-md hover:bg-accent">
             <Pencil className="w-3 h-3" /> Edit
           </button>
         </div>
         <p className="text-base font-medium leading-relaxed" style={{ fontFamily: "var(--font-heading)" }}>{text}</p>
-        <div className="mt-4 pt-3 border-t border-[#173eff]/10">
+        <div className="mt-4 pt-3 border-t border-primary/10">
           <p className="text-xs text-muted-foreground/60 italic">&ldquo;{fallbackQuote.text}&rdquo;</p>
           <p className="text-[10px] text-muted-foreground/40 mt-1">— {fallbackQuote.source}</p>
         </div>
@@ -195,8 +195,6 @@ export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone,
       <div className="relative overflow-hidden bg-card border-b border-border px-6 pt-10 pb-8">
         <BackgroundBeams />
         {/* glow orbs */}
-        <div className="absolute top-4 right-16 w-64 h-64 rounded-full blur-[80px] opacity-20 bg-[#173eff]" />
-        <div className="absolute bottom-0 left-1/3 w-72 h-40 rounded-full blur-[80px] bg-[#7c3aed]" style={{ opacity: 0.12 }} />
         <div className="absolute top-0 left-0 right-0 lw-top-accent" />
         <div className="relative max-w-5xl mx-auto z-10">
           <div className="flex items-center justify-between gap-4 mb-2">
@@ -306,7 +304,7 @@ export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone,
                   { label: "Reading",  val: `${readingStats.currentlyReading} books`, href: "/reading" },
                   { label: "Goals",    val: `${completedGoals}/${totalGoals}`,        href: "/goals" },
                 ].map(s => (
-                  <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors hover:border-[#173eff]/30">
+                  <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors hover:border-primary/30">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
                     <p className="font-semibold text-sm mt-0.5">{s.val}</p>
                   </Link>
@@ -321,7 +319,7 @@ export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone,
                 { label: "Meditate",       href: "/meditation", icon: <Sparkles className="w-4 h-4" />,     color: "oklch(0.65 0.20 290)" },
                 { label: "Spiritual",      href: "/spiritual",  icon: <Moon className="w-4 h-4" />,         color: "var(--emerald)" },
               ].map(c => (
-                <Link key={c.href} href={c.href} className="rounded-xl border border-border bg-card p-3 flex items-center gap-2 hover:bg-accent transition-colors group hover:border-[#173eff]/30 lw-card-glow">
+                <Link key={c.href} href={c.href} className="rounded-xl border border-border bg-card p-3 flex items-center gap-2 hover:bg-accent transition-colors group hover:border-primary/30 lw-card-glow">
                   <span style={{ color: c.color }}>{c.icon}</span>
                   <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{c.label}</span>
                   <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />
@@ -393,7 +391,7 @@ function SectionHeader({ title, icon }: { title: string; icon: React.ReactNode }
     <div className="flex items-center gap-2">
       <span className="text-muted-foreground">{icon}</span>
       <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="flex-1 h-px bg-gradient-to-r from-[#173eff]/20 to-transparent ml-2" />
+      <div className="flex-1 h-px bg-gradient-to-r from-primary/20 to-transparent ml-2" />
     </div>
   );
 }
@@ -419,20 +417,20 @@ function InlineVideoCard({ id, title, channel }: FeedVideo) {
   );
 
   return (
-    <button onClick={handlePlay} className="group rounded-xl border border-border bg-card overflow-hidden hover:border-[#173eff]/50 transition-all text-left w-full hover:shadow-[0_0_20px_#173eff20] hover:-translate-y-0.5">
+    <button onClick={handlePlay} className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/50 transition-all text-left w-full hover:-translate-y-0.5">
       <div className="relative aspect-video">
         <Image src={`https://img.youtube.com/vi/${id}/mqdefault.jpg`} alt={title} fill sizes="(max-width: 640px) 100vw, 320px"
           className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className={cn(
             "w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-all duration-300",
-            isThisPinned ? "bg-[#173eff] shadow-[0_0_20px_#173eff60]" : "bg-black/60 group-hover:bg-[#173eff] group-hover:shadow-[0_0_16px_#173eff60]"
+            isThisPinned ? "bg-primary" : "bg-black/60 group-hover:bg-primary"
           )}>
             <Play className="w-4 h-4 text-white ml-0.5" />
           </div>
         </div>
         {isThisPinned && (
-          <div className="absolute top-2 left-2 bg-[#173eff] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_0_8px_#173eff80]">
+          <div className="absolute top-2 left-2 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
             PLAYING
           </div>
         )}

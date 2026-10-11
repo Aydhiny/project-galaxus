@@ -17,7 +17,7 @@ export function MovingBorderBtn({
     <button
       className={cn(
         "relative inline-flex overflow-hidden rounded-xl p-[1.5px]",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#173eff]/50",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         "active:scale-95 transition-transform",
         containerClassName, className

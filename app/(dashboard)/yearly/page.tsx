@@ -9,7 +9,7 @@ import { loadMoods } from "@/lib/utils/mood";
 import { format, subDays, getDay } from "date-fns";
 import {
   Moon, Dumbbell, BookOpen, Music2, NotebookPen, Heart, Star,
-  TrendingUp, Award, Flame, Sparkles, GraduationCap, Calendar,
+  TrendingUp, Award, Flame, Sparkles, GraduationCap, Calendar, CalendarRange,
 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -230,11 +230,11 @@ export default function YearlyPage() {
     <ErrorBoundary label="Yearly Review">
       <div className="page">
         {/* Hero */}
-        <div className="glass p-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl opacity-10" style={{ background: "var(--gold)", transform: "translate(30%, -30%)" }} />
+        <div className="rounded-3xl border border-border bg-card p-8 relative overflow-hidden">
           <div className="relative">
-            <p className="section-label mb-2">{YEAR} — Year in Review</p>
-            <h1 className="text-4xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>
+            <span className="w-11 h-11 rounded-2xl flex items-center justify-center bg-violet-500/12 text-violet-600 dark:text-violet-400 mb-4"><CalendarRange className="w-5 h-5" /></span>
+            <p className="section-label">{YEAR} — Year in Review</p>
+            <h1 className="font-hud uppercase tracking-wide text-6xl leading-none mt-1">
               Your {YEAR}.
             </h1>
             <p className="text-muted-foreground mt-2 text-sm max-w-md">

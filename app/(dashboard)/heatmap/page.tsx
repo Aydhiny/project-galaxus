@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { getRecentCheckins } from "@/lib/actions/checkin";
 import type { DailyCheckin } from "@/lib/db/schema";
-import { Moon, Dumbbell, Sparkles, Music2, Heart, PenLine } from "lucide-react";
+import { LayoutDashboard, Moon, Dumbbell, Sparkles, Music2, Heart, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, subDays, eachDayOfInterval } from "date-fns";
 
@@ -139,10 +139,13 @@ export default function HeatmapPage() {
   return (
     <div className="page">
       {/* Header */}
-      <div>
-        <p className="section-label mb-1">Progress</p>
-        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Habit Heatmap</h1>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-green-500/12 text-green-600 dark:text-green-400"><LayoutDashboard className="w-5 h-5" /></span>
+        <div className="min-w-0">
+        <p className="section-label">Progress</p>
+        <h1 className="text-3xl font-bold tracking-tight leading-tight">Habit Heatmap</h1>
         <p className="text-sm text-muted-foreground mt-1">{year} — last 365 days</p>
+        </div>
       </div>
 
       {loading ? (

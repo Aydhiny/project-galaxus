@@ -540,11 +540,14 @@ html.dark[data-room="mountain"] body {
     letter-spacing: 0.18em;
     color: var(--muted-foreground);
   }
+  /* Card surface used by the older pages — matches the newer rounded-2xl cards. */
   .glass {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 1rem;
+    transition: border-color 0.2s ease, transform 0.2s ease;
   }
+  .glass:hover { border-color: color-mix(in oklab, var(--foreground) 14%, transparent); }
   :root:not(.dark) .glass {
     background: rgba(255,255,255,0.95);
     border-color: rgba(0,0,0,0.07);

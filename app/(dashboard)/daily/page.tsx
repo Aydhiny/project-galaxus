@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { upsertCheckin, getTodayCheckin } from "@/lib/actions/checkin";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Loader2, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check, BedDouble, Star, Heart } from "lucide-react";
+import { CheckSquare, Loader2, Moon, Sun, Sunrise, Dumbbell, Sparkles, Music2, NotebookPen, BookOpen, Check, BedDouble, Star, Heart } from "lucide-react";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
 import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
 import { SectionLabel } from "@/components/aceternity/gradient-text";
@@ -158,11 +158,12 @@ export default function DailyPage() {
     <div className="page max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <SectionLabel className="mb-1">Daily Check-in</SectionLabel>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-            {todayDisplay}
-          </h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-lime-500/12 text-lime-700 dark:text-lime-400"><CheckSquare className="w-5 h-5" /></span>
+          <div className="min-w-0">
+            <SectionLabel>Daily Check-in</SectionLabel>
+            <h1 className="text-3xl font-bold tracking-tight leading-tight">{todayDisplay}</h1>
+          </div>
         </div>
         <MovingBorderBtn
           onClick={save}
@@ -184,7 +185,7 @@ export default function DailyPage() {
               <Moon className="w-4 h-4 text-[#3758f9]" />
               <h2 className="font-semibold">Prayers (Salah)</h2>
             </div>
-            <span className="text-sm font-bold px-3 py-1 rounded-full bg-[#173eff15] text-[#3758f9] border border-[#173eff30]">
+            <span className="text-sm font-bold px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
               {prayersDone}/5
             </span>
           </div>
@@ -201,7 +202,7 @@ export default function DailyPage() {
                 <span className="text-[11px] sm:text-sm font-bold">{p.label}</span>
                 <span className="hidden sm:inline text-base font-semibold opacity-80" style={{ fontFamily: "serif" }}>{p.arabic}</span>
                 {state[p.key] && (
-                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#173eff] flex items-center justify-center shadow-[0_0_8px_#173eff80]">
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-primary flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
                   </div>
                 )}
@@ -223,7 +224,7 @@ export default function DailyPage() {
               max={50}
               value={state.quranPages}
               onChange={(e) => setNum("quranPages", Number(e.target.value))}
-              className="w-full accent-[#173eff] h-2"
+              className="w-full accent-primary h-2"
             />
             <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
               <span>0</span>
@@ -259,13 +260,13 @@ export default function DailyPage() {
                       }`}
                       style={isActive ? {
                         borderLeftWidth: "3px",
-                        borderLeftColor: "#173eff",
+                        borderLeftColor: "var(--primary)",
                       } : {}}
                     >
                       <div
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
                           isActive
-                            ? "border-[#173eff] bg-[#173eff] shadow-[0_0_10px_#173eff60]"
+                            ? "border-primary bg-primary"
                             : "border-muted-foreground/30"
                         }`}
                       >
@@ -281,7 +282,7 @@ export default function DailyPage() {
                         {item.label}
                       </span>
                       {isActive && (
-                        <div className="ml-auto w-2 h-2 rounded-full bg-[#173eff] animate-pulse" />
+                        <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" />
                       )}
                     </button>
 
@@ -300,7 +301,7 @@ export default function DailyPage() {
                           step={5}
                           value={Number(state[item.subKey as keyof CheckinState])}
                           onChange={(e) => setNum(item.subKey as keyof CheckinState, Number(e.target.value))}
-                          className="w-full accent-[#173eff] h-2"
+                          className="w-full accent-primary h-2"
                         />
                         <div className="flex justify-between text-[10px] text-muted-foreground">
                           <span>0m</span>

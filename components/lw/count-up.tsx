@@ -30,7 +30,7 @@ export function CountUp({ value, duration = 1.5, decimals = 0, prefix = "", suff
   }, [value, duration, hasAnimated, count]);
 
   const colorClass = colorScheme === "gradient"
-    ? "bg-clip-text text-transparent bg-gradient-to-r from-[#173eff] to-[#a78bfa]"
+    ? "bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#a78bfa]"
     : colorScheme === "blue" ? "text-[#3758f9]" : "";
 
   return (

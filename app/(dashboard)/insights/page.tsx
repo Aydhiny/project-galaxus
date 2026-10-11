@@ -11,6 +11,7 @@ import {
   TrendingUp, TrendingDown, Minus, Lightbulb, BarChart3,
   Heart,
 } from "lucide-react";
+import { PageTitle } from "@/components/page-title";
 import { cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -332,17 +333,15 @@ export default function InsightsPage() {
     <ErrorBoundary label="Insights">
       <div className="page">
         {/* Hero */}
-        <div className="glass p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-10"
-            style={{ background: "var(--gold)", transform: "translate(30%,-30%)" }} />
+        <PageTitle icon={Lightbulb} tone="bg-yellow-500/12 text-yellow-700 dark:text-yellow-400" eyebrow="Patterns" title="Insights"
+          subtitle={`${daysAnalyzed} days analysed — what actually moves your mood and energy`} />
+        <div className="rounded-3xl border border-border bg-card p-6 relative overflow-hidden">
           <div className="relative flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[var(--gold-muted)] border border-[var(--gold)]/30 flex items-center justify-center shrink-0">
-              <Lightbulb className="w-5 h-5 text-[var(--gold)]" />
+            <div className="w-10 h-10 rounded-xl bg-yellow-500/12 text-yellow-700 dark:text-yellow-400 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-1">
-                Habit Insights · {daysAnalyzed} days analysed
-              </p>
+              <p className="section-label mb-1">Top insight</p>
               <p className="text-sm font-medium leading-relaxed">
                 {loading ? "Computing your patterns…" : topInsight}
               </p>

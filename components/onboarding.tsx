@@ -173,9 +173,6 @@ export function OnboardingFlow() {
 
       {/* ── Ambient glows ─────────────────────────────────────────── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full blur-[140px] opacity-20 bg-[#173eff]" />
-        <div className="absolute bottom-[-5%] right-1/4 w-[500px] h-[300px] rounded-full blur-[120px] opacity-10 bg-[#a78bfa]" />
-        <div className="absolute top-1/3 left-0 w-[300px] h-[300px] rounded-full blur-[100px] opacity-8 bg-[#0ea5e9]" />
       </div>
 
       {/* ── Falling stars ─────────────────────────────────────────── */}

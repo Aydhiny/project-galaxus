@@ -532,9 +532,12 @@ export default function BeatsPage() {
       <div className="page">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2.5">
-            <Disc3 className="w-5 h-5 text-[var(--gold)]" />
-            <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Beats</h1>
+          <div className="flex items-center gap-3">
+            <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-violet-500/12 text-violet-600 dark:text-violet-400"><Disc3 className="w-5 h-5" /></span>
+            <div>
+              <p className="section-label">Music</p>
+              <h1 className="text-3xl font-bold tracking-tight leading-tight">Beat Catalog</h1>
+            </div>
           </div>
           {/* Tabs */}
           <div className="flex gap-1 p-1 rounded-xl border border-border bg-muted/30">

@@ -27,7 +27,7 @@ export function Surface({
         padding === "md" && "p-5",
         padding === "lg" && "p-6",
         // Glow on hover
-        glow && "hover:border-[#173eff]/25 hover:shadow-[0_0_0_1px_rgba(23,62,255,0.12),0_8px_32px_rgba(0,0,0,0.50)]",
+        glow && "hover:border-primary/25",
         className
       )}
       {...props}

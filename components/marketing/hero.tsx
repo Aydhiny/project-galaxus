@@ -27,8 +27,6 @@ export function MarketingHero() {
   return (
     <section ref={ref} className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#070b18]">
       <div className="absolute inset-0">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full blur-[140px] opacity-30 bg-[#173eff]" />
-        <div className="absolute bottom-0 right-1/4 w-[450px] h-[350px] rounded-full blur-[120px] opacity-15 bg-[#7c3aed]" />
       </div>
       <BackgroundBeams />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

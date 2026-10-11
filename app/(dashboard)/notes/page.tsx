@@ -129,9 +129,12 @@ export default function NotesPage() {
         {/* Sidebar header */}
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="section-label mb-0.5">Brain Dump</p>
-              <h1 className="text-sm font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Notes</h1>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-yellow-500/12 text-yellow-700 dark:text-yellow-400"><StickyNote className="w-5 h-5" /></span>
+              <div className="min-w-0">
+              <p className="section-label">Brain Dump</p>
+              <h1 className="text-lg font-bold tracking-tight leading-tight">Notes</h1>
+              </div>
             </div>
             <Button
               onClick={createNote}

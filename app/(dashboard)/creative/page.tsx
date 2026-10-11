@@ -4,7 +4,7 @@ import { useEffect, useTransition, useState, useRef, useCallback } from "react";
 import { getRecentCheckins } from "@/lib/actions/checkin";
 import type { DailyCheckin } from "@/lib/db/schema";
 import { format, subDays, eachDayOfInterval } from "date-fns";
-import { Music, Palette, Tv, Flame, Play, Square, Clock, Plus, Trash2 } from "lucide-react";
+import { Music2, Music, Palette, Tv, Flame, Play, Square, Clock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -135,7 +135,7 @@ function SessionLogger() {
         </div>
         {!running ? (
           <Button onClick={startSession}
-            className="] font-semibold rounded-xl gap-2">
+            className="font-semibold rounded-xl gap-2">
             <Play className="w-4 h-4" /> Start Session
           </Button>
         ) : (
@@ -242,12 +242,15 @@ export default function CreativePage() {
   return (
     <div className="page max-w-4xl">
       {/* Header */}
-      <div>
-        <p className="section-label mb-1">Creative</p>
-        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Creative Studio</h1>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-pink-500/12 text-pink-600 dark:text-pink-400"><Music2 className="w-5 h-5" /></span>
+        <div className="min-w-0">
+        <p className="section-label">Creative</p>
+        <h1 className="text-3xl font-bold tracking-tight leading-tight">Creative Studio</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Music · Design · YouTube — your art, tracked.
         </p>
+        </div>
       </div>
 
       {/* Production session logger */}

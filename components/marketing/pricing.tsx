@@ -67,7 +67,7 @@ export function MarketingPricing() {
             >
               {plan.highlighted && <BorderBeam size={140} duration={7} colorFrom="#173eff" colorTo="#a78bfa" />}
               {plan.highlighted && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-gradient-to-r from-[#173eff] to-[#4f46e5] text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-gradient-to-r from-primary to-[#4f46e5] text-white">
                   Most popular
                 </span>
               )}

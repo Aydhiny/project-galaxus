@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
+import { HeartPulse,
   Dumbbell, Play, Pause, RotateCcw, CheckCircle2, Timer, ChevronRight, Flame,
 } from "lucide-react";
 import { upsertCheckin } from "@/lib/actions/checkin";
@@ -246,9 +246,12 @@ export default function WorkoutPage() {
     <div className="page max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <p className="section-label mb-1">Workout</p>
-          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Home Workout Timer</h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-pink-500/12 text-pink-600 dark:text-pink-400"><HeartPulse className="w-5 h-5" /></span>
+          <div className="min-w-0">
+          <p className="section-label">Workout</p>
+          <h1 className="text-3xl font-bold tracking-tight leading-tight">Home Workout Timer</h1>
+          </div>
         </div>
         {phase !== "idle" && (
           <div className="text-right">

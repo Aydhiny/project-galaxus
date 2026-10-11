@@ -112,13 +112,16 @@ export default function StudyPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <p className="section-label mb-1">Study</p>
-          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Courses & Learning</h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-blue-500/12 text-blue-600 dark:text-blue-400"><GraduationCap className="w-5 h-5" /></span>
+          <div className="min-w-0">
+          <p className="section-label">Study</p>
+          <h1 className="text-3xl font-bold tracking-tight leading-tight">Courses & Learning</h1>
+          </div>
         </div>
         <Button
           onClick={() => setShowAdd(!showAdd)}
-          className="] font-semibold rounded-xl gap-2"
+          className="font-semibold rounded-xl gap-2"
         >
           <Plus className="w-4 h-4" /> Add Course
         </Button>
@@ -128,7 +131,7 @@ export default function StudyPage() {
       <div className="glass p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="section-label mb-1">Monthly Goal</p>
+            <p className="section-label">Monthly Goal</p>
             <p className="text-sm font-semibold mt-0.5">
               {completedThisMonth} / {MONTH_GOAL} course this month
             </p>
@@ -261,24 +264,24 @@ export default function StudyPage() {
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2">
-                <Label className="section-label mb-1">Course Title *</Label>
+                <Label className="section-label">Course Title *</Label>
                 <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Course title" required className="bg-foreground/[0.05] border-border" />
               </div>
               <div className="space-y-1.5">
-                <Label className="section-label mb-1">Platform</Label>
+                <Label className="section-label">Platform</Label>
                 <Input value={form.platform} onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))} placeholder="e.g. Udemy, YouTube, Coursera" className="bg-foreground/[0.05] border-border" />
               </div>
               <div className="space-y-1.5">
-                <Label className="section-label mb-1">Instructor</Label>
+                <Label className="section-label">Instructor</Label>
                 <Input value={form.instructor} onChange={(e) => setForm((f) => ({ ...f, instructor: e.target.value }))} placeholder="Instructor name" className="bg-foreground/[0.05] border-border" />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="section-label mb-1">URL</Label>
+                <Label className="section-label">URL</Label>
                 <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="Course URL (optional)" className="bg-foreground/[0.05] border-border" />
               </div>
             </div>
             <div className="flex gap-3">
-              <Button type="submit" disabled={pending} className="] font-semibold rounded-xl">
+              <Button type="submit" disabled={pending} className="font-semibold rounded-xl">
                 {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Course"}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>

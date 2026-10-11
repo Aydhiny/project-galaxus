@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Scale, Moon, Droplets, Zap, TrendingUp, TrendingDown, Minus, Frown, Smile, Heart, Star, Meh } from "lucide-react";
+import { Activity, Scale, Moon, Droplets, Zap, TrendingUp, TrendingDown, Minus, Frown, Smile, Heart, Star, Meh } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -211,17 +211,20 @@ export default function MetricsPage() {
   return (
     <div className="page max-w-4xl">
       {/* Header */}
-      <div>
-        <p className="section-label mb-1">Body</p>
-        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Body Metrics</h1>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-teal-500/12 text-teal-600 dark:text-teal-400"><Activity className="w-5 h-5" /></span>
+        <div className="min-w-0">
+        <p className="section-label">Body</p>
+        <h1 className="text-3xl font-bold tracking-tight leading-tight">Body Metrics</h1>
         <p className="text-sm text-muted-foreground mt-1">Track weight, sleep, water & energy</p>
+        </div>
       </div>
 
       {/* Mood section */}
       <div className="glass p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="section-label mb-1">Today&apos;s Mood</p>
+            <p className="section-label">Today&apos;s Mood</p>
             <div className="flex items-center gap-2 mt-1">
               <MoodIcon mood={todayMood} />
               <div>
@@ -313,7 +316,7 @@ export default function MetricsPage() {
             "rounded-xl font-semibold text-sm",
             saved
               ? "bg-[var(--emerald)]/20 text-[var(--emerald)] border border-[var(--emerald)]/30"
-              : "]"
+              : "text-muted-foreground"
           )}
         >
           {saved ? "Saved!" : "Save Today's Metrics"}

@@ -58,7 +58,7 @@ export function GlobalLeaderboard({
             "shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
             optedIn
               ? "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-              : "border-[#173eff]/40 bg-[#173eff]/10 text-[#3758f9] hover:bg-[#173eff]/15"
+              : "border-primary/40 bg-primary/10 text-[#3758f9] hover:bg-primary/15"
           )}
         >
           {toggling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : optedIn ? "Hide me" : "Join"}
@@ -78,7 +78,7 @@ export function GlobalLeaderboard({
               key={e.userId}
               className={cn(
                 "flex items-center gap-4 px-4 py-3 rounded-xl border",
-                e.isSelf ? "border-[#173eff]/40 bg-[#173eff]/5" : "border-border bg-card"
+                e.isSelf ? "border-primary/40 bg-primary/5" : "border-border bg-card"
               )}
             >
               <span className="text-sm font-bold w-6 text-center shrink-0" style={{ color: medalColor(e.rank) }}>
@@ -101,7 +101,7 @@ export function GlobalLeaderboard({
           {viewerEntry && viewerEntry.rank > entries.length && (
             <>
               <div className="text-center text-xs text-muted-foreground py-1">···</div>
-              <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-[#173eff]/40 bg-[#173eff]/5">
+              <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-primary/40 bg-primary/5">
                 <span className="text-sm font-bold w-6 text-center shrink-0 text-muted-foreground">{viewerEntry.rank}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{viewerEntry.name} <span className="text-muted-foreground font-normal">(you)</span></p>

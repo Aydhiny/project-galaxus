@@ -108,7 +108,7 @@ function MoodPicker({ value, onChange }: { value: number; onChange: (v: number) 
         {[1,2,3,4,5,6,7,8,9,10].map(n => (
           <button key={n} onClick={() => onChange(n)}
             className={cn("w-10 h-10 rounded-xl text-sm font-bold transition-all duration-150 border",
-              value === n ? "border-transparent scale-110 text-white shadow-[0_0_12px_currentColor]" : "border-border hover:border-[var(--gold)]/30 hover:scale-105 bg-card text-muted-foreground"
+              value === n ? "border-transparent scale-110 text-white" : "border-border hover:border-[var(--gold)]/30 hover:scale-105 bg-card text-muted-foreground"
             )}
             style={value === n ? { background: moodColor(n) } : {}}>
             {n}
@@ -129,10 +129,10 @@ function RatingPicker({ value, onChange }: { value: number; onChange: (v: number
         <button key={n} onClick={() => onChange(n)}
           className={cn("w-10 h-10 rounded-lg text-sm font-bold transition-all border",
             value >= n
-              ? "text-white border-transparent shadow-[0_0_10px_#173eff40]"
-              : "border-border text-muted-foreground hover:border-[#173eff]/40 bg-card"
+              ? "text-white border-transparent"
+              : "border-border text-muted-foreground hover:border-primary/40 bg-card"
           )}
-          style={value >= n ? { background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)" } : {}}>
+          style={value >= n ? { background: "var(--primary)" } : {}}>
           {n}
         </button>
       ))}
@@ -219,13 +219,12 @@ export default function OverviewPage() {
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-24 h-24 rounded-full flex items-center justify-center relative"
               style={{
-                background: "linear-gradient(135deg, #173eff15 0%, #a78bfa10 100%)",
-                border: "1px solid #173eff30",
-                boxShadow: "0 0 40px #173eff20, inset 0 1px 0 #173eff20",
+                background: "color-mix(in oklab, var(--primary) 8%, transparent)",
+                border: "1px solid color-mix(in oklab, var(--primary) 30%, transparent)",
               }}>
               {mode === "morning"
                 ? <Sun className="w-12 h-12 text-[var(--gold)]" />
-                : <Moon className="w-12 h-12" style={{ color: "#173eff" }} />}
+                : <Moon className="w-12 h-12" style={{ color: "var(--primary)" }} />}
             </div>
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-2">
@@ -242,20 +241,20 @@ export default function OverviewPage() {
               <button onClick={() => setMode("morning")}
                 className={cn("flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300",
                   mode === "morning"
-                    ? "text-white shadow-[0_0_16px_#173eff40]"
+                    ? "text-white"
                     : "text-muted-foreground hover:text-foreground"
                 )}
-                style={mode === "morning" ? { background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)" } : {}}>
+                style={mode === "morning" ? { background: "var(--primary)" } : {}}>
                 <Sun className="w-4 h-4" /> Morning
                 {rec.morningDone && <Check className="w-3.5 h-3.5" />}
               </button>
               <button onClick={() => setMode("evening")}
                 className={cn("flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300",
                   mode === "evening"
-                    ? "text-white shadow-[0_0_16px_#173eff40]"
+                    ? "text-white"
                     : "text-muted-foreground hover:text-foreground"
                 )}
-                style={mode === "evening" ? { background: "linear-gradient(135deg, #173eff 0%, #a78bfa 100%)" } : {}}>
+                style={mode === "evening" ? { background: "var(--primary)" } : {}}>
                 <Moon className="w-4 h-4" /> Evening
                 {rec.eveningDone && <Check className="w-3.5 h-3.5" />}
               </button>
@@ -277,10 +276,10 @@ export default function OverviewPage() {
                   <button key={n} onClick={() => patch({ yesterdayRating: n })}
                     className={cn("w-16 h-16 rounded-2xl transition-all border flex items-center justify-center",
                       rec.yesterdayRating === n
-                        ? "border-[#173eff]/50 scale-110 shadow-[0_0_20px_#173eff30]"
+                        ? "border-primary/50 scale-110"
                         : "border-border hover:scale-105 bg-card text-muted-foreground"
                     )}
-                    style={rec.yesterdayRating === n ? { background: "linear-gradient(135deg, #173eff15 0%, #173eff05 100%)" } : {}}>
+                    style={rec.yesterdayRating === n ? { background: "color-mix(in oklab, var(--primary) 8%, transparent)" } : {}}>
                     <Icon className="w-7 h-7" style={rec.yesterdayRating === n ? { color: "#3758f9" } : {}} />
                   </button>
                 );
@@ -307,10 +306,10 @@ export default function OverviewPage() {
                 <button key={w} onClick={() => patch({ intention: w })}
                   className={cn("px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-300",
                     rec.intention === w
-                      ? "text-white border-transparent shadow-[0_0_12px_#173eff40]"
+                      ? "text-white border-transparent"
                       : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
-                  style={rec.intention === w ? { background: "linear-gradient(135deg, #173eff 0%, #3758f9 100%)" } : {}}>
+                  style={rec.intention === w ? { background: "var(--primary)" } : {}}>
                   {w}
                 </button>
               ))}
@@ -335,8 +334,8 @@ export default function OverviewPage() {
             <div className="w-full max-w-sm space-y-3">
               {[0,1,2].map(i => (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 text-white shadow-[0_0_8px_#173eff40]"
-                    style={{ background: "linear-gradient(135deg, #173eff, #3758f9)" }}>{i+1}</span>
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 text-white"
+                    style={{ background: "var(--primary)" }}>{i+1}</span>
                   <input
                     value={rec.priorities[i] ?? ""}
                     onChange={e => { const p = [...rec.priorities]; p[i] = e.target.value; patch({ priorities: p }); }}
@@ -391,13 +390,13 @@ export default function OverviewPage() {
                     }
                   }}
                     className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-300",
-                      checked ? "border-[#173eff]/30 shadow-[0_0_12px_#173eff15]" : "border-border bg-card hover:bg-accent"
+                      checked ? "border-primary/30" : "border-border bg-card hover:bg-accent"
                     )}
-                    style={checked ? { background: "linear-gradient(135deg, #173eff10 0%, #173eff04 100%)" } : {}}>
+                    style={checked ? { background: "color-mix(in oklab, var(--primary) 8%, transparent)" } : {}}>
                     <span style={{ color }}>{icon}</span>
                     <span className="flex-1 text-left text-sm font-medium">{label}</span>
                     <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-                      checked ? "border-[#173eff] bg-[#173eff] shadow-[0_0_8px_#173eff60]" : "border-border")}>
+                      checked ? "border-primary bg-primary" : "border-border")}>
                       {checked && <Check className="w-3 h-3 text-white" />}
                     </div>
                   </button>
@@ -435,7 +434,7 @@ export default function OverviewPage() {
       case "gratitude":
         return (
           <div className="flex flex-col items-center gap-6 text-center w-full">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_0_20px_#c9a84c30]"
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
               style={{ background: "var(--gold-muted)", border: "1px solid oklch(from var(--gold) l c h / 25%)" }}>
               <Star className="w-8 h-8 text-[var(--gold)]" />
             </div>
@@ -492,9 +491,8 @@ export default function OverviewPage() {
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-28 h-28 rounded-full flex items-center justify-center relative"
               style={{
-                background: "linear-gradient(135deg, #173eff18 0%, #a78bfa12 100%)",
-                border: "1px solid #173eff40",
-                boxShadow: "0 0 60px #173eff25, inset 0 1px 0 #173eff30",
+                background: "color-mix(in oklab, var(--primary) 8%, transparent)",
+                border: "1px solid color-mix(in oklab, var(--primary) 30%, transparent)",
               }}>
               {mode === "morning"
                 ? <Sun className="w-14 h-14 text-[var(--gold)]" />
@@ -515,7 +513,7 @@ export default function OverviewPage() {
                 {rec.priorities.filter(Boolean).map((p, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm text-left">
                     <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 text-white"
-                      style={{ background: "linear-gradient(135deg, #173eff, #3758f9)" }}>{i+1}</span>
+                      style={{ background: "var(--primary)" }}>{i+1}</span>
                     <span className="text-foreground/80">{p}</span>
                   </div>
                 ))}
@@ -562,10 +560,10 @@ export default function OverviewPage() {
         {steps.map((_, i) => (
           <div key={i} className={cn("rounded-full transition-all duration-300",
             i === stepIdx
-              ? "w-6 h-2 shadow-[0_0_8px_#173eff60]"
+              ? "w-6 h-2"
               : i < stepIdx ? "w-2 h-2 opacity-50" : "w-2 h-2 bg-border"
           )}
-          style={i <= stepIdx ? { background: "linear-gradient(90deg, #173eff, #a78bfa)" } : {}}
+          style={i <= stepIdx ? { background: "var(--primary)" } : {}}
           />
         ))}
       </div>

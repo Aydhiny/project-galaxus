@@ -48,7 +48,7 @@ export default async function LeaderboardPage() {
         <div className="glass p-12 text-center text-muted-foreground">
           <Trophy className="w-12 h-12 mx-auto opacity-15 mb-4" />
           <p className="font-medium">No records yet.</p>
-          <p className="text-sm mt-1">Head to <a href="/daily" className="text-[#173eff] hover:underline">Daily Check-in</a> and log your first day.</p>
+          <p className="text-sm mt-1">Head to <a href="/daily" className="text-primary hover:underline">Daily Check-in</a> and log your first day.</p>
         </div>
       )}
 
@@ -66,7 +66,7 @@ export default async function LeaderboardPage() {
           <div>
             <SectionHeader title="Overall Stats" icon={<BarChart2 className="w-4 h-4" />} />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-              <StatBox label="Days logged"  value={data.totalDays}        icon={<Calendar className="w-4 h-4" />} color="#173eff" />
+              <StatBox label="Days logged"  value={data.totalDays}        icon={<Calendar className="w-4 h-4" />} color="var(--primary)" />
               <StatBox label="Best mood"    value={`${data.bestMood}/10`} icon={<Star className="w-4 h-4" />}     color="#818cf8"
                 sub={data.bestMoodDate ? format(parseISO(data.bestMoodDate), "MMM d, yyyy") : undefined} />
               <StatBox label="Best day"     value={`${data.bestDayRating}/10`} icon={<Sun className="w-4 h-4" />} color="#fbbf24"
@@ -231,7 +231,7 @@ function SectionHeader({ title, icon }: { title: string; icon: React.ReactNode }
     <div className="flex items-center gap-2">
       <span className="text-muted-foreground">{icon}</span>
       <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="flex-1 h-px bg-gradient-to-r from-[#173eff]/20 to-transparent ml-2" />
+      <div className="flex-1 h-px bg-gradient-to-r from-primary/20 to-transparent ml-2" />
     </div>
   );
 }

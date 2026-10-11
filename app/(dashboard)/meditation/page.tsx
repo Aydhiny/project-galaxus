@@ -194,12 +194,15 @@ export default function MeditationPage() {
   return (
     <div className="page max-w-xl">
       {/* Header */}
-      <div>
-        <p className="section-label mb-1">Meditation</p>
-        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Box Breathing</h1>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-purple-500/12 text-purple-600 dark:text-purple-400"><Sparkles className="w-5 h-5" /></span>
+        <div className="min-w-0">
+        <p className="section-label">Meditation</p>
+        <h1 className="text-3xl font-bold tracking-tight leading-tight">Box Breathing</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Find a comfortable position. Close your eyes. Breathe.
         </p>
+        </div>
       </div>
 
       {/* Dua */}

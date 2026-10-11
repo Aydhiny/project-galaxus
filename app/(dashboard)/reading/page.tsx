@@ -119,13 +119,16 @@ export default function ReadingPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <p className="section-label mb-1">Reading</p>
-          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Your Library</h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-orange-500/12 text-orange-600 dark:text-orange-400"><BookOpen className="w-5 h-5" /></span>
+          <div className="min-w-0">
+          <p className="section-label">Reading</p>
+          <h1 className="text-3xl font-bold tracking-tight leading-tight">Your Library</h1>
+          </div>
         </div>
         <Button
           onClick={() => setShowAdd(!showAdd)}
-          className="] font-semibold rounded-xl gap-2"
+          className="font-semibold rounded-xl gap-2"
         >
           <Plus className="w-4 h-4" />
           Add Book
@@ -136,7 +139,7 @@ export default function ReadingPage() {
       <div className="glass p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="section-label mb-1">Monthly Goal</p>
+            <p className="section-label">Monthly Goal</p>
             <p className="text-sm font-semibold mt-0.5">
               {stats.completedThisMonth} / {MONTHLY_GOAL} books this month
             </p>
@@ -253,7 +256,7 @@ export default function ReadingPage() {
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label className="section-label mb-1">Title *</Label>
+                <Label className="section-label">Title *</Label>
                 <Input
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -263,7 +266,7 @@ export default function ReadingPage() {
                 />
               </div>
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label className="section-label mb-1">Author</Label>
+                <Label className="section-label">Author</Label>
                 <Input
                   value={form.author}
                   onChange={(e) => setForm((f) => ({ ...f, author: e.target.value }))}
@@ -272,7 +275,7 @@ export default function ReadingPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="section-label mb-1">Pages</Label>
+                <Label className="section-label">Pages</Label>
                 <Input
                   type="number"
                   value={form.pagesTotal}
@@ -282,7 +285,7 @@ export default function ReadingPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="section-label mb-1">Status</Label>
+                <Label className="section-label">Status</Label>
                 <select
                   value={form.status}
                   onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
@@ -296,7 +299,7 @@ export default function ReadingPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="section-label mb-1">Cover Color</Label>
+              <Label className="section-label">Cover Color</Label>
               <div className="flex gap-2">
                 {COVER_COLORS.map((c) => (
                   <button
@@ -316,7 +319,7 @@ export default function ReadingPage() {
               <Button
                 type="submit"
                 disabled={pending}
-                className="] font-semibold rounded-xl"
+                className="font-semibold rounded-xl"
               >
                 {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Book"}
               </Button>
