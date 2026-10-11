@@ -18,6 +18,7 @@ import { dispatchRunner } from "@/lib/services/voice";
 import { digestPrompt } from "@/lib/digest";
 import { gigsPrompt, parseGigScores } from "@/lib/gigs";
 import { applyDigestResult } from "@/lib/services/digest";
+import { applyRedditPostResult, buildRedditPostPrompt } from "@/lib/services/reddit";
 
 export async function enqueueJobFor(userId: number, kind: Exclude<JobKind, "voice">, label: string, payload: Record<string, unknown>) {
   if (!checkRateLimit(`voice:${userId}`, VOICE_RATE.max, VOICE_RATE.windowMs).allowed) {
@@ -91,6 +92,8 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
         gigs: rows.map((g) => ({ id: g.id, title: g.title, body: g.body ?? "", budget: g.budget, source: g.source })),
       });
     }
+    case "reddit_post":
+      return buildRedditPostPrompt(row.userId, Number(p.postId));
     case "digest": {
       const [d] = await db.select().from(digests).where(and(eq(digests.id, Number(p.digestId)), eq(digests.userId, row.userId))).limit(1);
       if (!d) throw new Error("Digest not found.");
@@ -142,6 +145,8 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
     }
     case "digest":
       return applyDigestResult(row.userId, Number(p.digestId), text);
+    case "reddit_post":
+      return applyRedditPostResult(row.userId, Number(p.postId), text);
     case "gigs": {
       const scores = parseGigScores(parseJsonReply(text));
       if (scores.length === 0) throw new Error("Claude's gig scores couldn't be read.");

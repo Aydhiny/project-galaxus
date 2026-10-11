@@ -218,7 +218,7 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   return row;
 }
 
-const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs" };
+const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs", reddit_post: "/game/reddit" };
 
 async function notifyDone(userId: number, c: VoiceCommand) {
   // The brief sends its own notification (with an image) — and if Claude

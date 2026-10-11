@@ -10,6 +10,7 @@ import { localNow } from "@/lib/outreach";
 import { ensureTodayDigestFor } from "@/lib/services/digest";
 import { pruneGigsFor, scanGigsFor } from "@/lib/services/gigs";
 import { syncStripeFor } from "@/lib/services/money";
+import { runRedditDailyFor } from "@/lib/services/reddit";
 import {
   checkClientSitesFor, checkLeadSitesFor, ensureDemosFor, findNewBusinessesFor, monthlyReportsReadyFor, queueFollowUpsFor,
 } from "@/lib/services/leads-auto";
@@ -22,6 +23,7 @@ export const TASKS: Task[] = [
   { id: "digest", when: { daily: 6 }, run: (u) => ensureTodayDigestFor(u) },
   { id: "gigs", when: { every: 60, from: 6, to: 23 }, run: (u) => scanGigsFor(u) },
   { id: "gigs_prune", when: { daily: 6 }, run: (u) => pruneGigsFor(u) },
+  { id: "reddit_game", when: { daily: 12 }, run: (u) => runRedditDailyFor(u) },
   { id: "stripe", when: { daily: 6 }, run: (u) => syncStripeFor(u) },
   { id: "new_business", when: { daily: 7 }, needsOutreach: true, run: (u, c) => findNewBusinessesFor(u, c.lastRunAt) },
   { id: "site_checks", when: { daily: 8 }, needsOutreach: true, run: (u) => checkLeadSitesFor(u) },

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Check, Gamepad2, GitCommitHorizontal, Loader2, Plus, Star, Trash2, Users } from "lucide-react";
+import { Check, ChevronRight, Gamepad2, GitCommitHorizontal, Loader2, MessagesSquare, Plus, Star, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlaytestTheme } from "@/lib/db/schema";
 import { addFeedbackC, deleteFeedbackC, draftDevlogC, groupFeedbackC, saveGameRepoC, themeToTaskC, type GameState } from "@/lib/client/game";
@@ -31,6 +31,14 @@ export function GameView({ state }: { state: GameState }) {
         <p className="text-sm text-muted-foreground mt-1">{s.repo?.split("/")[1]?.replace(/[-_]/g, " ") ?? "Your game"} — devlogs from your commits, and what playtesters really think.</p>
       </header>
       <DevlogCard state={state} />
+      <Link href="/game/reddit" className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 hover:bg-accent/40 transition-colors">
+        <span className="w-10 h-10 rounded-xl bg-orange-500/12 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0"><MessagesSquare className="w-5 h-5" /></span>
+        <div className="flex-1">
+          <h2 className="font-semibold">Reddit</h2>
+          <p className="text-sm text-muted-foreground">Find the right communities and get one honest, rule-checked post drafted a day.</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+      </Link>
       <PlaytestCard state={state} />
     </div>
   );

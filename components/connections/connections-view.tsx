@@ -9,6 +9,8 @@ import type { Connections } from "@/lib/actions/connections";
 import { addCalendar, removeCalendar } from "@/lib/client/calendar";
 import { saveYoutubeKeys } from "@/lib/client/youtube";
 import { BrandTile, type Brand } from "@/components/brand-icon";
+import { RedditConnectionCard } from "@/components/connections/reddit-connection";
+import type { RedditConnection } from "@/lib/client/reddit";
 
 function Status({ on, label }: { on: boolean; label?: string }) {
   return on ? (
@@ -45,7 +47,7 @@ function Card({ brand, name, what, status, children, href, cta }: {
   );
 }
 
-export function ConnectionsView({ connections: c }: { connections: Connections }) {
+export function ConnectionsView({ connections: c, reddit }: { connections: Connections; reddit: RedditConnection }) {
   return (
     <div className="max-w-4xl mx-auto px-5 md:px-10 py-8 md:py-12">
       <header className="mb-6">
@@ -60,6 +62,8 @@ export function ConnectionsView({ connections: c }: { connections: Connections }
             <CalendarSetup calendars={c.calendars} />
           </Card>
         </div>
+
+        <RedditConnectionCard connection={reddit} />
 
         <Card brand="claude" name="Claude · voice" what="Speak a command; Claude Code on your own subscription creates the tasks, routines and goals."
           status={<Status on={c.github} label={c.github ? "Instant start" : "10-min start"} />} href="/voice" cta="Open Voice" />

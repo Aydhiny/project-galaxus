@@ -798,6 +798,74 @@ export const playtestFeedback = pgTable(
   (t) => [index("idx_playtest_feedback_user").on(t.userId)]
 );
 
+// ─── Reddit for the game ───────────────────────────────────────────────────────
+// Communities worth showing the game to, their rules, and one drafted post a
+// day. Galaxus drafts; a human opens Reddit and presses Post (lib/reddit.ts).
+export const redditSettings = pgTable("reddit_settings", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull().default(true), // the daily scheduler drafts a post
+  dailyCap: integer("daily_cap").notNull().default(1),
+  gameName: varchar("game_name", { length: 120 }).notNull().default("Hunter Mouse 2"),
+  tagline: text("tagline"),
+  about: text("about"), // facts Claude may use; nothing outside this gets claimed
+  wishlistUrl: text("wishlist_url"), // Steam page — added to the first comment by code, never written by the model
+  keywords: text("keywords"), // community discovery searches, comma-separated
+  redditUsername: varchar("reddit_username", { length: 30 }), // goes in the User-Agent, as Reddit's API rules ask
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const redditCommunities = pgTable(
+  "reddit_communities",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    name: varchar("name", { length: 30 }).notNull(), // without r/
+    title: varchar("title", { length: 200 }),
+    description: text("description"),
+    subscribers: integer("subscribers"),
+    rules: jsonb("rules").$type<import("@/lib/reddit").RedditRule[]>(), // null = not read yet
+    promoPolicy: varchar("promo_policy", { length: 12 }).notNull().default("unknown"), // ok | restricted | banned | unknown
+    promoNote: text("promo_note"),
+    hot: jsonb("hot").$type<import("@/lib/reddit").RedditHotPost[]>(),
+    status: varchar("status", { length: 10 }).notNull().default("active"), // suggested | active | muted
+    source: varchar("source", { length: 10 }).notNull().default("seed"), // seed | search | manual
+    priority: integer("priority").notNull().default(100), // lower = earlier
+    lastPostedAt: timestamp("last_posted_at"),
+    skipUntil: timestamp("skip_until"),
+    fetchedAt: timestamp("fetched_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_reddit_communities_user_name").on(t.userId, t.name)]
+);
+
+export const redditPosts = pgTable(
+  "reddit_posts",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    communityId: integer("community_id").references(() => redditCommunities.id, { onDelete: "set null" }),
+    subreddit: varchar("subreddit", { length: 30 }).notNull(),
+    day: date("day").notNull(), // the user's local day it was drafted
+    title: varchar("title", { length: 300 }),
+    body: text("body"),
+    firstComment: text("first_comment"),
+    mediaHint: text("media_hint"),
+    flairHint: varchar("flair_hint", { length: 100 }),
+    angle: varchar("angle", { length: 120 }),
+    warnings: jsonb("warnings").$type<string[]>(),
+    status: varchar("status", { length: 10 }).notNull().default("queued"), // queued | draft | posted | skipped | failed
+    note: text("note"), // why it was skipped or failed
+    postUrl: text("post_url"),
+    postedAt: timestamp("posted_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_reddit_posts_user_status").on(t.userId, t.status), index("idx_reddit_posts_user_day").on(t.userId, t.day)]
+);
+
+export type RedditSettings = typeof redditSettings.$inferSelect;
+export type RedditCommunity = typeof redditCommunities.$inferSelect;
+export type RedditPost = typeof redditPosts.$inferSelect;
+
 // ─── Daily brief ───────────────────────────────────────────────────────────────
 // One row per user per local day: the headlines (from public RSS feeds) and,
 // once the runner has run, Claude's brief that points at them by id.
