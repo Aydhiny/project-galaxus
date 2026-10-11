@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { toResult } from "@/lib/action-result";
 import { requireUserId } from "@/lib/auth-session";
 import {
-  deleteProfileFor, queueClaudeScoring, radarFor, saveProfileFor, saveRedditKeyFor, scanGigsFor, setGigNotificationsFor, updateGigFor,
+  deleteProfileFor, pruneGigsFor, queueClaudeScoring, radarFor, saveProfileFor, saveRedditKeyFor, scanGigsFor, setGigNotificationsFor, updateGigFor,
   type ProfilePatch,
 } from "@/lib/services/gigs";
 
@@ -19,6 +19,7 @@ export async function scanGigsNow() {
   return toResult(async () => {
     const userId = await requireUserId();
     const r = await scanGigsFor(userId, { forceBoards: true });
+    await pruneGigsFor(userId); // re-apply the quality rules to what's already listed
     await queueClaudeScoring(userId);
     refresh();
     return r;
