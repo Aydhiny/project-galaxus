@@ -506,6 +506,8 @@ export const outreachSettings = pgTable("outreach_settings", {
   placesMonth: varchar("places_month", { length: 7 }),
   placesCalls: integer("places_calls").notNull().default(0),
   placesMonthlyCap: integer("places_monthly_cap").notNull().default(900),
+  // Cities the auto-scout covers, comma-separated (every business type in each).
+  scoutCities: text("scout_cities").notNull().default("Sarajevo, Mostar, Tuzla, Zenica"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

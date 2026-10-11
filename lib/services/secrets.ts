@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { outreachSettings, userSecrets } from "@/lib/db/schema";
 import { encrypt, tryDecrypt } from "@/lib/crypto-box";
 
-export type SecretName = "anthropic" | "google" | "youtube" | "github" | "github_read" | "calendar" | "reddit" | "stripe" | "gmail";
+export type SecretName = "anthropic" | "google" | "youtube" | "github" | "github_read" | "calendar" | "reddit" | "stripe" | "gmail" | "foursquare";
 
 export async function getSecret(userId: number, name: SecretName): Promise<string | null> {
   const [row] = await db
@@ -32,6 +32,9 @@ export async function getSecret(userId: number, name: SecretName): Promise<strin
 export function checkSecretFormat(name: SecretName, v: string) {
   if ((name === "google" || name === "youtube") && !/^AIza[0-9A-Za-z_-]{35}$/.test(v)) {
     throw new Error("That isn't a Google API key — those start with \"AIza\" and are 39 characters. In Google Cloud → Credentials, copy the API key (not the project ID or a client ID).");
+  }
+  if (name === "foursquare" && !/^[A-Za-z0-9_\-.]{20,}$/.test(v)) {
+    throw new Error("That doesn't look like a Foursquare service key — copy it from foursquare.com/developers → your project → Service API keys.");
   }
   if (name === "anthropic" && !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(v)) {
     throw new Error("That isn't an Anthropic API key — those start with \"sk-ant-\".");

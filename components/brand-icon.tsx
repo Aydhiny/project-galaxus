@@ -3,7 +3,7 @@
 // guidelines allow. Near-black logos (GitHub, Anthropic) use currentColor so
 // they stay visible in dark mode.
 
-import { siAnthropic, siClaude, siGithub, siGmail, siGooglecalendar, siGooglemaps, siOpenstreetmap, siReddit, siWhatsapp, siYoutube } from "simple-icons";
+import { siAnthropic, siClaude, siFoursquare, siGithub, siGmail, siGooglecalendar, siGooglemaps, siOpenstreetmap, siReddit, siWhatsapp, siYcombinator, siYoutube } from "simple-icons";
 import { cn } from "@/lib/utils";
 
 const ICONS = {
@@ -17,6 +17,8 @@ const ICONS = {
   youtube: siYoutube,
   gmail: siGmail,
   reddit: siReddit,
+  foursquare: siFoursquare,
+  ycombinator: siYcombinator,
 } as const;
 
 export type Brand = keyof typeof ICONS;

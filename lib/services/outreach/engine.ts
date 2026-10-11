@@ -19,11 +19,12 @@ import { db } from "@/lib/db";
 import { leads, leadSearches, outreachDays, outreachSettings, users, type Lead, type OutreachSlot } from "@/lib/db/schema";
 import { getSecret, setSecret } from "@/lib/services/secrets";
 import {
-  batchSizes, isLeadStatus, isMobileBA, localNow, normalizePhone, osmType, outreachStats, parsePastedLeads, planSlots,
-  REPLIED_STATUSES, demoUrl, scoreLead, withDemoLink, type LeadStatus,
+  OSM_TYPES, batchSizes, bizKey, isLeadStatus, isMobileBA, localNow, normalizePhone, osmType, outreachStats, parsePastedLeads, planSlots,
+  REPLIED_STATUSES, demoUrl, mergePlaces, scoreLead, withDemoLink, type LeadStatus,
 } from "@/lib/outreach";
 import { searchPlaces, type Place } from "./places";
 import { searchOsm } from "./osm";
+import { searchFoursquare } from "./foursquare";
 import { auditWebsite } from "./audit";
 import { draftMessage, monthlyReview } from "./messages";
 import { notifyUser } from "./push";
@@ -42,13 +43,14 @@ export async function getConfigFor(userId: number) {
     settings,
     senderName: settings.senderName?.trim() || user?.name?.split(" ")[0] || "Ajdin",
     googleKey: await getSecret(userId, "google"),
+    foursquareKey: await getSecret(userId, "foursquare"),
     anthropicKey: await getSecret(userId, "anthropic"),
   };
 }
 
 /** What the browser may see: no key material, just whether keys are set. */
 export async function getPublicConfigFor(userId: number) {
-  const { settings, senderName, googleKey, anthropicKey } = await getConfigFor(userId);
+  const { settings, senderName, googleKey, anthropicKey, foursquareKey } = await getConfigFor(userId);
   return {
     active: settings.active,
     senderName,
@@ -59,6 +61,8 @@ export async function getPublicConfigFor(userId: number) {
     windowEnd: settings.windowEnd,
     timezone: settings.timezone,
     hasGoogleKey: !!googleKey,
+    hasFoursquareKey: !!foursquareKey,
+    scoutCities: settings.scoutCities,
     hasAnthropicKey: !!anthropicKey,
     lastReview: settings.lastReview,
     lastReviewAt: settings.lastReviewAt,
@@ -78,6 +82,8 @@ export type SettingsPatch = Partial<{
   windowEnd: number;
   googleKey: string; // "" clears
   anthropicKey: string; // "" clears
+  foursquareKey: string; // "" clears
+  scoutCities: string;
 }>;
 
 const clampInt = (v: unknown, min: number, max: number) => Math.min(max, Math.max(min, Math.round(Number(v))));
@@ -94,6 +100,12 @@ export async function saveSettingsFor(userId: number, patch: SettingsPatch) {
   if (patch.windowEnd !== undefined) set.windowEnd = clampInt(patch.windowEnd, 1, 24);
   if (patch.googleKey !== undefined) await setSecret(userId, "google", patch.googleKey);
   if (patch.anthropicKey !== undefined) await setSecret(userId, "anthropic", patch.anthropicKey);
+  if (patch.foursquareKey !== undefined) await setSecret(userId, "foursquare", patch.foursquareKey);
+  if (patch.scoutCities !== undefined) {
+    const cities = String(patch.scoutCities).split(",").map((c) => c.trim()).filter(Boolean).slice(0, 15);
+    if (cities.length === 0) throw new Error("Add at least one city.");
+    set.scoutCities = cities.join(", ").slice(0, 500);
+  }
   await db.update(outreachSettings).set(set).where(eq(outreachSettings.userId, userId));
 
   const { settings } = await getConfigFor(userId);
@@ -159,32 +171,62 @@ async function takePlacesCall(userId: number) {
   await db.update(outreachSettings).set({ placesMonth: month, placesCalls: used + 1 }).where(eq(outreachSettings.userId, userId));
 }
 
+const RECHECK_DAYS = 14;
+
+/**
+ * Auto-scout: when your own searches are done, cover every business type in
+ * every scout city; once all are covered, re-check the oldest (new businesses
+ * open all the time). So the finder never runs dry.
+ */
+async function nextAutoSearch(userId: number, cities: string[], existing: (typeof leadSearches.$inferSelect)[]) {
+  const have = new Set(existing.filter((s) => s.source === "osm").map((s) => `${s.query}|${s.city.trim().toLowerCase()}`));
+  for (const type of OSM_TYPES) {
+    for (const city of cities) {
+      if (have.has(`${type.key}|${city.toLowerCase()}`)) continue;
+      const [row] = await db.insert(leadSearches).values({ userId, source: "osm", query: type.key, city, category: type.label }).returning();
+      return row;
+    }
+  }
+  const stale = existing
+    .filter((s) => s.active && s.source === "osm" && s.lastRunAt && Date.now() - s.lastRunAt.getTime() > RECHECK_DAYS * 86_400_000)
+    .sort((a, b) => a.lastRunAt!.getTime() - b.lastRunAt!.getTime())[0];
+  if (!stale) return null;
+  await db.update(leadSearches).set({ pagesFetched: 0, nextPageToken: null }).where(eq(leadSearches.id, stale.id));
+  return { ...stale, pagesFetched: 0, nextPageToken: null };
+}
+
 /** Fetch one page from the next search that still has results. */
-async function discoverPage(userId: number, googleKey: string | null): Promise<number | null> {
+async function discoverPage(userId: number, cfg: { googleKey: string | null; foursquareKey: string | null; cities: string[] }): Promise<number | null> {
   const searches = await db
     .select()
     .from(leadSearches)
-    .where(and(eq(leadSearches.userId, userId), eq(leadSearches.active, true)))
+    .where(eq(leadSearches.userId, userId))
     .orderBy(sql`${leadSearches.lastRunAt} asc nulls first`);
-  // Without a Google key, only the free OpenStreetMap searches can run.
-  const search = searches.find((s) => (s.source === "osm" || googleKey) && (s.pagesFetched === 0 || s.nextPageToken));
-  if (!search) return null; // every usable search exhausted — add a new city/category
+  // Without a Google key, only the free searches can run.
+  const search =
+    searches.find((s) => s.active && (s.source === "osm" || cfg.googleKey) && (s.pagesFetched === 0 || s.nextPageToken)) ??
+    (await nextAutoSearch(userId, cfg.cities, searches));
+  if (!search) return null; // everything covered and checked within the last two weeks
 
-  let places: Place[];
+  let places: Place[] = [];
   let nextPageToken: string | null = null;
   if (search.source === "osm") {
-    try {
-      places = await searchOsm(search.query, search.city); // all results at once, no pages
-    } catch (e) {
-      // OSM's free servers are sometimes overloaded: move this search to the
-      // back of the queue so other searches get a turn, and retry later.
+    // Free sources together: OpenStreetMap + Foursquare (if you added a key), merged by business name.
+    const type = osmType(search.query);
+    const [osm, fsq] = await Promise.allSettled([
+      searchOsm(search.query, search.city),
+      cfg.foursquareKey && type ? searchFoursquare(cfg.foursquareKey, type.label.split(/[&,]/)[0].trim(), search.city) : Promise.resolve([] as Place[]),
+    ]);
+    if (osm.status === "rejected" && fsq.status === "rejected") {
+      // Both busy: move this search to the back of the queue and retry later.
       await db.update(leadSearches).set({ lastRunAt: new Date() }).where(eq(leadSearches.id, search.id));
-      throw e;
+      throw osm.reason;
     }
+    places = mergePlaces(osm.status === "fulfilled" ? osm.value : [], fsq.status === "fulfilled" ? fsq.value : []);
   } else {
     await takePlacesCall(userId);
     try {
-      const result = await searchPlaces(googleKey!, `${search.query} ${search.city}`, search.nextPageToken);
+      const result = await searchPlaces(cfg.googleKey!, `${search.query} ${search.city}`, search.nextPageToken);
       places = result.places;
       nextPageToken = result.nextPageToken;
     } catch (e) {
@@ -205,6 +247,11 @@ async function discoverPage(userId: number, googleKey: string | null): Promise<n
 }
 
 async function insertLeads(userId: number, places: Place[], ctx: { searchId: number | null; city: string | null; category: string | null }) {
+  if (ctx.city && places.length) {
+    const known = await db.select({ name: leads.name }).from(leads).where(and(eq(leads.userId, userId), eq(leads.city, ctx.city)));
+    const keys = new Set(known.map((k) => bizKey(k.name)));
+    places = places.filter((p) => p.placeId.startsWith("manual:") || !keys.has(bizKey(p.name)));
+  }
   const rows = places.map((p) => {
     const phone = normalizePhone(p.internationalPhone, p.nationalPhone);
     return {
@@ -346,9 +393,10 @@ export async function runPipelineFor(userId: number, opts: { deadline?: number }
 
   if (stock < target) {
     await ensureDefaultSearchesFor(userId);
-    for (let page = 0; page < 3 && out.found + stock < target && Date.now() < deadline - 20_000; page++) {
+    const cities = cfg.settings.scoutCities.split(",").map((c) => c.trim()).filter(Boolean);
+    for (let page = 0; page < 6 && out.found + stock < target && Date.now() < deadline - 20_000; page++) {
       try {
-        const n = await discoverPage(userId, cfg.googleKey);
+        const n = await discoverPage(userId, { googleKey: cfg.googleKey, foursquareKey: cfg.foursquareKey, cities });
         if (n === null) { out.exhausted = true; break; }
         out.found += n;
       } catch (e) {
@@ -446,7 +494,7 @@ export async function listLeadsFor(userId: number) {
   return db.select().from(leads).where(eq(leads.userId, userId)).orderBy(desc(leads.updatedAt)).limit(1000);
 }
 
-export type LeadPatch = Partial<{ status: LeadStatus; message: string; revenueKm: number | null; notes: string; clientSiteUrl: string | null; retainerKm: number | null }>;
+export type LeadPatch = Partial<{ status: LeadStatus; skipReason: "wrong_business" | "not_a_fit"; message: string; revenueKm: number | null; notes: string; clientSiteUrl: string | null; retainerKm: number | null }>;
 
 export async function updateLeadFor(userId: number, id: number, patch: LeadPatch) {
   const [lead] = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.userId, userId))).limit(1);
@@ -461,6 +509,7 @@ export async function updateLeadFor(userId: number, id: number, patch: LeadPatch
     // Back to the queue (undo): it hasn't been sent after all.
     if (patch.status === "queued") Object.assign(set, { sentAt: null, repliedAt: null });
   }
+  if (patch.skipReason !== undefined && ["wrong_business", "not_a_fit"].includes(patch.skipReason)) set.skipReason = patch.skipReason;
   if (patch.message !== undefined) set.message = String(patch.message).slice(0, 2000);
   if (patch.notes !== undefined) set.notes = String(patch.notes).slice(0, 5000) || null;
   if (patch.clientSiteUrl !== undefined) {

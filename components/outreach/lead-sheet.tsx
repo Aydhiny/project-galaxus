@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Building2, Globe, MapPin, MessageCircle, Phone, Star } from "lucide-react";
+import { Ban, Building2, Globe, MapPin, MessageCircle, Phone, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/db/schema";
 import { STATUS_LABEL, formatPhone, whatsappLink, type LeadStatus } from "@/lib/outreach";
@@ -18,8 +18,8 @@ export function LeadDetail({ lead, onPatch }: { lead: Lead; onPatch: (p: LeadPat
   const [message, setMessage] = useState(lead.message ?? "");
   const [notes, setNotes] = useState(lead.notes ?? "");
   const [revenue, setRevenue] = useState(lead.revenueKm?.toString() ?? "");
-  // CompanyWall has no public API — a targeted search is the honest shortcut.
-  const companyWall = `https://www.google.com/search?q=${encodeURIComponent(`site:companywall.ba ${lead.name}`)}`;
+  // Resolved server-side to the company's own CompanyWall page.
+  const companyWall = `/api/outreach/companywall?${new URLSearchParams({ name: lead.name, city: lead.city ?? "" })}`;
 
   return (
     <div className="flex flex-col">
@@ -75,6 +75,12 @@ export function LeadDetail({ lead, onPatch }: { lead: Lead; onPatch: (p: LeadPat
               </button>
             ))}
           </div>
+          {lead.status !== "skipped" && !lead.sentAt && (
+            <button onClick={() => onPatch({ status: "skipped", skipReason: "wrong_business" })}
+              className="mt-2 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+              <Ban className="w-3.5 h-3.5" /> Wrong business — never contact
+            </button>
+          )}
           <p className="text-xs text-muted-foreground mt-2" suppressHydrationWarning>
             {lead.sentAt && <>Sent {format(new Date(lead.sentAt), "d MMM")}</>}
             {lead.repliedAt && <> · answered {format(new Date(lead.repliedAt), "d MMM")}</>}

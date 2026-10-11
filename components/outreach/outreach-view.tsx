@@ -3,12 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Loader2, MapPin, Phone, RefreshCw, Search, Sparkles, Star, Wand2, X } from "lucide-react";
+import { Ban, CalendarCheck, Globe, Handshake, Loader2, MapPin, MessageSquareReply, Phone, Radar, RefreshCw, Search, Send, Sparkles, Star, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandIcon } from "@/components/brand-icon";
 import type { Lead } from "@/lib/db/schema";
 import {
-  GAP_META, LEAD_STATUSES, STATUS_LABEL, formatPhone, whatsappLink, type Gap, type LeadStatus,
+  GAP_META, LEAD_STATUSES, STATUS_LABEL, formatPhone, leadSource, whatsappLink, type Gap, type LeadStatus,
 } from "@/lib/outreach";
 import {
   redraftLead, releaseBatchNow, runMonthlyReview, runOutreachPipeline, updateLead, type OutreachState,
@@ -70,7 +70,7 @@ export function OutreachView({ state }: { state: OutreachState }) {
   const findLeads = () => run("Finding leads", async () => {
     const r = await runOutreachPipeline();
     if (r.errors.length) throw new Error(r.errors[0]);
-    return `Found ${r.found} · audited ${r.audited} · drafted ${r.drafted}${r.exhausted ? " · all searches used up — add a city or category" : ""}`;
+    return `Found ${r.found} new business${r.found === 1 ? "" : "es"} · checked ${r.audited} websites · drafted ${r.drafted} messages${r.exhausted ? " · every city × type is covered — re-checks run every 2 weeks" : ""}`;
   });
   const releaseNow = () => run("Release", async () => {
     const n = await releaseBatchNow();
@@ -111,14 +111,17 @@ export function OutreachView({ state }: { state: OutreachState }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-8">
         {[
-          { label: "Sent this month", value: state.stats.sent },
-          { label: "Reply rate", value: `${state.stats.replyRate}%` },
-          { label: "Meetings", value: state.stats.meetings },
-          { label: "Clients", value: state.stats.clients },
+          { label: "Sent this month", value: state.stats.sent, icon: Send, tone: "text-sky-600 dark:text-sky-400 bg-sky-500/10" },
+          { label: "Reply rate", value: `${state.stats.replyRate}%`, icon: MessageSquareReply, tone: "text-violet-600 dark:text-violet-400 bg-violet-500/10" },
+          { label: "Meetings", value: state.stats.meetings, icon: CalendarCheck, tone: "text-amber-600 dark:text-amber-400 bg-amber-500/10" },
+          { label: "Clients", value: state.stats.clients, icon: Handshake, tone: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-border px-4 py-3">
-            <p className="text-2xl font-semibold tabular-nums">{s.value}</p>
-            <p className="text-xs text-muted-foreground">{s.label}</p>
+          <div key={s.label} className="rounded-xl border border-border px-4 py-3 flex items-center gap-3">
+            <span className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", s.tone)}><s.icon className="w-4 h-4" /></span>
+            <div>
+              <p className="text-xl font-semibold tabular-nums leading-tight">{s.value}</p>
+              <p className="text-[11px] text-muted-foreground">{s.label}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -166,6 +169,18 @@ export function OutreachView({ state }: { state: OutreachState }) {
               </div>
             )}
           </section>
+
+          <ScoutedSection
+            leads={leads}
+            onOpen={(l) => setOpenId(l.id)}
+            onWrong={(l) => {
+              patchLocal(l.id, { status: "skipped", skipReason: "wrong_business" });
+              updateLead(l.id, { status: "skipped", skipReason: "wrong_business" }).catch(() => toast.error("Couldn't save."));
+              toast.success(`${l.name} removed — it won't be contacted.`, {
+                action: { label: "Undo", onClick: () => { patchLocal(l.id, { status: l.status, skipReason: l.skipReason }); updateLead(l.id, { status: l.status as LeadStatus }).catch(() => {}); } },
+              });
+            }}
+          />
 
           {awaiting.length > 0 && (
             <section aria-labelledby="awaiting">
@@ -435,5 +450,79 @@ function FilterChip({ active, onClick, label, count }: { active: boolean; onClic
     >
       {label} <span className="opacity-60 ml-0.5 tabular-nums">{count}</span>
     </button>
+  );
+}
+
+const SOURCE_META = {
+  osm: { label: "OpenStreetMap", brand: "openstreetmap" },
+  foursquare: { label: "Foursquare", brand: "foursquare" },
+  google: { label: "Google", brand: "googlemaps" },
+  manual: { label: "Added by you", brand: null },
+} as const;
+
+/** Every business the scout found and hasn't contacted yet — remove the wrong ones before they're messaged. */
+function ScoutedSection({ leads, onOpen, onWrong }: { leads: Lead[]; onOpen: (l: Lead) => void; onWrong: (l: Lead) => void }) {
+  const scouted = leads
+    .filter((l) => l.status === "new" || l.status === "audited" || l.status === "ready")
+    .sort((a, b) => +new Date(b.createdAt ?? 0) - +new Date(a.createdAt ?? 0));
+  const cities = [...new Set(scouted.map((l) => l.city).filter(Boolean))] as string[];
+  const [city, setCity] = useState<string>("all");
+  const [showAll, setShowAll] = useState(false);
+  const shown = scouted.filter((l) => city === "all" || l.city === city);
+  return (
+    <section aria-labelledby="scouted">
+      <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
+        <div>
+          <h2 id="scouted" className="text-sm font-semibold flex items-center gap-1.5"><Radar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Scouted businesses <span className="text-muted-foreground font-normal tabular-nums">{scouted.length}</span></h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Found but not contacted yet. Tap <Ban className="w-3 h-3 inline -mt-0.5" /> on anything that isn&apos;t a real fit — it&apos;s never messaged.</p>
+        </div>
+        {cities.length > 1 && (
+          <div className="flex flex-wrap gap-1">
+            {["all", ...cities].map((c) => (
+              <button key={c} onClick={() => setCity(c)}
+                className={cn("h-7 px-2.5 rounded-full text-xs border", city === c ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground")}>
+                {c === "all" ? "All cities" : c}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {shown.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">Nothing scouted yet — tap Find leads.</p>
+      ) : (
+        <ul className="grid sm:grid-cols-2 gap-2">
+          {shown.slice(0, showAll ? 200 : 12).map((l) => {
+            const src = SOURCE_META[leadSource(l.placeId)];
+            return (
+              <li key={l.id} className="group rounded-xl border border-border bg-card p-3 flex gap-3 hover:border-foreground/20 transition-colors animate-in fade-in-0 slide-in-from-bottom-1">
+                <span className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0 text-sm font-semibold text-muted-foreground uppercase">{l.name.slice(0, 1)}</span>
+                <button onClick={() => onOpen(l)} className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium truncate">{l.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                    <MapPin className="w-3 h-3 shrink-0" />{[l.category, l.city].filter(Boolean).join(" · ")}
+                  </p>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-px text-muted-foreground">
+                      {src.brand && <BrandIcon name={src.brand} className="w-3 h-3" />}{src.label}
+                    </span>
+                    {l.phone && <span className="inline-flex items-center gap-0.5 text-muted-foreground"><Phone className="w-3 h-3" />{l.channel === "whatsapp" ? "mobile" : "phone"}</span>}
+                    {l.website ? <span className="inline-flex items-center gap-0.5 text-muted-foreground"><Globe className="w-3 h-3" />site</span>
+                      : <span className="rounded bg-amber-500/10 text-amber-800 dark:text-amber-200 px-1.5 py-px">no website</span>}
+                    <span className={cn("rounded-full px-1.5 py-px font-medium", STATUS_STYLE[l.status as LeadStatus])}>{STATUS_LABEL[l.status as LeadStatus]}</span>
+                  </p>
+                </button>
+                <button onClick={() => onWrong(l)} title="Wrong business — never contact" aria-label={`Remove ${l.name}`}
+                  className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                  <Ban className="w-4 h-4" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {shown.length > 12 && !showAll && (
+        <button onClick={() => setShowAll(true)} className="mt-2 text-xs text-muted-foreground hover:text-foreground">Show all {shown.length}</button>
+      )}
+    </section>
   );
 }

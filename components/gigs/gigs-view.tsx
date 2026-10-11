@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
-import { Bell, BellOff, Bookmark, Check, Copy, ExternalLink, Loader2, Plus, Radar, RefreshCw, Settings2, X, Zap } from "lucide-react";
+import { Banknote, Bell, BellOff, Bookmark, Check, Clock, Copy, ExternalLink, Flame, Layers, Loader2, Mail, PenLine, Plus, Radar, RefreshCw, Settings2, Sparkles, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Gig, GigProfile } from "@/lib/db/schema";
 import { GIG_PRESETS, GIG_SOURCES, SOURCE_LABEL, isOneTime, type GigSource } from "@/lib/gigs";
@@ -26,20 +26,39 @@ const SOURCE_TONE: Record<string, string> = {
   hn: "bg-amber-500/12 text-amber-800 dark:text-amber-200",
 };
 
+type Filter = "hot" | "budget" | "onetime" | null;
+
+const subredditOf = (url: string) => url.match(/reddit\.com\/r\/([^/]+)/i)?.[1] ?? null;
+const oneTime = (g: Gig) => isOneTime(`${g.title} ${g.body ?? ""}`, g.source);
+const presetEmoji = (name: string) => GIG_PRESETS.find((p) => p.name.toLowerCase() === name.toLowerCase())?.emoji ?? "🎯";
+
 export function GigsView({ state, autopilot }: { state: RadarState; autopilot: AutopilotState }) {
   const [profileId, setProfileId] = useState<number | "all">("all");
+  const [source, setSource] = useState<GigSource | "all">("all");
   const [tab, setTab] = useState<"new" | "saved" | "applied">("new");
+  const [filter, setFilter] = useState<Filter>(null);
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
   const [editing, setEditing] = useState<GigProfile | null>(null);
   const [adding, setAdding] = useState(false);
-  const [oneTime, setOneTime] = useState(false);
   const [notify, setNotify] = useState(state.notify);
   const [busy, start] = useTransition();
 
-  const list = state.gigs.filter((g) => !hidden.has(g.id) && g.status === tab && (profileId === "all" || g.profileId === profileId)
-    && (!oneTime || isOneTime(`${g.title} ${g.body ?? ""}`)));
+  const visible = state.gigs.filter((g) => !hidden.has(g.id));
+  const inTab = visible.filter((g) => g.status === tab && (profileId === "all" || g.profileId === profileId));
+  const bySource = (src: GigSource | "all") => inTab.filter((g) => src === "all" || g.source === src).length;
+  const list = inTab
+    .filter((g) => source === "all" || g.source === source)
+    .filter((g) => filter === null || (filter === "hot" ? (g.score ?? 0) >= 70 : filter === "budget" ? !!g.budget : oneTime(g)));
   const counts = { new: 0, saved: 0, applied: 0 };
-  for (const g of state.gigs) if (!hidden.has(g.id) && g.status in counts) counts[g.status as keyof typeof counts]++;
+  for (const g of visible) if (g.status in counts) counts[g.status as keyof typeof counts]++;
+  const fresh = visible.filter((g) => g.status === "new");
+  const [dayAgo] = useState(() => Date.now() - 86_400_000); // fixed per render-session (render must stay pure)
+  const stats = [
+    { key: null, label: "New today", value: fresh.filter((g) => g.createdAt && new Date(g.createdAt).getTime() > dayAgo).length, icon: Sparkles, tone: "text-sky-600 dark:text-sky-400 bg-sky-500/10" },
+    { key: "hot" as const, label: "Hot (70+)", value: fresh.filter((g) => (g.score ?? 0) >= 70).length, icon: Flame, tone: "text-orange-600 dark:text-orange-400 bg-orange-500/10" },
+    { key: "budget" as const, label: "Budget shown", value: fresh.filter((g) => g.budget).length, icon: Banknote, tone: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" },
+    { key: "onetime" as const, label: "One-time jobs", value: fresh.filter(oneTime).length, icon: Zap, tone: "text-amber-600 dark:text-amber-400 bg-amber-500/10" },
+  ];
 
   function setStatus(g: Gig, status: string) {
     setHidden((h) => new Set(h).add(g.id));
@@ -51,11 +70,14 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 flex items-center justify-center"><Radar className="w-5 h-5" /></span>
+            <span className="relative w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Radar className="w-5 h-5" />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+            </span>
             Gig radar
           </h1>
           <p className="text-sm text-muted-foreground mt-1" suppressHydrationWarning>
-            People hiring right now — scanned every hour{state.lastScan ? ` · last scan ${formatDistanceToNowStrict(new Date(state.lastScan.at))} ago` : ""}.
+            People hiring right now — Reddit and job boards, scanned every hour{state.lastScan ? ` · last scan ${formatDistanceToNowStrict(new Date(state.lastScan.at))} ago` : ""}.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -75,53 +97,92 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
               } catch (e) { toast.error((e as Error).message); }
             })}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-foreground text-background text-xs font-medium disabled:opacity-50">
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-foreground text-background text-xs font-medium disabled:opacity-50 active:scale-95 transition-transform">
             {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Scan now
           </button>
         </div>
       </header>
 
+      {/* Stats — tap one to filter */}
+      <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {stats.map((st, i) => (
+          <button key={st.label} onClick={() => st.key && setFilter(filter === st.key ? null : st.key)} disabled={!st.key}
+            style={{ animationDelay: `${i * 50}ms` }}
+            className={cn("rounded-xl border px-3 py-2.5 flex items-center gap-3 text-left transition-all animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both",
+              filter === st.key && st.key ? "border-primary bg-primary/5" : "border-border hover:border-foreground/20", !st.key && "cursor-default")}>
+            <span className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", st.tone)}><st.icon className="w-4 h-4" /></span>
+            <span>
+              <span className="block text-xl font-semibold tabular-nums leading-tight">{st.value}</span>
+              <span className="block text-[11px] text-muted-foreground">{st.label}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
       <AutopilotPanel state={autopilot} />
 
       {!state.redditConnected && <RedditConnect />}
 
-      {/* Profiles */}
+      {/* Gig types */}
       <div className="mt-6 flex flex-wrap items-center gap-1.5">
-        <Chip active={profileId === "all"} onClick={() => setProfileId("all")}>All</Chip>
+        <Chip active={profileId === "all"} onClick={() => setProfileId("all")}>All types</Chip>
         {state.profiles.map((p) => (
           <span key={p.id} className="inline-flex items-center">
-            <Chip active={profileId === p.id} onClick={() => setProfileId(p.id)} muted={!p.active}>{p.name}</Chip>
+            <Chip active={profileId === p.id} onClick={() => setProfileId(p.id)} muted={!p.active}><span className="mr-1">{presetEmoji(p.name)}</span>{p.name}</Chip>
             <button onClick={() => setEditing(p)} aria-label={`Edit ${p.name}`} className="ml-0.5 w-7 h-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
               <Settings2 className="w-3.5 h-3.5" />
             </button>
           </span>
         ))}
-        <button onClick={() => setAdding(true)} className="h-8 px-3 rounded-full text-sm border border-dashed border-border text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+        <button onClick={() => setAdding(true)} className="h-8 px-3 rounded-full text-sm border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 inline-flex items-center gap-1">
           <Plus className="w-3.5 h-3.5" /> Add gig type
         </button>
       </div>
 
-      <div className="mt-4 inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
-        {(["new", "saved", "applied"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn("px-3 h-7 rounded-md text-sm capitalize", tab === t ? "bg-background shadow-xs" : "text-muted-foreground")}>
-            {t} {counts[t] > 0 && <span className="opacity-60 tabular-nums">{counts[t]}</span>}
-          </button>
-        ))}
+      {/* Where it's from — Reddit first */}
+      <div className="mt-4 flex flex-wrap items-center gap-1.5">
+        {(["all", ...GIG_SOURCES] as const).map((src) => {
+          const n = bySource(src);
+          if (src !== "all" && src !== "reddit" && n === 0) return null;
+          return (
+            <button key={src} onClick={() => setSource(src)}
+              className={cn("h-8 pl-2 pr-2.5 rounded-lg border text-sm inline-flex items-center gap-1.5 transition-colors",
+                source === src ? "border-foreground/30 bg-foreground/5 font-medium" : "border-border text-muted-foreground hover:text-foreground")}>
+              {src === "all" ? <Layers className="w-3.5 h-3.5" /> : <SourceGlyph source={src} className="w-4 h-4" />}
+              {src === "all" ? "All sources" : SOURCE_LABEL[src]}
+              <span className="text-xs opacity-60 tabular-nums">{n}</span>
+            </button>
+          );
+        })}
       </div>
-      <button onClick={() => setOneTime((v) => !v)} title="A single job with a fixed price — do it once, get paid"
-        className={cn("ml-2 h-8 px-3 rounded-lg border text-sm inline-flex items-center gap-1 align-top mt-4", oneTime ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground")}>
-        <Zap className="w-3.5 h-3.5" /> One-time only
-      </button>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
+          {(["new", "saved", "applied"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={cn("px-3 h-7 rounded-md text-sm capitalize transition-colors", tab === t ? "bg-background shadow-xs" : "text-muted-foreground")}>
+              {t} {counts[t] > 0 && <span className="opacity-60 tabular-nums">{counts[t]}</span>}
+            </button>
+          ))}
+        </div>
+        {filter && (
+          <button onClick={() => setFilter(null)} className="h-7 px-2.5 rounded-full text-xs bg-primary/10 border border-primary/30 inline-flex items-center gap-1">
+            {stats.find((s) => s.key === filter)?.label} <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
 
       {list.length === 0 ? (
-        <p className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          {tab === "new" ? "No new gigs right now. The radar checks every hour — or tap Scan now." : `Nothing ${tab} yet.`}
-        </p>
+        <div className="mt-6 rounded-2xl border border-dashed border-border p-10 text-center">
+          <Radar className="w-8 h-8 mx-auto text-muted-foreground/50" />
+          <p className="mt-2 text-sm text-muted-foreground">
+            {tab === "new" ? "Nothing here right now. The radar checks every hour — or tap Scan now." : `Nothing ${tab} yet.`}
+          </p>
+        </div>
       ) : (
         <ul className="mt-4 space-y-3">
-          {list.map((g) => (
-            <GigCard key={g.id} gig={g} profile={state.profiles.find((p) => p.id === g.profileId)} onStatus={(s) => setStatus(g, s)} />
+          {list.slice(0, 150).map((g, i) => (
+            <GigCard key={g.id} index={i} gig={g} profile={state.profiles.find((p) => p.id === g.profileId)} onStatus={(s) => setStatus(g, s)} />
           ))}
         </ul>
       )}
@@ -149,49 +210,81 @@ function Chip({ active, onClick, children, muted }: { active: boolean; onClick: 
   );
 }
 
-function GigCard({ gig: g, profile, onStatus }: { gig: Gig; profile?: GigProfile; onStatus: (s: string) => void }) {
+const SOURCE_AVATAR: Record<string, string> = {
+  reddit: "bg-[#FF4500]/12",
+  hn: "bg-[#F0652F]/12",
+  remotive: "bg-sky-500/12 text-sky-700 dark:text-sky-300",
+  remoteok: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+  wwr: "bg-violet-500/12 text-violet-700 dark:text-violet-300",
+};
+
+/** Brand logo where one exists (Reddit, Hacker News/YC), otherwise a clean initial. */
+function SourceGlyph({ source, className }: { source: string; className?: string }) {
+  if (source === "reddit") return <BrandIcon name="reddit" className={className} />;
+  if (source === "hn") return <BrandIcon name="ycombinator" className={className} />;
+  const initials: Record<string, string> = { remotive: "R", remoteok: "OK", wwr: "W" };
+  return <span className={cn("inline-flex items-center justify-center font-bold text-[10px] leading-none", className)}>{initials[source] ?? "•"}</span>;
+}
+
+const accent = (s: number | null) => ((s ?? 0) >= 70 ? "before:bg-emerald-500" : (s ?? 0) >= 45 ? "before:bg-amber-500" : "before:bg-border");
+
+function GigCard({ gig: g, profile, onStatus, index }: { gig: Gig; profile?: GigProfile; onStatus: (s: string) => void; index: number }) {
   const [draft, setDraft] = useState(g.draft ?? "");
   const [open, setOpen] = useState(false);
+  const [showReply, setShowReply] = useState(false);
+  const sub = g.source === "reddit" ? subredditOf(g.url) : null;
   async function copyAndOpen() {
     try { await navigator.clipboard.writeText(draft); toast.success("Reply copied — paste it in the post or DM."); } catch { /* blocked */ }
     window.open(g.url, "_blank", "noopener");
   }
   return (
-    <li className="rounded-2xl border border-border bg-card p-4">
+    <li style={{ animationDelay: `${Math.min(index, 12) * 35}ms` }}
+      className={cn("relative overflow-hidden rounded-2xl border border-border bg-card p-4 pl-5 transition-all hover:border-foreground/20 hover:shadow-md hover:-translate-y-0.5",
+        "animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-both before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1", accent(g.score))}>
       <div className="flex items-start gap-3">
-        <div className="shrink-0 flex flex-col items-center gap-2">
-          <span className={cn("rounded-lg px-2 py-1 text-xs font-semibold tabular-nums", scoreTone(g.score))} title={g.scoredBy === "claude" ? "Scored by Claude" : "Keyword score"}>
-            {g.score ?? "–"}
-          </span>
-        </div>
+        <span className={cn("shrink-0 w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden", SOURCE_AVATAR[g.source] ?? "bg-muted")}>
+          {g.image ? <GigThumb src={g.image} fallback={<SourceGlyph source={g.source} className="w-5 h-5" />} /> : <SourceGlyph source={g.source} className="w-5 h-5" />}
+        </span>
         <div className="flex-1 min-w-0">
-          <a href={g.url} target="_blank" rel="noreferrer" className="font-medium leading-snug hover:underline underline-offset-4">{g.title}</a>
+          <div className="flex items-start gap-2">
+            <a href={g.url} target="_blank" rel="noreferrer" className="flex-1 font-medium leading-snug hover:underline underline-offset-4">{g.title.replace(/^\s*\[(hiring|task)\]\s*/i, "")}</a>
+            <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums inline-flex items-center gap-1", scoreTone(g.score))}
+              title={g.scoredBy === "claude" ? "Scored by Claude" : "Keyword score"}>
+              {(g.score ?? 0) >= 70 && <Flame className="w-3 h-3" />}{g.score ?? "–"}
+            </span>
+          </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground" suppressHydrationWarning>
-            <span className={cn("rounded px-1.5 py-px font-medium", SOURCE_TONE[g.source])}>{SOURCE_LABEL[g.source as GigSource] ?? g.source}</span>
-            {g.budget && <span className="rounded px-1.5 py-px font-semibold bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">{g.budget}</span>}
-            {isOneTime(`${g.title} ${g.body ?? ""}`) && <span className="rounded px-1.5 py-px font-medium bg-amber-500/12 text-amber-800 dark:text-amber-200 inline-flex items-center gap-0.5"><Zap className="w-3 h-3" /> One-time</span>}
-            {g.postedAt && <span>{formatDistanceToNowStrict(new Date(g.postedAt))} ago</span>}
-            {profile && <span>· {profile.name}</span>}
+            <span className={cn("rounded px-1.5 py-px font-medium", SOURCE_TONE[g.source])}>{sub ? `r/${sub}` : SOURCE_LABEL[g.source as GigSource] ?? g.source}</span>
+            {g.budget && <span className="rounded px-1.5 py-px font-semibold bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-0.5"><Banknote className="w-3 h-3" />{g.budget}</span>}
+            {oneTime(g) && <span className="rounded px-1.5 py-px font-medium bg-amber-500/12 text-amber-800 dark:text-amber-200 inline-flex items-center gap-0.5"><Zap className="w-3 h-3" /> One-time</span>}
+            {g.contactEmail && <span className="rounded px-1.5 py-px bg-sky-500/10 text-sky-700 dark:text-sky-300 inline-flex items-center gap-0.5"><Mail className="w-3 h-3" /> email</span>}
+            {g.postedAt && <span className="inline-flex items-center gap-0.5"><Clock className="w-3 h-3" />{formatDistanceToNowStrict(new Date(g.postedAt))} ago</span>}
+            {profile && <span>{presetEmoji(profile.name)} {profile.name}</span>}
             {g.scoredBy === "claude" && <span className="inline-flex items-center gap-1"><BrandIcon name="claude" className="w-3 h-3" /> scored</span>}
           </p>
           {g.reason && <p className="mt-1.5 text-xs text-muted-foreground">{g.reason}</p>}
-          <GigImage src={g.image} />
           {g.body && (
             <button onClick={() => setOpen((v) => !v)} className="mt-1.5 block text-left text-sm text-muted-foreground">
               <span className={cn(!open && "line-clamp-2")}>{g.body}</span>
             </button>
           )}
+          <GigImage src={g.image} />
         </div>
       </div>
-      <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => { if (draft !== (g.draft ?? "")) updateGigC(g.id, { draft }).catch(() => toast.error("Couldn't save the draft.")); }}
-        rows={4} className="mt-3 w-full rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed" aria-label="Your reply" />
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button onClick={copyAndOpen} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-foreground text-background text-sm font-medium">
+      {showReply && (
+        <textarea value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus
+          onBlur={() => { if (draft !== (g.draft ?? "")) updateGigC(g.id, { draft }).catch(() => toast.error("Couldn't save the draft.")); }}
+          rows={5} className="mt-3 w-full rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed animate-in fade-in-0" aria-label="Your reply" />
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button onClick={copyAndOpen} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-foreground text-background text-sm font-medium active:scale-95 transition-transform">
           <Copy className="w-4 h-4" /> Copy reply &amp; open
         </button>
+        <button onClick={() => setShowReply((v) => !v)} className={cn("inline-flex items-center gap-1 h-9 px-3 rounded-lg border text-sm hover:bg-accent", showReply ? "border-foreground/30" : "border-border")}>
+          <PenLine className="w-4 h-4" /> {showReply ? "Hide reply" : "Edit reply"}
+        </button>
         {g.status !== "applied" && (
-          <button onClick={() => onStatus("applied")} className="inline-flex items-center gap-1 h-9 px-3 rounded-lg border border-border text-sm hover:bg-accent">
+          <button onClick={() => onStatus("applied")} className="inline-flex items-center gap-1 h-9 px-3 rounded-lg border border-border text-sm hover:bg-emerald-500/10 hover:border-emerald-500/30">
             <Check className="w-4 h-4" /> Applied
           </button>
         )}
@@ -202,10 +295,18 @@ function GigCard({ gig: g, profile, onStatus }: { gig: Gig; profile?: GigProfile
         )}
         <span className="flex-1" />
         <a href={g.url} target="_blank" rel="noreferrer" className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" aria-label="Open post"><ExternalLink className="w-4 h-4" /></a>
-        <button onClick={() => onStatus("dismissed")} className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent" aria-label="Dismiss"><X className="w-4 h-4" /></button>
+        <button onClick={() => onStatus("dismissed")} className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="Dismiss"><X className="w-4 h-4" /></button>
       </div>
     </li>
   );
+}
+
+/** Small square thumbnail (company logo / post preview) with a fallback if the host blocks it. */
+function GigThumb({ src, fallback }: { src: string; fallback: React.ReactNode }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <>{fallback}</>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} className="w-full h-full object-cover" />;
 }
 
 function RedditConnect() {
@@ -285,7 +386,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /** Post preview or company logo; disappears quietly if the host blocks it. */
 function GigImage({ src }: { src: string | null }) {
   const [broken, setBroken] = useState(false);
-  if (!src || broken) return null;
+  // Company logos are shown as the avatar; only real post previews (Reddit) get the big image.
+  if (!src || broken || !/redd\.it|redditmedia|reddit\.com/.test(src)) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)}

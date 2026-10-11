@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Bell, Check, ClipboardPaste, KeyRound, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Bell, Check, ClipboardPaste, KeyRound, Loader2, MapPin, Plus, Radar, RotateCcw, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandIcon } from "@/components/brand-icon";
 import { Switch } from "@/components/ui/switch";
@@ -135,6 +135,7 @@ export function SetupPanel({ state, onFind, finding }: { state: OutreachState; o
         />
       </Card>
 
+      <ScoutCard state={state} onSave={save} pending={pending} />
       <SearchesCard state={state} onFind={onFind} finding={finding} />
       <PasteCard />
     </div>
@@ -276,7 +277,7 @@ function SearchesCard({ state, onFind, finding }: { state: OutreachState; onFind
 
   return (
     <Card title="Who to find" icon={<Search className="w-4 h-4" />}
-      hint="OpenStreetMap is free and needs no key (fewer phone numbers — Galaxus reads them off websites). Google finds more but needs a key. When a search runs out, add another city or business type.">
+      hint="Optional extra searches. The auto-scout above already covers every business type in your cities — add one here only for something specific (e.g. a Google search phrase).">
       {state.searches.length === 0 ? (
         <p className="text-sm text-muted-foreground">Turn the campaign on to start with dentists in Sarajevo, or add your own below.</p>
       ) : (
@@ -376,5 +377,59 @@ function PasteCard() {
         </button>
       </div>
     </Card>
+  );
+}
+
+/** The auto-scout: every business type × every city, from all free sources, re-checked every 2 weeks. */
+function ScoutCard({ state, onSave, pending }: { state: OutreachState; onSave: (patch: Parameters<typeof saveOutreachSettings>[0], done?: string) => void; pending: boolean }) {
+  const c = state.config;
+  const [cities, setCities] = useState(c.scoutCities);
+  const list = cities.split(",").map((x) => x.trim()).filter(Boolean);
+  return (
+    <Card title="Auto-scout" icon={<Radar className="w-4 h-4" />}
+      hint={<>Scans {OSM_TYPES.length} business types in every city below and merges what each free source knows — then re-checks every 2 weeks for new openings. It never runs out.</>}>
+      <Field label="Cities (comma-separated)">
+        <input value={cities} onChange={(e) => setCities(e.target.value)} placeholder="Sarajevo, Mostar, Tuzla, Zenica" className="input-base" />
+      </Field>
+      <div className="flex flex-wrap gap-1.5 mt-2">
+        {list.map((city) => (
+          <span key={city} className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs"><MapPin className="w-3 h-3" />{city}</span>
+        ))}
+      </div>
+      <button onClick={() => onSave({ scoutCities: cities }, "Scout cities saved — new ones are scanned on the next run.")} disabled={pending || list.length === 0}
+        className="mt-3 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">Save cities</button>
+
+      <div className="mt-5 grid sm:grid-cols-3 gap-2 text-xs">
+        <SourceTile brand="openstreetmap" name="OpenStreetMap" status="On · free, no key" on />
+        <SourceTile brand="foursquare" name="Foursquare" status={c.hasFoursquareKey ? "On · adds phones" : "Add a free key below"} on={c.hasFoursquareKey} />
+        <SourceTile brand="googlemaps" name="Google Places" status={c.hasGoogleKey ? `On · ${c.placesCalls}/${c.placesCap} this month` : "Optional key"} on={c.hasGoogleKey} />
+      </div>
+      <div className="mt-4">
+        <KeyField
+          label="Foursquare service key — optional, free"
+          isSet={c.hasFoursquareKey}
+          onSave={(v) => onSave({ foursquareKey: v }, v ? "Foursquare key saved." : "Foursquare key removed.")}
+          help={
+            <ol className="list-decimal pl-4 space-y-0.5">
+              <li>Sign up at <a className="underline" href="https://foursquare.com/developers/signup" target="_blank" rel="noreferrer">foursquare.com/developers</a> (free).</li>
+              <li>Create a project → <b>Service API keys</b> → generate a key, paste it here.</li>
+            </ol>
+          }
+          footnote={<>Foursquare has years of check-ins across Bosnia — it often has the phone number OpenStreetMap is missing. Same business from two sources becomes one lead.</>}
+        />
+      </div>
+    </Card>
+  );
+}
+
+function SourceTile({ brand, name, status, on }: { brand: "openstreetmap" | "foursquare" | "googlemaps"; name: string; status: string; on: boolean }) {
+  return (
+    <div className={cn("rounded-lg border px-3 py-2 flex items-center gap-2", on ? "border-emerald-500/30 bg-emerald-500/5" : "border-border")}>
+      <BrandIcon name={brand} className="w-4 h-4 shrink-0" />
+      <div className="min-w-0">
+        <p className="font-medium truncate">{name}</p>
+        <p className={cn("truncate", on ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground")}>{status}</p>
+      </div>
+    </div>
   );
 }

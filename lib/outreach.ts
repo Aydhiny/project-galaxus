@@ -278,6 +278,30 @@ export const OSM_TYPES = [
   { key: "lawyer", label: "Lawyers", tags: ["office=lawyer"] },
   { key: "accountant", label: "Accountants", tags: ["office=accountant"] },
   { key: "estate_agent", label: "Real estate agents", tags: ["office=estate_agent"] },
+  { key: "bakery", label: "Bakeries & pastry shops", tags: ["shop=bakery", "shop=pastry"] },
+  { key: "florist", label: "Florists", tags: ["shop=florist"] },
+  { key: "optician", label: "Opticians", tags: ["shop=optician", "healthcare=optometrist"] },
+  { key: "car_wash", label: "Car washes", tags: ["amenity=car_wash"] },
+  { key: "car_rental", label: "Car rental", tags: ["amenity=car_rental"] },
+  { key: "car_dealer", label: "Car dealers", tags: ["shop=car"] },
+  { key: "driving_school", label: "Driving schools", tags: ["amenity=driving_school"] },
+  { key: "kindergarten", label: "Kindergartens", tags: ["amenity=kindergarten"] },
+  { key: "language_school", label: "Language & music schools", tags: ["amenity=language_school", "amenity=music_school"] },
+  { key: "travel_agency", label: "Travel agencies", tags: ["shop=travel_agency", "office=travel_agent"] },
+  { key: "photographer", label: "Photographers & photo studios", tags: ["shop=photo", "craft=photographer"] },
+  { key: "tailor", label: "Tailors", tags: ["shop=tailor", "craft=tailor"] },
+  { key: "jewelry", label: "Jewellers", tags: ["shop=jewelry"] },
+  { key: "furniture", label: "Furniture shops", tags: ["shop=furniture", "shop=interior_decoration"] },
+  { key: "clothes", label: "Clothing boutiques", tags: ["shop=clothes", "shop=shoes"] },
+  { key: "massage", label: "Massage & spa", tags: ["shop=massage", "leisure=spa", "amenity=spa"] },
+  { key: "fast_food", label: "Fast food & ćevabdžinice", tags: ["amenity=fast_food"] },
+  { key: "bar", label: "Bars & pubs", tags: ["amenity=bar", "amenity=pub"] },
+  { key: "architect", label: "Architects", tags: ["office=architect"] },
+  { key: "insurance", label: "Insurance agencies", tags: ["office=insurance"] },
+  { key: "tradesmen", label: "Electricians & plumbers", tags: ["craft=electrician", "craft=plumber", "craft=hvac"] },
+  { key: "phone_repair", label: "Phone & computer shops", tags: ["shop=mobile_phone", "shop=computer", "shop=electronics"] },
+  { key: "pet_shop", label: "Pet shops & groomers", tags: ["shop=pet", "shop=pet_grooming"] },
+  { key: "event_venue", label: "Event & wedding venues", tags: ["amenity=events_venue", "amenity=conference_centre"] },
 ] as const;
 export type OsmTypeKey = (typeof OSM_TYPES)[number]["key"];
 export const osmType = (key: string) => OSM_TYPES.find((t) => t.key === key) ?? null;
@@ -382,3 +406,47 @@ export function uptimeReport(p: { client: string; monthLabel: string; site: stri
     `Pozdrav, ${p.senderName}`,
   ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n");
 }
+
+// ─── Merging lead sources ─────────────────────────────────────────────────────
+
+/** "Stomatološka ordinacija Smile d.o.o." and "Smile" → the same comparison key. */
+export function bizKey(name: string): string {
+  return name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "dj")
+    .replace(/\b(d\.?\s?o\.?\s?o\.?|s\.?\s?p\.?|obrt|szr|pzu|zu|j\.?d\.?o\.?o\.?)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+type Mergeable = { name: string; internationalPhone: string | null; website: string | null; address: string | null };
+/**
+ * Combine results from several free sources: the same business found twice
+ * becomes one lead, keeping whichever source had the phone / website.
+ */
+export function mergePlaces<T extends Mergeable>(primary: T[], extra: T[]): T[] {
+  const out = primary.map((p) => ({ ...p }));
+  const byKey = new Map(out.map((p) => [bizKey(p.name), p]));
+  for (const e of extra) {
+    const k = bizKey(e.name);
+    const hit = k ? byKey.get(k) : undefined;
+    if (hit) {
+      hit.internationalPhone ??= e.internationalPhone;
+      hit.website ??= e.website;
+      hit.address ??= e.address;
+    } else if (k) {
+      const copy = { ...e };
+      out.push(copy);
+      byKey.set(k, copy);
+    }
+  }
+  return out;
+}
+
+/** Where a lead came from, from its id prefix. */
+export function leadSource(placeId: string | null | undefined): "osm" | "foursquare" | "google" | "manual" {
+  if (!placeId) return "manual";
+  if (placeId.startsWith("osm:")) return "osm";
+  if (placeId.startsWith("fsq:")) return "foursquare";
+  if (placeId.startsWith("manual:")) return "manual";
+  return "google";
+}
+
+export const DEFAULT_SCOUT_CITIES = "Sarajevo, Mostar, Tuzla, Zenica";

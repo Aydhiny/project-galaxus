@@ -292,6 +292,7 @@ const STATEMENTS = [
   // ── 2026-10 · Free lead sources + Places free-tier guard ────────────────
   `ALTER TABLE "lead_searches" ADD COLUMN IF NOT EXISTS "source" varchar(10) DEFAULT 'google' NOT NULL`,
   `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_month" varchar(7)`,
+  `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "scout_cities" text NOT NULL DEFAULT 'Sarajevo, Mostar, Tuzla, Zenica'`,
   `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_calls" integer DEFAULT 0 NOT NULL`,
   `ALTER TABLE "outreach_settings" ADD COLUMN IF NOT EXISTS "places_monthly_cap" integer DEFAULT 900 NOT NULL`,
 

@@ -114,10 +114,11 @@ export const GIG_PRESETS: { name: string; emoji: string; keywords: string; exclu
  * "Do it once, get paid": a single deliverable with a fixed price, not an
  * ongoing role. Good for fast money with no commitment.
  */
-export function isOneTime(text: string): boolean {
+export function isOneTime(text: string, source: string = "reddit"): boolean {
+  if (source !== "reddit") return false; // job boards list employment roles, not one-off tasks
   const t = text.toLowerCase();
-  if (/\b(full[- ]time|part[- ]time|long[- ]term|ongoing|monthly retainer|per month|\/mo\b|salary|\/yr|per year|annual|benefits|401k)\b/.test(t)) return false;
-  return /\b(one[- ]time|one[- ]off|single (video|task|job|logo|edit|project)|quick (task|job|fix|gig|edit)|small (task|job|project)|fixed price|just (one|a single)|for one (video|edit|logo|thumbnail)|today|asap|urgent)\b/.test(t)
+  if (/\b(full[- ]?time|part[- ]?time|hiring editors|editors needed|daily|every day|per week|weekly|long[- ]term|ongoing|monthly retainer|per month|\/mo\b|salary|\/yr|per year|annual|benefits|401k)\b/.test(t)) return false;
+  return /\b(one[- ]time|one[- ]off|single (video|task|job|logo|edit|project)|quick (task|job|fix|gig|edit)|small (task|job|project)|fixed price|just (one|a single)|for one (video|edit|logo|thumbnail))\b/.test(t)
     || /[$€£]\s?\d+\s*(?:for|to)\s+(?:a|one|this|the)\b/.test(t);
 }
 
@@ -161,7 +162,7 @@ export function keywordScore(g: RawGig, hits: string[], now = new Date()): numbe
   s += ageH < 6 ? 20 : ageH < 24 ? 12 : ageH < 72 ? 5 : 0;
   if (/\b(ongoing|long[- ]term|recurring|monthly|weekly|daily)\b/i.test(g.body)) s += 10;
   if (/\bremote\b/i.test(`${g.title} ${g.body}`)) s += 5;
-  if (isOneTime(`${g.title} ${g.body}`)) s += 8; // quick money, no commitment
+  if (isOneTime(`${g.title} ${g.body}`, g.source)) s += 8; // quick money, no commitment
   return Math.max(0, Math.min(100, s));
 }
 

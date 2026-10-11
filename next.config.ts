@@ -15,7 +15,8 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://img.youtube.com https://i.ytimg.com https://ghchart.rshah.org https://*.public.blob.vercel-storage.com",
+  // News/gig images are hotlinked from many outlets (with no-referrer), so any https image host is allowed.
+  "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' https://*.public.blob.vercel-storage.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.sentry.io",
   "media-src 'self' blob: https://*.public.blob.vercel-storage.com",
