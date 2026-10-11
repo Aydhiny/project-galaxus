@@ -81,3 +81,17 @@ describe("quality filter (real posts)", () => {
     expect(isLowball("$25 per short")).toBe(false);
   });
 });
+
+import { htmlToText, postImages } from "./gigs";
+describe("full Reddit posts", () => {
+  const content = `&lt;!-- SC_OFF --&gt;&lt;div class="md"&gt;&lt;p&gt;Need 10 shorts edited.&lt;/p&gt; &lt;ul&gt;&lt;li&gt;Budget: $100&lt;/li&gt;&lt;li&gt;Deadline: Friday&lt;/li&gt;&lt;/ul&gt; &lt;p&gt;Example: &lt;a href="https://i.redd.it/abc123.png"&gt;link&lt;/a&gt;&lt;/p&gt; &lt;/div&gt;&lt;!-- SC_ON --&gt; &amp;#32; submitted by &amp;#32; &lt;a href="https://www.reddit.com/user/x"&gt; /u/x &lt;/a&gt;`;
+  it("keeps paragraphs and bullets, drops the feed footer", () => {
+    const t = htmlToText(content);
+    expect(t).toContain("Need 10 shorts edited.\n");
+    expect(t).toContain("• Budget: $100");
+    expect(t).not.toMatch(/submitted by/);
+  });
+  it("finds pictures inside the post", () => {
+    expect(postImages(content)).toEqual(["https://i.redd.it/abc123.png"]);
+  });
+});

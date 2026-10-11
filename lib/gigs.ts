@@ -24,6 +24,7 @@ export type RawGig = {
   flair?: string | null;
   subreddit?: string | null;
   image?: string | null; // post preview or company logo (hotlinked)
+  images?: string[]; // pictures inside the post body
 };
 
 export const DEFAULT_PROFILES = [
@@ -189,6 +190,27 @@ export function templateReply(g: Pick<RawGig, "title" | "source">, pitch: string
 const decode = (s: string) =>
   s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;|&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
 /** Feeds often HTML-escape their HTML: decode first, then drop tags. */
+/** Post HTML → readable text that keeps paragraphs and bullet points (for the full description). */
+export function htmlToText(s: string): string {
+  const html = decode(s).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)));
+  return decode(html
+    .replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|h\d|blockquote|tr)>/gi, "\n\n").replace(/<li[^>]*>/gi, "\n• ").replace(/<[^>]+>/g, " "))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/submitted by\s+\/u\/[\s\S]*$/i, "") // Reddit's feed footer
+    .replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Pictures inside a Reddit post: <img>, i.redd.it / preview.redd.it / i.imgur.com links. */
+export function postImages(html: string): string[] {
+  const h = decode(decode(html));
+  const urls = [
+    ...[...h.matchAll(/<img[^>]+src="(https:\/\/[^"]+)"/gi)].map((m) => m[1]),
+    ...[...h.matchAll(/https:\/\/(?:i\.redd\.it|preview\.redd\.it|i\.imgur\.com)\/[^\s"'<>)]+/gi)].map((m) => m[0]),
+  ].map((u) => u.replace(/&amp;/g, "&"))
+    .filter((u) => !/external-preview|thumbs\.redditmedia|\/award_images\/|emoji/i.test(u) && /\.(jpe?g|png|webp|gif)(\?|$)|preview\.redd\.it|i\.redd\.it/i.test(u));
+  return [...new Set(urls)].slice(0, 6);
+}
+
 const stripHtml = (s: string) => decode(decode(s).replace(/<[^>]+>/g, " ")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 type RedditChild = { data: { id: string; title: string; selftext?: string; permalink: string; author?: string; created_utc?: number; link_flair_text?: string | null; subreddit?: string; over_18?: boolean; thumbnail?: string; preview?: { images?: { source?: { url?: string } }[] } } };
@@ -204,7 +226,8 @@ export function parseRedditListing(json: unknown): RawGig[] {
       externalId: `reddit:${c.data.id}`,
       title: c.data.title.slice(0, 300),
       url: `https://www.reddit.com${c.data.permalink}`,
-      body: (c.data.selftext ?? "").slice(0, 3000),
+      body: (c.data.selftext ?? "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").slice(0, 8000),
+      images: postImages(`${c.data.selftext ?? ""} ${c.data.preview?.images?.map((i) => i.source?.url ?? "").join(" ") ?? ""}`),
       author: c.data.author ?? null,
       postedAt: c.data.created_utc ? new Date(c.data.created_utc * 1000) : null,
       flair: c.data.link_flair_text ?? null,
@@ -223,12 +246,13 @@ export function parseRedditRss(xml: string): RawGig[] {
       externalId: `reddit:${id}`,
       title: stripHtml(get(/<title>([\s\S]*?)<\/title>/)).slice(0, 300),
       url: get(/<link href="([^"]+)"/),
-      body: stripHtml(get(/<content[^>]*>([\s\S]*?)<\/content>/)).slice(0, 3000),
+      body: htmlToText(get(/<content[^>]*>([\s\S]*?)<\/content>/)).slice(0, 8000),
       author: get(/<name>\/?u\/([^<]+)<\/name>/) || null,
       postedAt: get(/<published>([^<]+)<\/published>/) ? new Date(get(/<published>([^<]+)<\/published>/)) : null,
       flair: null,
       subreddit: get(/<category term="([^"]+)"/) || null,
-      image: httpsImage(get(/<media:thumbnail url="([^"]+)"/)) ?? httpsImage(decode(get(/<content[^>]*>([\s\S]*?)<\/content>/)).match(/<img src="([^"]+)"/)?.[1]),
+      images: postImages(get(/<content[^>]*>([\s\S]*?)<\/content>/)),
+      image: postImages(get(/<content[^>]*>([\s\S]*?)<\/content>/))[0] ?? httpsImage(get(/<media:thumbnail url="([^"]+)"/)),
     };
   }).filter((g) => g.title && g.url && g.externalId !== "reddit:");
 }

@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
-import { Banknote, Bell, BellOff, Bookmark, Check, Clock, Copy, ExternalLink, Flame, Layers, Loader2, Mail, PenLine, Plus, Radar, RefreshCw, Settings2, Sparkles, X, Zap } from "lucide-react";
+import { Banknote, Bell, BellOff, Bookmark, Brain, Check, ChevronDown, Clock, Copy, GraduationCap, ThumbsDown, ThumbsUp, ExternalLink, Flame, Layers, Loader2, Mail, PenLine, Plus, Radar, RefreshCw, Settings2, Sparkles, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Gig, GigProfile } from "@/lib/db/schema";
+import { DOWN_REASONS, UP_REASONS } from "@/lib/gig-learning";
 import { GIG_PRESETS, GIG_SOURCES, SOURCE_LABEL, isOneTime, type GigSource } from "@/lib/gigs";
 import {
-  saveGigProfileC, saveRedditKeyC, scanGigsNowC, setGigNotificationsC, updateGigC, type RadarState,
+  resetGigLearningC, reviewGigC, saveGigProfileC, saveRedditKeyC, scanGigsNowC, setGigNotificationsC, updateGigC, type RadarState,
 } from "@/lib/client/gigs";
 import { BrandIcon } from "@/components/brand-icon";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -42,13 +43,26 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
   const [adding, setAdding] = useState(false);
   const [notify, setNotify] = useState(state.notify);
   const [busy, start] = useTransition();
+  const [teach, setTeach] = useState(false);
+  const [rated, setRated] = useState<Record<number, number>>({});
 
   const visible = state.gigs.filter((g) => !hidden.has(g.id));
   const inTab = visible.filter((g) => g.status === tab && (profileId === "all" || g.profileId === profileId));
   const bySource = (src: GigSource | "all") => inTab.filter((g) => src === "all" || g.source === src).length;
   const list = inTab
     .filter((g) => source === "all" || g.source === source)
-    .filter((g) => filter === null || (filter === "hot" ? (g.score ?? 0) >= 70 : filter === "budget" ? !!g.budget : oneTime(g)));
+    .filter((g) => filter === null || (filter === "hot" ? (g.score ?? 0) >= 70 : filter === "budget" ? !!g.budget : oneTime(g)))
+    // Teach mode: unreviewed gigs the model is least sure about first (active learning — each review teaches the most).
+    .filter((g) => !teach || (g.rating == null && rated[g.id] == null))
+    .sort((a, b) => (teach ? Math.abs((a.mlP ?? 0.5) - 0.5) - Math.abs((b.mlP ?? 0.5) - 0.5) : 0));
+
+  function review(g: Gig, rating: 1 | -1, reasons: string[]) {
+    setRated((r) => ({ ...r, [g.id]: rating }));
+    if (rating === -1) setHidden((h) => new Set(h).add(g.id));
+    reviewGigC(g.id, rating, reasons)
+      .then((r) => { if (r.ready && r.accuracy != null) toast.success(`Learned ✓ — accuracy on your reviews: ${r.accuracy}%`, { id: "learned" }); })
+      .catch((e) => toast.error((e as Error).message));
+  }
   const counts = { new: 0, saved: 0, applied: 0 };
   for (const g of visible) if (g.status in counts) counts[g.status as keyof typeof counts]++;
   const fresh = visible.filter((g) => g.status === "new");
@@ -119,6 +133,8 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
         ))}
       </div>
 
+      <LearningPanel learning={state.learning} teach={teach} onTeach={() => { setTeach((v) => !v); setTab("new"); }} />
+
       <AutopilotPanel state={autopilot} />
 
       {!state.redditConnected && <RedditConnect />}
@@ -182,7 +198,8 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
       ) : (
         <ul className="mt-4 space-y-3">
           {list.slice(0, 150).map((g, i) => (
-            <GigCard key={g.id} index={i} gig={g} profile={state.profiles.find((p) => p.id === g.profileId)} onStatus={(s) => setStatus(g, s)} />
+            <GigCard key={g.id} index={i} gig={g} profile={state.profiles.find((p) => p.id === g.profileId)} onStatus={(s) => setStatus(g, s)}
+              rating={rated[g.id] ?? g.rating ?? 0} onReview={(r, reasons) => review(g, r, reasons)} />
           ))}
         </ul>
       )}
@@ -228,7 +245,11 @@ function SourceGlyph({ source, className }: { source: string; className?: string
 
 const accent = (s: number | null) => ((s ?? 0) >= 70 ? "before:bg-emerald-500" : (s ?? 0) >= 45 ? "before:bg-amber-500" : "before:bg-border");
 
-function GigCard({ gig: g, profile, onStatus, index }: { gig: Gig; profile?: GigProfile; onStatus: (s: string) => void; index: number }) {
+function GigCard({ gig: g, profile, onStatus, index, rating, onReview }: {
+  gig: Gig; profile?: GigProfile; onStatus: (s: string) => void; index: number; rating: number; onReview: (r: 1 | -1, reasons: string[]) => void;
+}) {
+  const [asking, setAsking] = useState<1 | -1 | null>(null);
+  const [reasons, setReasons] = useState<string[]>([]);
   const [draft, setDraft] = useState(g.draft ?? "");
   const [open, setOpen] = useState(false);
   const [showReply, setShowReply] = useState(false);
@@ -263,12 +284,22 @@ function GigCard({ gig: g, profile, onStatus, index }: { gig: Gig; profile?: Gig
             {g.scoredBy === "claude" && <span className="inline-flex items-center gap-1"><BrandIcon name="claude" className="w-3 h-3" /> scored</span>}
           </p>
           {g.reason && <p className="mt-1.5 text-xs text-muted-foreground">{g.reason}</p>}
-          {g.body && (
-            <button onClick={() => setOpen((v) => !v)} className="mt-1.5 block text-left text-sm text-muted-foreground">
-              <span className={cn(!open && "line-clamp-2")}>{g.body}</span>
-            </button>
+          {g.mlWhy && (
+            <p className="mt-1 text-xs inline-flex items-start gap-1 text-violet-700 dark:text-violet-300">
+              <Brain className="w-3.5 h-3.5 shrink-0 mt-px" /><span><span className="font-medium">{Math.round((g.mlP ?? 0) * 100)}% your type</span> · {g.mlWhy}</span>
+            </p>
           )}
-          <GigImage src={g.image} />
+          {g.body && (
+            <div className="mt-2">
+              <p className={cn("text-sm text-muted-foreground whitespace-pre-line leading-relaxed", !open && "line-clamp-4")}>{g.body}</p>
+              {g.body.length > 280 && (
+                <button onClick={() => setOpen((v) => !v)} className="mt-1 text-xs font-medium text-foreground/80 hover:text-foreground inline-flex items-center gap-0.5">
+                  {open ? "Show less" : "Show full post"} <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")} />
+                </button>
+              )}
+            </div>
+          )}
+          <PostImages urls={g.images?.length ? g.images : g.image && /redd\.it|imgur/.test(g.image) ? [g.image] : []} />
         </div>
       </div>
       {showReply && (
@@ -276,7 +307,32 @@ function GigCard({ gig: g, profile, onStatus, index }: { gig: Gig; profile?: Gig
           onBlur={() => { if (draft !== (g.draft ?? "")) updateGigC(g.id, { draft }).catch(() => toast.error("Couldn't save the draft.")); }}
           rows={5} className="mt-3 w-full rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed animate-in fade-in-0" aria-label="Your reply" />
       )}
+      {asking && (
+        <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3 animate-in fade-in-0 slide-in-from-top-1">
+          <p className="text-xs font-medium mb-2">{asking === 1 ? "What's good about it? (optional)" : "What's wrong with it? (teaches the radar faster)"}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(asking === 1 ? UP_REASONS : DOWN_REASONS).map((r) => (
+              <button key={r.key} onClick={() => setReasons((xs) => xs.includes(r.key) ? xs.filter((x) => x !== r.key) : [...xs, r.key])}
+                className={cn("h-7 px-2.5 rounded-full text-xs border transition-colors", reasons.includes(r.key)
+                  ? asking === 1 ? "border-emerald-500/50 bg-emerald-500/15" : "border-rose-500/50 bg-rose-500/15" : "border-border text-muted-foreground hover:text-foreground")}>
+                {r.label}
+              </button>
+            ))}
+            <button onClick={() => { onReview(asking, reasons); setAsking(null); }} className="h-7 px-3 rounded-full text-xs bg-foreground text-background font-medium">Done</button>
+          </div>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-border overflow-hidden" role="group" aria-label="Review this gig">
+          <button onClick={() => { setReasons([]); setAsking(1); }} aria-pressed={rating === 1} title="Good gig for me"
+            className={cn("w-9 h-9 inline-flex items-center justify-center transition-colors", rating === 1 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600")}>
+            <ThumbsUp className="w-4 h-4" />
+          </button>
+          <button onClick={() => { setReasons([]); setAsking(-1); }} aria-pressed={rating === -1} title="Not for me"
+            className={cn("w-9 h-9 inline-flex items-center justify-center border-l border-border transition-colors", rating === -1 ? "bg-rose-500/15 text-rose-600" : "text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600")}>
+            <ThumbsDown className="w-4 h-4" />
+          </button>
+        </div>
         <button onClick={copyAndOpen} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-foreground text-background text-sm font-medium active:scale-95 transition-transform">
           <Copy className="w-4 h-4" /> Copy reply &amp; open
         </button>
@@ -383,15 +439,67 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="block"><span className="text-xs font-medium text-muted-foreground">{label}</span><div className="mt-1.5">{children}</div></label>;
 }
 
-/** Post preview or company logo; disappears quietly if the host blocks it. */
-function GigImage({ src }: { src: string | null }) {
-  const [broken, setBroken] = useState(false);
-  // Company logos are shown as the avatar; only real post previews (Reddit) get the big image.
-  if (!src || broken || !/redd\.it|redditmedia|reddit\.com/.test(src)) return null;
+/** Pictures from the post itself, full width; tap to open the original. */
+function PostImages({ urls }: { urls: string[] }) {
+  const [broken, setBroken] = useState<Set<string>>(() => new Set());
+  const ok = urls.filter((u) => !broken.has(u));
+  if (ok.length === 0) return null;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)}
-      className="mt-2 max-h-48 max-w-full rounded-lg border border-border object-cover bg-muted" />
+    <div className={cn("mt-3 grid gap-2", ok.length > 1 && "grid-cols-2")}>
+      {ok.slice(0, 4).map((u) => (
+        <a key={u} href={u} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-border bg-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={u} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken((b) => new Set(b).add(u))}
+            className={cn("w-full object-cover hover:scale-[1.02] transition-transform", ok.length > 1 ? "aspect-square" : "max-h-96")} />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/** What the radar has learned from your reviews, how accurate it is, and the fastest way to teach it more. */
+function LearningPanel({ learning: l, teach, onTeach }: { learning: RadarState["learning"]; teach: boolean; onTeach: () => void }) {
+  const [busy, start] = useTransition();
+  const target = 95;
+  const acc = l.accuracy;
+  return (
+    <section className="mt-6 rounded-2xl border border-border bg-card p-4 animate-in fade-in-0">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="w-9 h-9 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center"><Brain className="w-4 h-4" /></span>
+        <div className="flex-1 min-w-48">
+          <p className="text-sm font-semibold">Your taste model</p>
+          <p className="text-xs text-muted-foreground">
+            {l.reviewed === 0 ? "Rate gigs 👍 / 👎 — after 8 reviews the radar starts ranking by what you actually like."
+              : !l.ready ? `${l.reviewed} review${l.reviewed === 1 ? "" : "s"} — rate a few more (both 👍 and 👎) to switch learning on.`
+              : `Learned from ${l.reviewed} reviews + ${Math.max(0, l.samples - l.reviewed)} things you applied to, saved or dismissed.`}
+          </p>
+        </div>
+        <button onClick={onTeach}
+          className={cn("inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium border transition-colors", teach ? "bg-violet-600 text-white border-violet-600" : "border-border hover:bg-violet-500/10")}>
+          <GraduationCap className="w-3.5 h-3.5" /> {teach ? "Done teaching" : "Teach it (quick reviews)"}
+        </button>
+      </div>
+      {l.ready && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Accuracy on reviews it hasn&apos;t seen (cross-validated)</span>
+            <span className="font-semibold tabular-nums">{acc != null ? `${acc}%` : "—"} <span className="text-muted-foreground font-normal">/ {target}% goal</span></span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all duration-700", (acc ?? 0) >= target ? "bg-emerald-500" : (acc ?? 0) >= 80 ? "bg-violet-500" : "bg-amber-500")} style={{ width: `${Math.min(100, acc ?? 0)}%` }} />
+          </div>
+          {(l.likes.length > 0 || l.dislikes.length > 0) && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {l.likes.map((f) => <span key={`+${f}`} className="rounded-full px-2 py-0.5 text-[11px] bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">+ {f}</span>)}
+              {l.dislikes.map((f) => <span key={`-${f}`} className="rounded-full px-2 py-0.5 text-[11px] bg-rose-500/12 text-rose-700 dark:text-rose-300">− {f}</span>)}
+            </div>
+          )}
+          <button onClick={() => { if (confirm("Forget all reviews and start learning from scratch?")) start(async () => { try { await resetGigLearningC(); toast.success("Learning reset."); } catch (e) { toast.error((e as Error).message); } }); }}
+            disabled={busy} className="mt-3 text-[11px] text-muted-foreground hover:text-foreground">Reset learning</button>
+        </div>
+      )}
+      {teach && <p className="mt-3 text-xs text-violet-700 dark:text-violet-300">Showing the gigs it&apos;s least sure about first — each 👍/👎 here teaches it the most.</p>}
+    </section>
   );
 }
 

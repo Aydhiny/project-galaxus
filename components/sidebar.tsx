@@ -58,29 +58,46 @@ const TONE: Record<string, string> = {
   "/beats":        "bg-violet-500/12 text-violet-600 dark:text-violet-400",
 };
 
-// The handful of things you open every day — always visible.
+// Pinned: what you open first thing every day.
 const PRIMARY: NavItem[] = [
-  { href: "/overview", icon: Sunrise,     label: "Today"          },
-  { href: "/brief",    icon: Newspaper,   label: "Daily brief"    },
-  { href: "/voice",    icon: Mic,         label: "Voice"          },
-  { href: "/productivity", icon: Gauge,  label: "Productivity"   },
-  { href: "/tasks",    icon: ListTodo,    label: "Tasks"          },
-  { href: "/pages",    icon: FileText,    label: "Pages"          },
-  { href: "/review",   icon: BarChart3,   label: "Weekly Review"  },
-  { href: "/daily",    icon: CheckSquare, label: "Daily Check-in" },
-  { href: "/goals",    icon: Target,      label: "Goals"          },
-  { href: "/gigs",     icon: Radar,       label: "Gig radar"      },
-  { href: "/community", icon: Users,      label: "Community"      },
-  { href: "/outreach", icon: Send,        label: "Outreach"       },
-  { href: "/money",    icon: Wallet,      label: "Money"          },
-  { href: "/youtube",  icon: Clapperboard, label: "YouTube"        },
-  { href: "/game",     icon: Gamepad2,    label: "Game dev"       },
+  { href: "/overview", icon: Sunrise,   label: "Today"       },
+  { href: "/brief",    icon: Newspaper, label: "Daily brief" },
+  { href: "/voice",    icon: Mic,       label: "Voice"       },
 ];
 
-// Everything else lives in collapsible groups so the sidebar stays calm.
-const GROUPS: { label: string; items: NavItem[] }[] = [
+// Everything else, by category. `open` = expanded until you fold it.
+const GROUPS: { label: string; icon: React.ComponentType<{ className?: string }>; open?: boolean; items: NavItem[] }[] = [
   {
-    label: "Track",
+    label: "Productivity", icon: Gauge, open: true,
+    items: [
+      { href: "/productivity", icon: Gauge,       label: "Productivity"   },
+      { href: "/tasks",        icon: ListTodo,    label: "Tasks"          },
+      { href: "/pages",        icon: FileText,    label: "Pages"          },
+      { href: "/goals",        icon: Target,      label: "Goals"          },
+      { href: "/daily",        icon: CheckSquare, label: "Daily Check-in" },
+      { href: "/review",       icon: BarChart3,   label: "Weekly Review"  },
+    ],
+  },
+  {
+    label: "Money", icon: Wallet, open: true,
+    items: [
+      { href: "/gigs",      icon: Radar,  label: "Gig radar" },
+      { href: "/outreach",  icon: Send,   label: "Outreach"  },
+      { href: "/community", icon: Users,  label: "Community" },
+      { href: "/money",     icon: Wallet, label: "Money"     },
+    ],
+  },
+  {
+    label: "Create", icon: Clapperboard, open: true,
+    items: [
+      { href: "/youtube",  icon: Clapperboard, label: "YouTube"      },
+      { href: "/game",     icon: Gamepad2,     label: "Game dev"     },
+      { href: "/creative", icon: Music2,       label: "Creative"     },
+      { href: "/beats",    icon: Disc3,        label: "Beat Catalog" },
+    ],
+  },
+  {
+    label: "Track", icon: Rss,
     items: [
       { href: "/dashboard",   icon: Rss,             label: "Feed"           },
       { href: "/yearly",      icon: CalendarRange,   label: "Year in Review" },
@@ -90,7 +107,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "Body & Mind",
+    label: "Body & Mind", icon: HeartPulse,
     items: [
       { href: "/training",   icon: Dumbbell,   label: "Training"     },
       { href: "/workout",    icon: HeartPulse, label: "Home Workout" },
@@ -99,21 +116,19 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "Knowledge",
+    label: "Knowledge", icon: GraduationCap,
     items: [
-      { href: "/study",   icon: GraduationCap, label: "Study"   },
-      { href: "/reading", icon: BookOpen,      label: "Reading" },
+      { href: "/study",   icon: GraduationCap, label: "Study"       },
+      { href: "/reading", icon: BookOpen,      label: "Reading"     },
       { href: "/notes",   icon: StickyNote,    label: "Quick Notes" },
     ],
   },
   {
-    label: "Soul & Creative",
+    label: "Soul", icon: Moon,
     items: [
       { href: "/spiritual", icon: Moon,        label: "Spiritual"    },
       { href: "/duas",      icon: BookMarked,  label: "Duas & Dhikr" },
       { href: "/journal",   icon: NotebookPen, label: "Journal"      },
-      { href: "/creative",  icon: Music2,      label: "Creative"     },
-      { href: "/beats",     icon: Disc3,       label: "Beat Catalog" },
     ],
   },
 ];
@@ -247,10 +262,12 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
             {PRIMARY.map(navLink)}
           </div>
 
-          <div className="mt-4 space-y-1">
+          <div className="mt-3 space-y-2">
             {GROUPS.map((group) => {
               const hasActive = group.items.some((i) => isActive(i.href));
-              const open = collapsed || hasActive || (mounted && openGroups.includes(group.label));
+              // openGroups holds the groups you've toggled away from their default.
+              const toggled = mounted && openGroups.includes(group.label);
+              const open = collapsed || hasActive || (group.open ? !toggled : toggled);
               return (
                 <div key={group.label}>
                   {!collapsed && (
@@ -258,7 +275,9 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
                       onClick={() => toggleGroup(group.label)}
                       className="group w-full flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/80"
                     >
-                      <span className="flex-1 text-left">{group.label}</span>
+                      <group.icon className="w-3 h-3 opacity-60" />
+                      <span className="flex-1 text-left uppercase tracking-wider text-[10.5px]">{group.label}</span>
+                      {!open && <span className="text-[10px] tabular-nums opacity-50 mr-1">{group.items.length}</span>}
                       <ChevronRight className={cn("w-3.5 h-3.5 transition-transform opacity-0 group-hover:opacity-100", open && "rotate-90 opacity-60")} />
                     </button>
                   )}

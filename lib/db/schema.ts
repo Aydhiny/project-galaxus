@@ -937,6 +937,13 @@ export const gigs = pgTable(
     subject: varchar("subject", { length: 300 }), // email subject Claude wrote (autopilot)
     contactEmail: varchar("contact_email", { length: 200 }), // address the post asks applications to go to
     image: text("image"), // post preview or company logo, hotlinked
+    images: jsonb("images").$type<string[]>().notNull().default([]), // pictures inside the post
+    baseScore: integer("base_score"), // keyword score before your learned taste is applied
+    mlP: real("ml_p"), // model's probability you'd want this (0–1)
+    mlWhy: text("ml_why"), // "likes r/slavelabour · dislikes full-time"
+    rating: integer("rating"), // your review: 1 👍, -1 👎
+    reviewReasons: jsonb("review_reasons").$type<string[]>().notNull().default([]),
+    actedAt: timestamp("acted_at"), // when YOU last changed it (applied/saved/dismissed) — an implicit signal
     status: varchar("status", { length: 12 }).notNull().default("new"), // new | saved | applied | dismissed
     notifiedAt: timestamp("notified_at"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -1095,3 +1102,10 @@ export const communities = pgTable(
   (t) => [uniqueIndex("uq_communities_user_guild").on(t.userId, t.guildId)]
 );
 export type Community = typeof communities.$inferSelect;
+
+// Your personal gig-taste model (logistic regression weights), retrained after each review.
+export const gigModels = pgTable("gig_models", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  model: jsonb("model").$type<import("@/lib/gig-learning").GigModel>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

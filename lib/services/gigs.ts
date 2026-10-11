@@ -8,7 +8,10 @@
 
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { gigProfiles, gigs, taskRuns, userSettings, voiceCommands, type GigProfile } from "@/lib/db/schema";
+import { gigModels, gigProfiles, gigs, taskRuns, userSettings, voiceCommands, type GigProfile } from "@/lib/db/schema";
+import {
+  EMPTY_MODEL, blendScore, crossValidate, explain, gigFeatures, modelReady, predict, reasonFeatures, topFeatures, train, type Example, type GigModel,
+} from "@/lib/gig-learning";
 import {
   DEFAULT_PROFILES, detectBudget, gigVerdict, isHiringPost, keywordScore, matchKeywords, parseHnComments, parseRedditListing,
   parseRedditRss, parseRemoteOk, parseRemotive, parseWwrRss, splitList, templateReply, type GigSource, type RawGig,
@@ -188,16 +191,20 @@ export async function scanGigsFor(userId: number, opts: { forceBoards?: boolean 
       if (hits.length === 0) continue;
       rows.push({
         userId, profileId: p.id, source: g.source, externalId: g.externalId.slice(0, 200), title: g.title, url: g.url,
-        body: g.body.slice(0, 3000), author: g.author?.slice(0, 120) ?? null, budget: detectBudget(`${g.title} ${g.body}`),
+        body: g.body.slice(0, 8000), author: g.author?.slice(0, 120) ?? null, budget: detectBudget(`${g.title} ${g.body}`),
         postedAt: g.postedAt, score: Math.max(0, Math.min(100, keywordScore(g, hits, now) + verdict.boost)), scoredBy: "keywords",
         reason: [verdict.tags.length ? verdict.tags.join(" · ") : null, `Matches: ${hits.slice(0, 4).join(", ")}`].filter(Boolean).join(" — "),
         draft: templateReply(g, p.pitch ?? ""),
         contactEmail: extractContactEmail(`${g.title}\n${g.body}`),
         image: g.image ?? null,
+        images: g.images ?? [],
       });
       break;
     }
   }
+  // Your learned taste re-ranks new posts the moment they arrive.
+  const model = await modelFor(userId);
+  for (const r of rows) Object.assign(r, scoreWithModel(model, r));
   const inserted = rows.length
     ? await db.insert(gigs).values(rows).onConflictDoNothing({ target: [gigs.userId, gigs.externalId] }).returning({ id: gigs.id, score: gigs.score, title: gigs.title, budget: gigs.budget })
     : [];
@@ -244,19 +251,23 @@ export async function radarFor(userId: number) {
   const [profiles, list, creds, prefs, lastScan] = await Promise.all([
     profilesFor(userId),
     db.select().from(gigs).where(and(eq(gigs.userId, userId), inArray(gigs.status, ["new", "saved", "applied"])))
-      .orderBy(desc(gigs.score), desc(gigs.postedAt)).limit(200),
+      .orderBy(desc(gigs.score), desc(gigs.postedAt)).limit(250),
     redditCreds(userId),
     db.select({ on: userSettings.notifyGigs }).from(userSettings).where(eq(userSettings.userId, userId)).limit(1),
     db.select({ at: taskRuns.lastRunAt, result: taskRuns.lastResult }).from(taskRuns).where(and(eq(taskRuns.userId, userId), eq(taskRuns.task, "gigs"))).limit(1),
   ]);
-  return { profiles, gigs: list, redditConnected: !!creds, notify: prefs[0]?.on ?? true, lastScan: lastScan[0] ?? null };
+  const model = await modelFor(userId);
+  const reviewed = (await db.select({ n: sql<number>`count(*)::int` }).from(gigs).where(and(eq(gigs.userId, userId), sql`${gigs.rating} is not null`)))[0]?.n ?? 0;
+  const learning = { reviewed, samples: model.samples, accuracy: model.accuracy, ready: modelReady(model), ...topFeatures(model, 6) };
+  return { profiles, gigs: list, redditConnected: !!creds, notify: prefs[0]?.on ?? true, lastScan: lastScan[0] ?? null, learning };
 }
 
 export async function updateGigFor(userId: number, id: number, patch: { status?: string; draft?: string }) {
-  const set: { status?: string; draft?: string } = {};
+  const set: { status?: string; draft?: string; actedAt?: Date } = {};
   if (patch.status !== undefined) {
     if (!["new", "saved", "applied", "dismissed"].includes(patch.status)) throw new Error("Unknown status.");
     set.status = patch.status;
+    set.actedAt = new Date(); // you did this — the model learns from it
   }
   if (patch.draft !== undefined) set.draft = String(patch.draft).slice(0, 2000);
   await db.update(gigs).set(set).where(and(eq(gigs.id, id), eq(gigs.userId, userId)));
@@ -279,3 +290,67 @@ export async function pruneGigsFor(userId: number) {
   return drop.length;
 }
 
+// ─── Learning from your reviews ───────────────────────────────────────────────
+
+async function modelFor(userId: number): Promise<GigModel> {
+  const [row] = await db.select({ model: gigModels.model }).from(gigModels).where(eq(gigModels.userId, userId)).limit(1);
+  return row?.model ?? EMPTY_MODEL;
+}
+
+type Scorable = { title: string; body: string | null; source: string; url: string; budget: string | null; profileId: number | null; contactEmail?: string | null; score: number | null; baseScore?: number | null };
+function scoreWithModel(model: GigModel, g: Scorable) {
+  const base = g.baseScore ?? g.score ?? 0;
+  if (!modelReady(model)) return { baseScore: base, score: base, mlP: null, mlWhy: null };
+  const f = gigFeatures(g);
+  const p = predict(model, f);
+  const { likes, dislikes } = explain(model, f);
+  const why = [likes.length ? `likes ${likes.join(", ")}` : "", dislikes.length ? `dislikes ${dislikes.join(", ")}` : ""].filter(Boolean).join(" · ") || null;
+  return { baseScore: base, score: blendScore(base, p, model), mlP: Math.round(p * 1000) / 1000, mlWhy: why };
+}
+
+/**
+ * Retrain from everything you've told it: reviews count fully, applying /
+ * saving / dismissing count as weaker hints. Then re-rank what's waiting.
+ */
+export async function retrainFor(userId: number) {
+  const labelled = await db.select().from(gigs).where(and(eq(gigs.userId, userId), sql`(${gigs.rating} is not null or ${gigs.actedAt} is not null)`))
+    .orderBy(desc(gigs.createdAt)).limit(1500);
+  const examples: (Example & { reviewed: boolean })[] = [];
+  for (const g of labelled) {
+    const f = gigFeatures(g);
+    if (g.rating) examples.push({ features: [...f, ...reasonFeatures(g.reviewReasons)], y: g.rating > 0 ? 1 : 0, weight: 1, reviewed: true });
+    else if (g.status === "applied") examples.push({ features: f, y: 1, weight: 0.6, reviewed: false });
+    else if (g.status === "saved") examples.push({ features: f, y: 1, weight: 0.4, reviewed: false });
+    else if (g.status === "dismissed") examples.push({ features: f, y: 0, weight: 0.3, reviewed: false });
+  }
+  const model = train(examples);
+  model.accuracy = crossValidate(examples, examples.filter((e) => e.reviewed));
+  await db.insert(gigModels).values({ userId, model }).onConflictDoUpdate({ target: gigModels.userId, set: { model, updatedAt: new Date() } });
+
+  // Re-rank everything still waiting, in one statement.
+  const waiting = await db.select().from(gigs).where(and(eq(gigs.userId, userId), inArray(gigs.status, ["new", "saved"]))).limit(400);
+  const updates = waiting.map((g) => ({ id: g.id, ...scoreWithModel(model, g) }));
+  for (let i = 0; i < updates.length; i += 100) {
+    const chunk = updates.slice(i, i + 100);
+    await db.execute(sql`update gigs set score = v.score, base_score = v.base, ml_p = v.p, ml_why = v.why
+      from (values ${sql.join(chunk.map((u) => sql`(${u.id}::int, ${u.score}::int, ${u.baseScore}::int, ${u.mlP}::real, ${u.mlWhy}::text)`), sql`, `)}) as v(id, score, base, p, why)
+      where gigs.id = v.id`);
+  }
+  return { samples: model.samples, accuracy: model.accuracy, ready: modelReady(model) };
+}
+
+/** 👍 / 👎 with optional reasons. A 👎 also clears it from your list. */
+export async function reviewGigFor(userId: number, id: number, rating: 1 | -1 | 0, reasons: string[] = []) {
+  const clean = reasons.filter((r) => /^[a-z_]{2,20}$/.test(r)).slice(0, 6);
+  await db.update(gigs).set({
+    rating: rating === 0 ? null : rating, reviewReasons: rating === 0 ? [] : clean, actedAt: new Date(),
+    ...(rating === -1 ? { status: "dismissed" } : {}),
+  }).where(and(eq(gigs.id, id), eq(gigs.userId, userId)));
+  return retrainFor(userId);
+}
+
+export async function resetLearningFor(userId: number) {
+  await db.update(gigs).set({ rating: null, reviewReasons: [] }).where(eq(gigs.userId, userId));
+  await db.delete(gigModels).where(eq(gigModels.userId, userId));
+  await db.execute(sql`update gigs set score = coalesce(base_score, score), ml_p = null, ml_why = null where user_id = ${userId} and status in ('new','saved')`);
+}

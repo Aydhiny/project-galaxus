@@ -569,6 +569,19 @@ const STATEMENTS = [
   `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "subject" varchar(300)`,
   `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "contact_email" varchar(200)`,
   `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "image" text`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "images" jsonb DEFAULT '[]'::jsonb NOT NULL`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "base_score" integer`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "ml_p" real`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "ml_why" text`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "rating" integer`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "review_reasons" jsonb DEFAULT '[]'::jsonb NOT NULL`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "acted_at" timestamp`,
+  `CREATE TABLE IF NOT EXISTS "gig_models" (
+    "user_id" integer PRIMARY KEY NOT NULL,
+    "model" jsonb NOT NULL,
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "gig_models_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
   `CREATE TABLE IF NOT EXISTS "autopilot_settings" (
     "user_id" integer PRIMARY KEY NOT NULL,
     "mode" varchar(10) DEFAULT 'shadow' NOT NULL,

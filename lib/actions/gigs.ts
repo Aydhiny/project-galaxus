@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { toResult } from "@/lib/action-result";
 import { requireUserId } from "@/lib/auth-session";
 import {
-  deleteProfileFor, pruneGigsFor, queueClaudeScoring, radarFor, saveProfileFor, saveRedditKeyFor, scanGigsFor, setGigNotificationsFor, updateGigFor,
+  deleteProfileFor, pruneGigsFor, queueClaudeScoring, resetLearningFor, reviewGigFor, radarFor, saveProfileFor, saveRedditKeyFor, scanGigsFor, setGigNotificationsFor, updateGigFor,
   type ProfilePatch,
 } from "@/lib/services/gigs";
 
@@ -44,4 +44,12 @@ export async function saveRedditKey(input: { clientId: string; clientSecret: str
 
 export async function setGigNotifications(on: boolean) {
   return toResult(async () => { await setGigNotificationsFor(await requireUserId(), on); refresh(); });
+}
+
+export async function reviewGig(id: number, rating: 1 | -1 | 0, reasons: string[] = []) {
+  return toResult(async () => { const r = await reviewGigFor(await requireUserId(), id, rating, reasons); refresh(); return r; });
+}
+
+export async function resetGigLearning() {
+  return toResult(async () => { await resetLearningFor(await requireUserId()); refresh(); });
 }
