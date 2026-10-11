@@ -36,6 +36,7 @@ const TONE: Record<string, string> = {
   "/outreach":     "bg-teal-500/12 text-teal-600 dark:text-teal-400",
   "/gigs":         "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
   "/money":        "bg-green-500/12 text-green-600 dark:text-green-400",
+  "/level":        "bg-teal-500/12 text-teal-600 dark:text-teal-400",
   "/community":    "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400",
   "/youtube":      "bg-red-500/12 text-red-600 dark:text-red-400",
   "/game":         "bg-violet-500/12 text-violet-600 dark:text-violet-400",
@@ -63,6 +64,7 @@ const PRIMARY: NavItem[] = [
   { href: "/overview", icon: Sunrise,   label: "Today"       },
   { href: "/brief",    icon: Newspaper, label: "Daily brief" },
   { href: "/voice",    icon: Mic,       label: "Voice"       },
+  { href: "/level",    icon: Trophy,    label: "Level & skills" },
 ];
 
 // Everything else, by category. `open` = expanded until you fold it.

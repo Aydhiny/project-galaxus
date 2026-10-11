@@ -35,7 +35,7 @@ const hudText = "font-hud uppercase tracking-wide [text-shadow:0_1px_0_rgb(0_0_0
 
 export function HudLevel({ hud }: { hud: Hud }) {
   return (
-    <Link href="/productivity" className="group flex items-center gap-2.5" title={`${hud.xp} XP · ${hud.into}/${hud.need} to level ${hud.level + 1}`}>
+    <Link href="/level" className="group flex items-center gap-2.5" title={`${hud.xp} XP · ${hud.into}/${hud.need} to level ${hud.level + 1}`}>
       <span className={cn("relative h-7 px-2.5 inline-flex items-center bg-foreground text-background -skew-x-12 rounded-[3px]", hudText)}>
         <span className="skew-x-12 text-[15px] leading-none">LV {hud.level}</span>
       </span>

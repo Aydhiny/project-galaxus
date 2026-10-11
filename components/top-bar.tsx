@@ -15,7 +15,7 @@ import { openVoice } from "@/lib/voice-events";
 import { HudLevel, HudMoney, HudStats, useHud } from "@/components/hud";
 
 const TITLES: Record<string, string> = {
-  overview: "Today", brief: "Daily brief", community: "Community", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
+  overview: "Today", brief: "Daily brief", community: "Community", level: "Level", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
   review: "Weekly Review", daily: "Daily Check-in", goals: "Goals", goal: "Goal", outreach: "Outreach", gigs: "Gig radar", money: "Money",
   youtube: "YouTube", game: "Game dev", connections: "Connections", settings: "Settings", dashboard: "Feed",
 };
