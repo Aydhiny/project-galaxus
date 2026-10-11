@@ -511,6 +511,20 @@ const STATEMENTS = [
     CONSTRAINT "communities_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_communities_user_guild" ON "communities" ("user_id", "guild_id")`,
+  `CREATE TABLE IF NOT EXISTS "deal_overrides" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "key" varchar(40) NOT NULL,
+    "stage" varchar(20),
+    "value_km" integer,
+    "their_reply" text,
+    "their_reply_at" timestamp,
+    "suggestion" text,
+    "note" text,
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "deal_overrides_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_deal_overrides_user_key" ON "deal_overrides" ("user_id", "key")`,
   `CREATE TABLE IF NOT EXISTS "gigs" (
     "id" serial PRIMARY KEY NOT NULL,
     "user_id" integer NOT NULL,

@@ -1103,6 +1103,25 @@ export const communities = pgTable(
 );
 export type Community = typeof communities.$inferSelect;
 
+// Deal Desk: only what you change by hand. Deals themselves are read live from
+// gig emails, applied gigs and outreach leads (lib/services/deals.ts).
+export const dealOverrides = pgTable(
+  "deal_overrides",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    key: varchar("key", { length: 40 }).notNull(), // email:12 | gig:5 | lead:3
+    stage: varchar("stage", { length: 20 }),
+    valueKm: integer("value_km"),
+    theirReply: text("their_reply"),
+    theirReplyAt: timestamp("their_reply_at"),
+    suggestion: text("suggestion"),
+    note: text("note"),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_deal_overrides_user_key").on(t.userId, t.key)]
+);
+
 // Your personal gig-taste model (logistic regression weights), retrained after each review.
 export const gigModels = pgTable("gig_models", {
   userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),

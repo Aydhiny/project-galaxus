@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet, Users,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet, Users, Handshake,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -36,6 +36,7 @@ const TONE: Record<string, string> = {
   "/outreach":     "bg-teal-500/12 text-teal-600 dark:text-teal-400",
   "/gigs":         "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
   "/money":        "bg-green-500/12 text-green-600 dark:text-green-400",
+  "/deals":        "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
   "/level":        "bg-teal-500/12 text-teal-600 dark:text-teal-400",
   "/community":    "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400",
   "/youtube":      "bg-red-500/12 text-red-600 dark:text-red-400",
@@ -84,6 +85,7 @@ const GROUPS: { label: string; icon: React.ComponentType<{ className?: string }>
     label: "Money", icon: Wallet, open: true,
     items: [
       { href: "/gigs",      icon: Radar,  label: "Gig radar" },
+      { href: "/deals",     icon: Handshake, label: "Deal desk" },
       { href: "/outreach",  icon: Send,   label: "Outreach"  },
       { href: "/community", icon: Users,  label: "Community" },
       { href: "/money",     icon: Wallet, label: "Money"     },

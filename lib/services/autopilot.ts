@@ -166,6 +166,13 @@ async function handleReplyWithRules(
     await db.update(gigEmails).set({ category, needsYou: false }).where(eq(gigEmails.id, row.id));
     return;
   }
+  // They said yes: from here price, deadline and payment are yours. No auto-reply.
+  const { detectAgreement } = await import("@/lib/deals");
+  if (detectAgreement(text)) {
+    await db.update(gigEmails).set({ category: "interested", needsYou: true }).where(eq(gigEmails.id, row.id));
+    await notifyUser(userId, { title: `🎯 Deal ready — ${from} said yes`, body: text.slice(0, 140), url: "/deals", tag: `deal-email:${row.id}` }).catch(() => {});
+    return;
+  }
   const answer = confident ? ruleReply(text, { senderName: s.senderName ?? "", portfolioUrl: s.portfolioUrl, bookingUrl: s.bookingUrl, websiteMinKm: s.websiteMinKm, video }) : null;
   if (answer && s.mode === "on" && row.autoReplied < MAX_AUTO_REPLIES) {
     const clean = sanitizeLinks(answer, [s.portfolioUrl, s.bookingUrl]);
