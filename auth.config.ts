@@ -2,7 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import { NextResponse } from "next/server";
 
 // Routes a logged-in user should be bounced away from (back to /dashboard)
-const AUTHED_REDIRECT_PATHS = new Set(["/", "/login", "/register"]);
+const AUTHED_REDIRECT_PATHS = new Set(["/login", "/register"]); // "/" (the landing page) stays visible when signed in
 
 // Routes a guest is allowed to see without a session
 const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/terms", "/forgot-password", "/install"]);
@@ -55,7 +55,7 @@ export const authConfig = {
       const pathname = request.nextUrl.pathname;
 
       if (isLoggedIn && AUTHED_REDIRECT_PATHS.has(pathname)) {
-        return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
+        return NextResponse.redirect(new URL("/empire", request.nextUrl)); // your empire is home
       }
       const isGuestAllowed =
         GUEST_ALLOWED_PATHS.has(pathname) || GUEST_ALLOWED_PREFIXES.some((p) => pathname.startsWith(p));

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Castle, Menu } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const NAV_LINKS = [
+  { href: "#empire", label: "Empire" },
   { href: "#features", label: "Features" },
   { href: "#pricing", label: "Pricing" },
   { href: "#download", label: "Get the app" },
@@ -15,13 +17,15 @@ const NAV_LINKS = [
 
 export function MarketingNav() {
   const [open, setOpen] = useState(false);
+  const { status } = useSession();
+  const authed = status === "authenticated"; // signed in → straight back to your empire
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 px-4 sm:px-6 pt-4">
       <div className="mx-auto max-w-6xl">
         <div className="glass flex items-center justify-between rounded-2xl px-4 sm:px-5 py-3">
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-lg" style={{ filter: "drop-shadow(0 0 8px rgba(23,62,255,0.8))" }}>✦</span>
+            <span className="text-lg">✦</span>
             <span className="font-heading font-bold text-lg tracking-tight">Galaxus</span>
           </Link>
 
@@ -34,8 +38,14 @@ export function MarketingNav() {
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            <Link href="/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
-            <Link href="/register"><Button size="sm">Get started</Button></Link>
+            {authed ? (
+              <Link href="/empire"><Button size="sm" className="gap-1.5"><Castle className="w-4 h-4" /> Open your empire</Button></Link>
+            ) : (
+              <>
+                <Link href="/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
+                <Link href="/register"><Button size="sm">Get started</Button></Link>
+              </>
+            )}
           </div>
 
           <button
@@ -65,12 +75,20 @@ export function MarketingNav() {
               ))}
             </nav>
             <div className="flex flex-col gap-3 pt-4 border-t border-border">
-              <Link href="/login" onClick={() => setOpen(false)}>
-                <Button variant="ghost" className="w-full justify-center">Sign in</Button>
-              </Link>
-              <Link href="/register" onClick={() => setOpen(false)}>
-                <Button className="w-full justify-center">Get started</Button>
-              </Link>
+              {authed ? (
+                <Link href="/empire" onClick={() => setOpen(false)}>
+                  <Button className="w-full justify-center gap-1.5"><Castle className="w-4 h-4" /> Open your empire</Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-center">Sign in</Button>
+                  </Link>
+                  <Link href="/register" onClick={() => setOpen(false)}>
+                    <Button className="w-full justify-center">Get started</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </SheetContent>

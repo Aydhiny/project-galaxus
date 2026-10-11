@@ -9,7 +9,7 @@ import { claudeHealthy } from "@/lib/services/claude-jobs";
 /** Which connectors are set up — booleans and labels only, never key material. */
 export async function getConnections() {
   const userId = await requireUserId();
-  const [calendar, anthropic, google, youtube, github, tokens, gmail, foursquare, stripe, reddit, runnerOk] = await Promise.all([
+  const [calendar, anthropic, google, youtube, github, tokens, gmail, foursquare, stripe, reddit, runnerOk, spotifyClient, spotify] = await Promise.all([
     calendarStatusFor(userId),
     getSecret(userId, "anthropic"),
     getSecret(userId, "google"),
@@ -21,6 +21,8 @@ export async function getConnections() {
     getSecret(userId, "stripe"),
     getSecret(userId, "reddit"),
     claudeHealthy(userId),
+    getSecret(userId, "spotify_client"),
+    getSecret(userId, "spotify"),
   ]);
   return {
     calendars: calendar.feeds,
@@ -34,6 +36,8 @@ export async function getConnections() {
     stripe: !!stripe,
     redditApp: !!reddit,
     claudeRunner: runnerOk,
+    spotifyClient: !!spotifyClient,
+    spotify: !!spotify,
   };
 }
 export type Connections = Awaited<ReturnType<typeof getConnections>>;

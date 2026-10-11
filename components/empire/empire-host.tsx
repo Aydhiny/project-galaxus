@@ -8,13 +8,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, Clock, Gauge, Moon, RefreshCw, Sun, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowRight, Clock, Gauge, LocateFixed, Moon, RefreshCw, Sun, Volume2, VolumeX, X } from "lucide-react";
+import { BrandIcon, type Brand } from "@/components/brand-icon";
+import { useMusicStore } from "@/lib/store/music";
+import { useSpotifyStore } from "@/lib/client/spotify";
+import { usePrayerStore } from "@/components/azan-player";
+import { nextVakat } from "@/lib/vaktija";
 import { cn } from "@/lib/utils";
 import { getEmpireC, type Building, type EmpireState } from "@/lib/client/empire";
 import { play, setSfxSettings, sfxSettings } from "@/lib/sfx";
 import type { EmpireEngine } from "./engine";
 
 const hud = "font-hud uppercase tracking-wide";
+
+/** Real logos for buildings that run on a known service (emoji for the rest). */
+const BRAND: Partial<Record<string, Brand>> = {
+  radar: "reddit", autopilot: "gmail", outreach: "whatsapp", vault: "stripe", news: "rss",
+  runner: "claude", community: "discord", studio: "unity", youtube: "youtube",
+};
+function Mark({ id, emoji, className }: { id: string; emoji: string; className?: string }) {
+  const brand = BRAND[id];
+  return brand ? <BrandIcon name={brand} className={className} /> : <span className="leading-none">{emoji}</span>;
+}
 const TONE: Record<string, string> = {
   info: "bg-white text-slate-900 border-slate-200",
   good: "bg-emerald-500 text-white border-emerald-600",
@@ -47,6 +62,15 @@ function EmpireScene({ active }: { active: boolean }) {
   const [time, setTime] = useState<"live" | "day" | "night">("live");
   const [ago, setAgo] = useState(0);
   const prevBubbles = useRef<Map<string, string>>(new Map());
+  const musicTrack = useMusicStore((s) => s.activeId);
+  const spotify = useSpotifyStore((s) => s.now);
+  const vaktija = usePrayerStore((s) => s.vaktija);
+  const prayerNow = usePrayerStore((s) => s.current);
+
+  // Music sets the mood: Spotify playing -> disco; the built-in calm tracks -> hibernate.
+  const mood = spotify?.isPlaying ? "disco" : musicTrack ? "hibernate" : "normal";
+  useEffect(() => { engine.current?.setMood(mood); }, [mood]);
+  useEffect(() => { engine.current?.setPrayer(!!prayerNow); }, [prayerNow]);
 
   // Engine lifecycle (three.js is loaded only when the empire is first opened).
   useEffect(() => {
@@ -57,6 +81,8 @@ function EmpireScene({ active }: { active: boolean }) {
       e.onPick = (id) => { play("pop"); setSelected(id); e.focus(id); };
       e.onHover = (id) => { setHovered(id); if (id) play("hover"); };
       engine.current = e;
+      e.setMood(useSpotifyStore.getState().now?.isPlaying ? "disco" : useMusicStore.getState().activeId ? "hibernate" : "normal");
+      e.setPrayer(!!usePrayerStore.getState().current);
       setLite(e.getQuality() === "low");
       e.setActive(true);
       if (state) e.setBuildings(state.buildings);
@@ -93,15 +119,28 @@ function EmpireScene({ active }: { active: boolean }) {
     return () => { clearTimeout(first); clearInterval(t); clearInterval(tick); };
   }, [active, load]);
 
-  const sel = state?.buildings.find((b) => b.id === selected) ?? null;
+  // The mosque shows the next vakat (and "azan" at prayer time).
+  const buildings = (state?.buildings ?? []).map((b) => {
+    if (b.id !== "mosque" || !vaktija) return b;
+    const nv = nextVakat(vaktija);
+    return {
+      ...b,
+      status: prayerNow ? `${prayerNow} — vrijeme je za namaz` : `${nv.bs} u ${nv.time}`,
+      bubbles: prayerNow ? [{ text: `🕌 ${prayerNow} — azan`, tone: "good" as const }] : nv.minutesLeft <= 30 ? [{ text: `${nv.bs} za ${nv.minutesLeft} min`, tone: "info" as const }] : [],
+      stats: [{ label: "Next", value: `${nv.bs} ${nv.time}` }, ...b.stats],
+    };
+  });
+  const sel = buildings.find((b) => b.id === selected) ?? null;
+  const close = () => { play("close"); setSelected(null); engine.current?.unfocus(); };
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#bfdcf0]">
       <div ref={mount} className="absolute inset-0" />
 
       {/* Labels + message bubbles, positioned every frame by the engine */}
-      <div className="absolute inset-0 pointer-events-none">
-        {state?.buildings.map((b) => (
+      {/* isolate: label z-indexes stay inside this layer, under the panel and HUD */}
+      <div className="absolute inset-0 pointer-events-none z-10 isolate">
+        {buildings.map((b) => (
           <div key={b.id} ref={(el) => engine.current?.bindLabel(b.id, el)} className="absolute left-0 top-0 will-change-transform transition-opacity duration-200">
             <div className="flex flex-col items-center gap-1">
               {b.bubbles.map((bb) => (
@@ -114,7 +153,7 @@ function EmpireScene({ active }: { active: boolean }) {
               <button onClick={() => { play("pop"); setSelected(b.id); engine.current?.focus(b.id); }}
                 className={cn("pointer-events-auto inline-flex items-center gap-1 rounded-full bg-black/55 text-white px-2 py-0.5 text-[11px] backdrop-blur-sm transition-transform",
                   (hovered === b.id || selected === b.id) && "scale-110 bg-black/75")}>
-                <span>{b.emoji}</span><span className="font-medium">{b.label}</span>
+                <Mark id={b.id} emoji={b.emoji} className="w-3.5 h-3.5" /><span className="font-medium">{b.label}</span>
                 {b.active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
               </button>
             </div>
@@ -123,7 +162,7 @@ function EmpireScene({ active }: { active: boolean }) {
       </div>
 
       {/* Top-left: empire title */}
-      <div className="absolute top-4 left-4 rounded-2xl bg-black/55 text-white backdrop-blur-md px-4 py-3 pointer-events-auto">
+      <div className="absolute top-4 left-4 z-20 rounded-2xl bg-black/55 text-white backdrop-blur-md px-4 py-3 pointer-events-auto">
         <p className={cn("text-xs text-white/60", hud)}>Your empire</p>
         <p className={cn("text-2xl leading-none mt-0.5", hud)}>{state ? `LV ${state.level} · ${state.rank}` : "Loading…"}</p>
         {state && (
@@ -133,12 +172,15 @@ function EmpireScene({ active }: { active: boolean }) {
         )}
         <p className="mt-2 text-[11px] text-white/60 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · updated {ago < 10 ? "just now" : `${ago}s ago`}
+          {mood !== "normal" && <span className="ml-1 rounded-full bg-white/15 px-1.5">{mood === "disco" ? "🪩 disco" : "💤 hibernate"}</span>}
           <button onClick={() => { play("tick"); void load(); }} className="ml-1 hover:text-white" aria-label="Refresh"><RefreshCw className="w-3 h-3" /></button>
         </p>
       </div>
 
       {/* Top-right: sound + quality */}
-      <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto" data-no-sfx>
+      <div className={cn("absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto", sel && "hidden")} data-no-sfx>
+        <button onClick={() => { engine.current?.resetView(); play("whoosh"); }} title="Reset view"
+          className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><LocateFixed className="w-4 h-4" /></button>
         <div className="flex rounded-xl bg-black/55 backdrop-blur-md p-0.5">
           {([["live", Clock, "Follow your clock"], ["day", Sun, "Daytime"], ["night", Moon, "Night"]] as const).map(([k, Icon, title]) => (
             <button key={k} title={title} onClick={() => { setTime(k); engine.current?.setTimeOfDay(k === "live" ? null : k === "day" ? 12 : 22); play("toggle"); }}
@@ -158,12 +200,12 @@ function EmpireScene({ active }: { active: boolean }) {
       </div>
 
       {/* Bottom: building dock */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 max-w-[calc(100%-2rem)] overflow-x-auto pointer-events-auto">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)] overflow-x-auto pointer-events-auto">
         <div className="flex gap-1.5 rounded-2xl bg-black/55 backdrop-blur-md p-1.5">
-          {state?.buildings.map((b) => (
+          {buildings.map((b) => (
             <button key={b.id} onClick={() => { play("pop"); setSelected(b.id); engine.current?.focus(b.id); }}
               className={cn("relative shrink-0 w-11 h-11 rounded-xl text-xl flex items-center justify-center transition-colors", selected === b.id ? "bg-white" : "hover:bg-white/15")} title={b.label}>
-              {b.emoji}
+              <Mark id={b.id} emoji={b.emoji} className="w-5 h-5" />
               {b.bubbles.some((x) => x.tone === "urgent") && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />}
             </button>
           ))}
@@ -171,16 +213,16 @@ function EmpireScene({ active }: { active: boolean }) {
       </div>
 
       {/* Building panel */}
-      {sel && <BuildingPanel b={sel} onClose={() => { play("close"); setSelected(null); }} onOpen={() => { play("whoosh"); router.push(sel.route); }} />}
+      {sel && <BuildingPanel b={sel} onClose={close} onOpen={() => { play("whoosh"); router.push(sel.route); }} />}
     </div>
   );
 }
 
 function BuildingPanel({ b, onClose, onOpen }: { b: Building; onClose: () => void; onOpen: () => void }) {
   return (
-    <aside className="absolute top-4 right-4 bottom-24 w-[min(22rem,calc(100%-2rem))] rounded-3xl bg-card/95 backdrop-blur-md border border-border shadow-2xl p-5 flex flex-col pointer-events-auto animate-in slide-in-from-right-4 fade-in-0">
+    <aside className="absolute top-4 right-4 bottom-24 z-30 w-[min(22rem,calc(100%-2rem))] rounded-3xl bg-card border border-border shadow-2xl p-5 flex flex-col pointer-events-auto animate-in slide-in-from-right-4 fade-in-0">
       <div className="flex items-start gap-3">
-        <span className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-2xl">{b.emoji}</span>
+        <span className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-2xl"><Mark id={b.id} emoji={b.emoji} className="w-6 h-6" /></span>
         <div className="flex-1 min-w-0">
           <p className={cn("text-2xl leading-none", hud)}>{b.label}</p>
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">

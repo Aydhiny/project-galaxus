@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingHero } from "@/components/marketing/hero";
+import { MarketingEmpire } from "@/components/marketing/empire-showcase";
 import { MarketingPillars } from "@/components/marketing/pillars";
 import { MarketingComparison } from "@/components/marketing/comparison";
 import { MarketingProductPreview } from "@/components/marketing/product-preview";
@@ -26,6 +27,7 @@ export default async function MarketingHomePage() {
   return (
     <>
       <MarketingHero />
+      <MarketingEmpire />
       <MarketingPillars />
       <MarketingComparison />
       <MarketingProductPreview />

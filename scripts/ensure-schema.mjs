@@ -514,6 +514,21 @@ const STATEMENTS = [
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "sleep_enabled" boolean DEFAULT false`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "bed_time" varchar(5) DEFAULT '23:00'`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "wake_time" varchar(5) DEFAULT '07:00'`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "vaktija_location" integer DEFAULT 77`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "azan_enabled" boolean DEFAULT false`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "azan_fajr" boolean DEFAULT false`,
+  `CREATE TABLE IF NOT EXISTS "user_files" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "kind" varchar(20) NOT NULL,
+    "name" varchar(200),
+    "mime" varchar(60) NOT NULL,
+    "data" text NOT NULL,
+    "bytes" integer NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "user_files_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_user_files_kind" ON "user_files" ("user_id", "kind")`,
   `CREATE TABLE IF NOT EXISTS "diary_entries" (
     "id" serial PRIMARY KEY NOT NULL,
     "user_id" integer NOT NULL,

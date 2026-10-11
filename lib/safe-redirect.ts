@@ -3,7 +3,7 @@
  * Anything else ("https://evil.com", "//evil.com", "/\evil.com") would turn
  * the login page into an open redirect usable in phishing links.
  */
-export function safeCallbackUrl(raw: string | null | undefined, origin: string, fallback = "/overview"): string {
+export function safeCallbackUrl(raw: string | null | undefined, origin: string, fallback = "/empire"): string {
   if (!raw) return fallback;
   try {
     const url = new URL(raw, origin);

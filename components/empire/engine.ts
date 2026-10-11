@@ -14,6 +14,33 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Building } from "@/lib/client/empire";
+import { siClaude, siDiscord, siGmail, siReddit, siRss, siStripe, siUnity, siWhatsapp, siYoutube } from "simple-icons";
+
+/** Real brand logos above the buildings that use those services. */
+const LOGOS: Record<string, { path: string; hex: string }> = {
+  radar: siReddit, autopilot: siGmail, outreach: siWhatsapp, vault: siStripe, news: siRss,
+  runner: siClaude, community: siDiscord, studio: siUnity, youtube: siYoutube,
+};
+
+export type Mood = "normal" | "disco" | "hibernate";
+
+/** A round logo badge drawn from the brand's official SVG path (simple-icons, CC0). */
+function logoTexture(path: string, hex: string) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#ffffff";
+  g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
+  g.fillStyle = hex.toUpperCase() === "FFFFFF" ? "#222c37" : `#${hex}`; // white marks (Unity) get a dark badge
+  g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.fill();
+  g.translate(64 - 36, 64 - 36);
+  g.scale(3, 3); // simple-icons paths live in a 24×24 box → 72 px
+  g.fillStyle = "#ffffff";
+  g.fill(new Path2D(path));
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 type Quality = "low" | "high";
 type Anchor = { id: string; obj: THREE.Object3D; top: number };
@@ -74,6 +101,19 @@ export class EmpireEngine {
   private night = 0;
   private timeOverride: number | null = null; // hour of day, or null = follow your clock
   private stars!: THREE.Points;
+  private mood: Mood = "normal";
+  private interacting = false;
+  private lastInteraction = 0;
+  private focusGoal = new THREE.Vector3(0, 3, 0); // where the camera orbits; eased toward each frame
+  private focused = false;
+  private discoLights: THREE.PointLight[] = [];
+  private prayerGlow: THREE.Mesh | null = null;
+  private prayer = false;
+  private logos: THREE.Sprite[] = [];
+  private workers!: THREE.InstancedMesh;
+  private packages!: THREE.InstancedMesh;
+  private workerState: { from: number; to: number; t: number; speed: number; carry: boolean }[] = [];
+  private plots: { pos: THREE.Vector3; active: boolean }[] = [];
   private labelEls = new Map<string, HTMLElement>();
   private tmp = new THREE.Object3D();
   private v = new THREE.Vector3();
@@ -104,7 +144,10 @@ export class EmpireEngine {
     this.controls.target.set(0, 3, 0);
     this.controls.autoRotate = true;
     this.controls.autoRotateSpeed = 0.35;
-    this.controls.addEventListener("start", () => { this.controls.autoRotate = false; });
+    // Interacting pauses the slow auto-rotate; it resumes after a few idle seconds
+    // (a click used to switch it off for good).
+    this.controls.addEventListener("start", () => { this.interacting = true; this.lastInteraction = performance.now(); });
+    this.controls.addEventListener("end", () => { this.interacting = false; this.lastInteraction = performance.now(); });
 
     this.scene.fog = new THREE.Fog(0xcfe3ef, 90, 220);
     this.scene.add(this.hemi);
@@ -225,6 +268,27 @@ export class EmpireEngine {
       this.cars.setColorAt(i, col.setHex(CAR_COLORS[i % CAR_COLORS.length]));
     }
     this.scene.add(this.cars, this.lights);
+
+    // Workers: tiny people walking between buildings (body + head merged, instanced).
+    const torso = new THREE.CylinderGeometry(0.22, 0.28, 0.75, 6); torso.translate(0, 0.55, 0);
+    const head = new THREE.SphereGeometry(0.2, 8, 6); head.translate(0, 1.1, 0);
+    const workerCount = this.quality === "high" ? 36 : 16;
+    this.workers = new THREE.InstancedMesh(mergeGeometries([torso, head]), new THREE.MeshLambertMaterial({ color: 0xffffff }), workerCount);
+    this.packages = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.32, 0.42), new THREE.MeshLambertMaterial({ color: 0xc8955a }), workerCount);
+    const shirts = [0x2a9d8f, 0xe76f51, 0x264653, 0xe9c46a, 0x6d597a, 0x457b9d, 0xf4a261];
+    for (let i = 0; i < workerCount; i++) {
+      this.workers.setColorAt(i, col.setHex(shirts[i % shirts.length]));
+      this.workerState.push({ from: 0, to: 0, t: Math.random(), speed: 0.05 + Math.random() * 0.04, carry: false });
+    }
+    this.scene.add(this.workers, this.packages);
+
+    // Disco: three coloured lights that sweep the plaza (off unless disco mode).
+    for (const c of [0xff2d95, 0x00e5ff, 0xb8ff00]) {
+      const l = new THREE.PointLight(c, 0, 60, 1.6);
+      l.position.set(0, 12, 0);
+      this.discoLights.push(l);
+      this.scene.add(l);
+    }
   }
 
   // ─── Buildings (rebuilt when data changes shape) ───────────────────────────
@@ -416,6 +480,7 @@ export class EmpireEngine {
     this.disposeGroup(this.buildingsGroup);
     this.buildingsGroup.clear();
     this.anchors = []; this.pickables = []; this.spinners = []; this.beacons = []; this.smoke = []; this.windowMats = [];
+    this.plots = []; this.logos = []; this.prayerGlow = null;
     const others = list.filter((b) => b.id !== "hq");
     list.forEach((b, i) => {
       const { group, top } = this.makeBuilding(b, i * 97 + 13);
@@ -429,7 +494,25 @@ export class EmpireEngine {
       this.buildingsGroup.add(group);
       this.anchors.push({ id: b.id, obj: group, top });
       this.pickables.push(group);
+      this.plots.push({ pos: group.position.clone(), active: b.active });
+      const logo = LOGOS[b.id];
+      if (logo) {
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: logoTexture(logo.path, logo.hex), depthWrite: false }));
+        sprite.scale.setScalar(2.4);
+        sprite.position.set(0, top + 1.2, 0);
+        sprite.userData.buildingId = b.id;
+        group.add(sprite);
+        this.logos.push(sprite);
+      }
+      if (b.id === "mosque") {
+        // A soft green halo around the dome, lit at prayer times.
+        const glow = new THREE.Mesh(new THREE.SphereGeometry(3.4, 16, 10), new THREE.MeshBasicMaterial({ color: 0x5dffc0, transparent: true, opacity: 0, depthWrite: false }));
+        glow.position.y = 4; group.add(glow);
+        this.prayerGlow = glow;
+      }
     });
+    // Workers start at random buildings.
+    for (const w of this.workerState) this.pickTrip(w);
     this.applyShadows();
   }
 
@@ -460,6 +543,9 @@ export class EmpireEngine {
   private tick() {
     const dt = Math.min(0.05, this.clock.getDelta());
     const t = this.clock.elapsedTime;
+    // Ease the orbit centre toward its goal (smooth focus / unfocus, no jumps).
+    this.controls.target.lerp(this.focusGoal, 0.08);
+    this.controls.autoRotate = !this.interacting && !this.focused && performance.now() - this.lastInteraction > 6000;
     this.controls.update();
     this.updateDayNight();
 
@@ -467,7 +553,7 @@ export class EmpireEngine {
     const lit = this.night > 0.35;
     (this.lights.material as THREE.MeshBasicMaterial).opacity = lit ? 0.95 : 0;
     this.carState.forEach((c, i) => {
-      c.angle += c.speed * dt;
+      c.angle += c.speed * dt * (this.mood === "disco" ? 2 : this.mood === "hibernate" ? 0.3 : 1);
       const r = (c.ring ? RING_OUTER : RING_INNER) + (c.speed > 0 ? 0.9 : -0.9);
       const x = Math.cos(c.angle) * r, z = Math.sin(c.angle) * r;
       this.tmp.position.set(x, 0, z);
@@ -481,7 +567,14 @@ export class EmpireEngine {
     this.cars.instanceMatrix.needsUpdate = true;
     this.lights.instanceMatrix.needsUpdate = true;
 
-    for (const s of this.spinners) s.obj.rotation[s.axis] += s.speed * dt + (s.speed === 0 ? Math.sin(t * 3) * 0.004 : 0);
+    const pace = this.mood === "disco" ? 2.2 : this.mood === "hibernate" ? 0.25 : 1;
+    for (const s of this.spinners) s.obj.rotation[s.axis] += s.speed * dt * pace + (s.speed === 0 ? Math.sin(t * 3) * 0.004 : 0);
+    this.tickWorkers(dt * pace, t);
+    this.tickMood(t);
+    if (this.prayerGlow) {
+      const m = this.prayerGlow.material as THREE.MeshBasicMaterial;
+      m.opacity += ((this.prayer ? 0.28 + Math.sin(t * 2) * 0.08 : 0) - m.opacity) * 0.05;
+    }
     const blink = Math.sin(t * 4) > 0.6;
     for (const b of this.beacons) b.visible = blink;
 
@@ -509,7 +602,9 @@ export class EmpireEngine {
     const now = new Date();
     const h = this.timeOverride ?? now.getHours() + now.getMinutes() / 60;
     // 0 at midday, 1 at midnight, smooth through dawn/dusk.
-    const target = h >= 7 && h <= 18 ? 0 : h >= 20 || h <= 5 ? 1 : h < 7 ? (7 - h) / 2 : (h - 18) / 2;
+    const real = h >= 7 && h <= 18 ? 0 : h >= 20 || h <= 5 ? 1 : h < 7 ? (7 - h) / 2 : (h - 18) / 2;
+    // Hibernate dims the city; disco needs the dark to shine.
+    const target = this.mood === "hibernate" ? Math.max(real, 0.75) : this.mood === "disco" ? Math.max(real, 0.85) : real;
     this.night += (target - this.night) * 0.05;
     const n = this.night;
     const sky = new THREE.Color(0xbfdcf0).lerp(new THREE.Color(0x0d1426), n);
@@ -567,6 +662,75 @@ export class EmpireEngine {
 
   getQuality() { return this.quality; }
 
+  /** Music mood: disco (party lights, fast city) or hibernate (dim, slow, sleepy). */
+  setMood(m: Mood) {
+    if (m === this.mood) return;
+    this.mood = m;
+    this.controls.autoRotateSpeed = m === "disco" ? 1.2 : m === "hibernate" ? 0.12 : 0.35;
+    if (m === "normal") for (const w of this.windowMats) w.emissive.setHex(0xffd590);
+  }
+
+  /** Prayer time: the mosque glows. */
+  setPrayer(on: boolean) { this.prayer = on; }
+
+  private pickTrip(w: { from: number; to: number; t: number; speed: number; carry: boolean }) {
+    if (this.plots.length < 2) return;
+    w.from = w.to < this.plots.length ? w.to : Math.floor(Math.random() * this.plots.length);
+    // Busy buildings attract more trips.
+    let to = w.from;
+    for (let tries = 0; tries < 6 && to === w.from; tries++) {
+      const cand = Math.floor(Math.random() * this.plots.length);
+      if (cand !== w.from && (this.plots[cand].active || Math.random() < 0.4)) to = cand;
+    }
+    if (to === w.from) to = (w.from + 1) % this.plots.length;
+    w.to = to;
+    w.t = 0;
+    w.carry = this.plots[w.from].active && Math.random() < 0.7; // carrying work out of a busy building
+  }
+
+  private tickWorkers(dt: number, t: number) {
+    if (!this.workers || this.plots.length < 2) return;
+    this.workerState.forEach((w, i) => {
+      const a = this.plots[w.from]?.pos, b = this.plots[w.to]?.pos;
+      if (!a || !b) return;
+      w.t += dt * w.speed * (w.carry ? 1.25 : 1);
+      if (w.t >= 1) { this.pickTrip(w); return; }
+      // Walk out to the plaza edge, across, and back in — stays off the buildings.
+      const mid = a.clone().add(b).multiplyScalar(0.5).setLength(RING_INNER - 4.5);
+      const p = w.t < 0.5 ? a.clone().lerp(mid, w.t * 2) : mid.clone().lerp(b, (w.t - 0.5) * 2);
+      const next = w.t < 0.5 ? mid : b;
+      this.tmp.position.set(p.x, Math.abs(Math.sin(t * 9 + i)) * 0.08, p.z);
+      this.tmp.lookAt(next.x, 0, next.z);
+      this.tmp.scale.setScalar(1.45); // readable from the default camera distance
+      this.tmp.updateMatrix();
+      this.workers.setMatrixAt(i, this.tmp.matrix);
+      this.tmp.position.y += 2.2;
+      this.tmp.scale.setScalar(w.carry ? 1.45 : 0.0001);
+      this.tmp.updateMatrix();
+      this.packages.setMatrixAt(i, this.tmp.matrix);
+    });
+    this.workers.instanceMatrix.needsUpdate = true;
+    this.packages.instanceMatrix.needsUpdate = true;
+  }
+
+  private tickMood(t: number) {
+    const disco = this.mood === "disco";
+    this.discoLights.forEach((l, i) => {
+      l.intensity = disco ? 120 : 0;
+      if (!disco) return;
+      const a = t * 1.4 + (i * Math.PI * 2) / 3;
+      l.position.set(Math.cos(a) * 16, 9 + Math.sin(t * 3 + i) * 2, Math.sin(a) * 16);
+    });
+    if (disco) {
+      const beat = (Math.sin(t * Math.PI * 4) + 1) / 2; // ~120 bpm pulse
+      const hue = (t * 0.25) % 1;
+      this.windowMats.forEach((m, i) => m.emissive.setHSL((hue + i * 0.13) % 1, 1, 0.55));
+      this.anchors.forEach((a, i) => a.obj.scale.setScalar(1 + (i % 2 ? beat : 1 - beat) * 0.035));
+    } else if (this.anchors[0] && this.anchors[0].obj.scale.y !== 1 && this.anchors[0].obj !== this.hovered) {
+      this.anchors.forEach((a) => { if (a.obj !== this.hovered) a.obj.scale.setScalar(1); });
+    }
+  }
+
   /** Force day (12), night (22) or follow the real clock (null). */
   setTimeOfDay(hour: number | null) { this.timeOverride = hour; }
 
@@ -605,12 +769,28 @@ export class EmpireEngine {
     this.onHover(id);
   };
 
+  /** Glide toward a building (camera keeps its angle; orbit centre moves there). */
   focus(id: string) {
     const a = this.anchors.find((x) => x.id === id);
     if (!a) return;
     a.obj.getWorldPosition(this.v);
-    this.controls.target.lerp(new THREE.Vector3(this.v.x, 3, this.v.z), 0.6);
-    this.controls.autoRotate = false;
+    this.focusGoal.set(this.v.x * 0.85, 3, this.v.z * 0.85);
+    this.focused = true;
+    this.lastInteraction = performance.now();
+  }
+
+  /** Back to the whole city; auto-rotate resumes a few seconds later. */
+  unfocus() {
+    this.focusGoal.set(0, 3, 0);
+    this.focused = false;
+    this.lastInteraction = performance.now();
+  }
+
+  /** Reset the camera to the default view. */
+  resetView() {
+    this.unfocus();
+    this.camera.position.set(46, 40, 52);
+    this.lastInteraction = 0;
   }
 
   private resize = () => {

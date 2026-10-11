@@ -3,7 +3,7 @@
 // guidelines allow. Near-black logos (GitHub, Anthropic) use currentColor so
 // they stay visible in dark mode.
 
-import { siAnthropic, siClaude, siDiscord, siFoursquare, siRss, siStripe, siGithub, siGmail, siGooglecalendar, siGooglemaps, siOpenstreetmap, siReddit, siWhatsapp, siYcombinator, siYoutube } from "simple-icons";
+import { siAnthropic, siClaude, siDiscord, siFoursquare, siRss, siSpotify, siStripe, siUnity, siGithub, siGmail, siGooglecalendar, siGooglemaps, siOpenstreetmap, siReddit, siWhatsapp, siYcombinator, siYoutube } from "simple-icons";
 import { cn } from "@/lib/utils";
 
 const ICONS = {
@@ -19,13 +19,15 @@ const ICONS = {
   reddit: siReddit,
   foursquare: siFoursquare,
   stripe: siStripe,
+  unity: siUnity,
+  spotify: siSpotify,
   discord: siDiscord,
   rss: siRss,
   ycombinator: siYcombinator,
 } as const;
 
 export type Brand = keyof typeof ICONS;
-const MONO = new Set<Brand>(["github", "anthropic"]);
+const MONO = new Set<Brand>(["github", "anthropic", "unity"]);
 
 export function BrandIcon({ name, className, mono, color }: { name: Brand; className?: string; mono?: boolean; color?: string }) {
   const icon = ICONS[name];

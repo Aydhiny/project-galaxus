@@ -25,6 +25,7 @@ import { TopBar, MeetingsPill } from "@/components/top-bar";
 const AmbientThree = dynamic(() => import("@/components/ambient-three").then((m) => m.AmbientThree), { ssr: false });
 const CommandPalette = dynamic(() => import("@/components/command-palette").then((m) => m.CommandPalette), { ssr: false });
 const QuickCapture = dynamic(() => import("@/components/quick-capture").then((m) => m.QuickCapture), { ssr: false });
+const SpotifyButton = dynamic(() => import("@/components/spotify-button").then((m) => m.SpotifyButton), { ssr: false });
 const QuickCaptureButton = dynamic(() => import("@/components/quick-capture").then((m) => m.QuickCaptureButton), { ssr: false });
 const VoiceButton = dynamic(() => import("@/components/voice/voice-button").then((m) => m.VoiceButton), { ssr: false });
 const Screensaver = dynamic(() => import("@/components/screensaver").then((m) => m.Screensaver), { ssr: false });
@@ -34,6 +35,7 @@ const OnboardingFlow = dynamic(() => import("@/components/onboarding").then((m) 
 const InstallHint = dynamic(() => import("@/components/install/install-hint").then((m) => m.InstallHint), { ssr: false });
 const ComebackPrompt = dynamic(() => import("@/components/tasks/comeback-prompt").then((m) => m.ComebackPrompt), { ssr: false });
 const EmpireHost = dynamic(() => import("@/components/empire/empire-host").then((m) => m.EmpireHost), { ssr: false });
+const AzanPlayer = dynamic(() => import("@/components/azan-player").then((m) => m.AzanPlayer), { ssr: false });
 const SoundLayer = dynamic(() => import("@/components/sound-layer").then((m) => m.SoundLayer), { ssr: false });
 const Guardian = dynamic(() => import("@/components/guardian").then((m) => m.Guardian), { ssr: false });
 const DailyCheckinReminder = dynamic(() => import("@/components/daily-checkin-reminder").then((m) => m.DailyCheckinReminder), { ssr: false });
@@ -90,6 +92,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* UI sound effects (clicks, toggles, toasts) — synthesised, toggle in the top bar */}
       <SoundLayer />
+
+      {/* Azan at prayer times (vaktija.ba) */}
+      <AzanPlayer />
 
       {/* Daily check-in nudge toast — checks server prefs + today's status once */}
       <DailyCheckinReminder />
@@ -173,6 +178,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Floating widgets */}
       <FloatingPomodoro />
+      <SpotifyButton />
       <QuickCaptureButton />
       <VoiceButton />
     </div>

@@ -352,6 +352,10 @@ export const userSettings = pgTable("user_settings", {
   sleepEnabled: boolean("sleep_enabled").default(false),
   bedTime: varchar("bed_time", { length: 5 }).default("23:00"),
   wakeTime: varchar("wake_time", { length: 5 }).default("07:00"),
+  // Prayer times from vaktija.ba (location id; 77 = Sarajevo) and the azan.
+  vaktijaLocation: integer("vaktija_location").default(77),
+  azanEnabled: boolean("azan_enabled").default(false),
+  azanFajr: boolean("azan_fajr").default(false), // the sabah azan is loud at 5 am — opt in
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -1157,6 +1161,22 @@ export const urgeLogs = pgTable(
     triggers: jsonb("triggers").$type<string[]>().notNull().default([]), // tired | alone | late | stressed | bored | phone
   },
   (t) => [index("idx_urge_user_at").on(t.userId, t.at)]
+);
+
+// Small personal files stored in Postgres (e.g. your azan recording) — one per kind.
+export const userFiles = pgTable(
+  "user_files",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    kind: varchar("kind", { length: 20 }).notNull(), // azan
+    name: varchar("name", { length: 200 }),
+    mime: varchar("mime", { length: 60 }).notNull(),
+    data: text("data").notNull(), // base64
+    bytes: integer("bytes").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_user_files_kind").on(t.userId, t.kind)]
 );
 
 // Focus sessions from the daily focus mode — they count toward Discipline XP.

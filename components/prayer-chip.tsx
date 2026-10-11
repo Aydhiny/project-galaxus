@@ -9,6 +9,8 @@ import Link from "next/link";
 import { Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRAYER_NAMES, fetchPrayerTimes, formatCountdown, getNextPrayer, type PrayerTimes } from "@/lib/prayer-times";
+import { usePrayerStore } from "@/components/azan-player";
+import { VAKAT, nextVakat } from "@/lib/vaktija";
 
 const SARAJEVO = { lat: 43.8563, lon: 18.4131 };
 const BS: Record<string, string> = { Fajr: "Sabah", Dhuhr: "Podne", Asr: "Ikindija", Maghrib: "Akšam", Isha: "Jacija" };
@@ -37,9 +39,23 @@ export function usePrayerTimes() {
   return { times, next: times ? getNextPrayer(times) : null, now };
 }
 
-/** HUD chip: "Akšam 1h 12m". */
+/** HUD chip: "Akšam 1h 12m" — vaktija.ba times when loaded, otherwise Aladhan. */
 export function PrayerChip() {
-  const { next } = usePrayerTimes();
+  const vaktija = usePrayerStore((s) => s.vaktija);
+  const current = usePrayerStore((s) => s.current);
+  const fallback = usePrayerTimes();
+  if (vaktija) {
+    const nv = nextVakat(vaktija, new Date(fallback.now));
+    const h = Math.floor(nv.minutesLeft / 60), m = nv.minutesLeft % 60;
+    return (
+      <Link href="/spiritual" title={`${nv.bs} u ${nv.time} · vaktija.ba`} className="inline-flex items-center gap-1.5 h-8 px-1.5 rounded-lg hover:bg-accent/60 transition-colors">
+        <span className={cn("w-5 h-5 rounded-full flex items-center justify-center bg-teal-500/15 text-teal-500", (current || nv.minutesLeft <= 15) && "animate-pulse")}><Moon className="w-3 h-3" /></span>
+        <span className="font-hud uppercase tracking-wide text-[15px] leading-none">{current ?? nv.bs}</span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">{current ? "sada" : h ? `${h}h ${m}m` : `${m}m`}</span>
+      </Link>
+    );
+  }
+  const { next } = fallback;
   if (!next) return null;
   const soon = next.minutesLeft <= 15;
   return (
@@ -54,7 +70,21 @@ export function PrayerChip() {
 
 /** Today's five prayers as a strip (Daily brief, Islam section). */
 export function PrayerStrip({ className }: { className?: string }) {
-  const { times, next } = usePrayerTimes();
+  const vaktija = usePrayerStore((s) => s.vaktija);
+  const { times, next, now } = usePrayerTimes();
+  if (vaktija) {
+    const nv = nextVakat(vaktija, new Date(now));
+    return (
+      <div className={cn("flex flex-wrap gap-1.5", className)}>
+        {VAKAT.map((v, i) => (
+          <span key={v.key} className={cn("inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-xs",
+            nv.key === v.key ? "border-teal-500/50 bg-teal-500/10 text-teal-700 dark:text-teal-300 font-medium" : "border-border text-muted-foreground")}>
+            {v.bs} <span className="tabular-nums">{vaktija.times[i]}</span>
+          </span>
+        ))}
+      </div>
+    );
+  }
   if (!times) return null;
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>

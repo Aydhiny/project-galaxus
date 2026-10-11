@@ -9,6 +9,7 @@ import { Moon, Loader2, RotateCcw, Star } from "lucide-react";
 import { toHijri, HIJRI_MONTHS } from "@/lib/hijri";
 import { fetchPrayerTimes, getUserLocation, getNextPrayer, formatCountdown, type PrayerTimes } from "@/lib/prayer-times";
 
+import { PrayerSettings } from "@/components/prayer-settings";
 const PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 const PRAYER_LABELS: Record<string, string> = {
   fajr: "الفجر",
@@ -265,6 +266,9 @@ export default function SpiritualPage() {
         </p>
         </div>
       </div>
+
+      {/* Vaktija.ba times + azan */}
+      <PrayerSettings />
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">

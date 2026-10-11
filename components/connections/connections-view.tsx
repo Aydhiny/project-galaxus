@@ -13,6 +13,7 @@ import { saveStripeKeyC } from "@/lib/client/money";
 import { saveRedditKeyC } from "@/lib/client/gigs";
 import { connectGmailC } from "@/lib/client/autopilot";
 import { saveVoiceGithubKey } from "@/lib/client/voice";
+import { disconnectSpotifyC, saveSpotifyClientIdC } from "@/lib/client/spotify";
 import { BrandTile, type Brand } from "@/components/brand-icon";
 import { RedditConnectionCard } from "@/components/connections/reddit-connection";
 import type { RedditConnection } from "@/lib/client/reddit";
@@ -54,8 +55,8 @@ function Card({ brand, name, what, status, children, href, cta }: {
 
 /** Every connector Galaxus has, grouped — each one connectable right here. */
 export function ConnectionsView({ connections: c, reddit }: { connections: Connections; reddit: RedditConnection }) {
-  const total = 13;
-  const on = [c.calendars.length > 0, c.gmail, c.anthropic, c.claudeRunner, c.youtube, c.google, c.foursquare, c.stripe, c.redditApp, c.github, c.mcpTokens > 0, reddit.connected, true].filter(Boolean).length;
+  const total = 14;
+  const on = [c.calendars.length > 0, c.gmail, c.anthropic, c.claudeRunner, c.youtube, c.google, c.foursquare, c.stripe, c.redditApp, c.github, c.mcpTokens > 0, reddit.connected, c.spotify, true].filter(Boolean).length;
   return (
     <div className="max-w-4xl mx-auto px-5 md:px-10 py-8 md:py-12">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -132,6 +133,15 @@ export function ConnectionsView({ connections: c, reddit }: { connections: Conne
           status={<Status on label="Always on" />} href="/community" cta="Community" />
         <Card brand="rss" name="News feeds" what="16 outlets (Al Jazeera, Klix, BBC, The Verge…) for your daily brief, with images."
           status={<Status on label="Always on" />} href="/brief" cta="Daily brief" />
+      </Group>
+
+      <Group title="Music">
+        <div className="md:col-span-2" id="spotify">
+          <Card brand="spotify" name="Spotify" what="See what's playing (button next to Quick Capture), control playback, and your empire goes disco while you listen."
+            status={<Status on={c.spotify} label={c.spotify ? "Connected" : c.spotifyClient ? "Ready to connect" : "Not connected"} />}>
+            <SpotifySetup hasClient={c.spotifyClient} connected={c.spotify} />
+          </Card>
+        </div>
       </Group>
 
       <Group title="Developer">
@@ -243,6 +253,35 @@ function CalendarSetup({ calendars }: { calendars: Connections["calendars"] }) {
         <li>Scroll to <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>.</li>
         <li>Paste it here. It&apos;s like a password for reading that calendar — Galaxus stores it encrypted. If it ever leaks, &quot;Reset&quot; it in Google and paste the new one.</li>
       </ol>
+    </div>
+  );
+}
+
+function SpotifySetup({ hasClient, connected }: { hasClient: boolean; connected: boolean }) {
+  const [busy, start] = useTransition();
+  return (
+    <div className="space-y-3">
+      {connected ? (
+        <div className="flex flex-wrap gap-2">
+          <a href="/api/spotify/login" className="h-9 px-3 rounded-lg border border-border text-sm inline-flex items-center">Reconnect</a>
+          <button onClick={() => start(async () => { await disconnectSpotifyC(); toast.success("Spotify disconnected."); })} disabled={busy}
+            className="h-9 px-3 rounded-lg text-sm text-muted-foreground hover:text-destructive">Disconnect</button>
+        </div>
+      ) : (
+        <>
+          <KeyForm saved={hasClient} placeholder="Spotify Client ID (32 characters)" onSave={(v) => saveSpotifyClientIdC(v)} />
+          {hasClient && (
+            <a href="/api/spotify/login" className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-[#1DB954] text-black text-sm font-semibold">
+              <BrandTile name="spotify" className="w-5 h-5" /> Connect Spotify
+            </a>
+          )}
+          <ol className="text-xs text-muted-foreground list-decimal pl-4 space-y-0.5">
+            <li>Open the <a className="underline" href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Developer Dashboard</a> → <b>Create app</b> (any name; tick <b>Web API</b>).</li>
+            <li>Under <b>Redirect URIs</b> add <code className="rounded bg-muted px-1">https://project-galaxus.vercel.app/api/spotify/callback</code> (for local dev also <code className="rounded bg-muted px-1">http://127.0.0.1:3000/api/spotify/callback</code> — Spotify doesn&apos;t accept &quot;localhost&quot;).</li>
+            <li>Copy the <b>Client ID</b>, paste it above, then press <b>Connect Spotify</b>. No client secret is needed — Galaxus uses PKCE.</li>
+          </ol>
+        </>
+      )}
     </div>
   );
 }

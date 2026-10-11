@@ -10,14 +10,14 @@ describe("safeCallbackUrl", () => {
   });
 
   it("blocks open redirects", () => {
-    expect(safeCallbackUrl("https://evil.com", ORIGIN)).toBe("/overview");
-    expect(safeCallbackUrl("//evil.com/x", ORIGIN)).toBe("/overview");
-    expect(safeCallbackUrl("/\\evil.com", ORIGIN)).toBe("/overview"); // browsers treat "\" as "/"
-    expect(safeCallbackUrl("javascript:alert(1)", ORIGIN)).toBe("/overview");
+    expect(safeCallbackUrl("https://evil.com", ORIGIN)).toBe("/empire");
+    expect(safeCallbackUrl("//evil.com/x", ORIGIN)).toBe("/empire");
+    expect(safeCallbackUrl("/\\evil.com", ORIGIN)).toBe("/empire"); // browsers treat "\" as "/"
+    expect(safeCallbackUrl("javascript:alert(1)", ORIGIN)).toBe("/empire");
   });
 
   it("never loops back to auth pages", () => {
-    expect(safeCallbackUrl("/login", ORIGIN)).toBe("/overview");
-    expect(safeCallbackUrl(null, ORIGIN)).toBe("/overview");
+    expect(safeCallbackUrl("/login", ORIGIN)).toBe("/empire");
+    expect(safeCallbackUrl(null, ORIGIN)).toBe("/empire");
   });
 });
