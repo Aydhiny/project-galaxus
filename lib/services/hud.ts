@@ -3,7 +3,7 @@
 import { and, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  beatSales, beats, books, courses, dailyCheckins, gameCommits, gigEmails, gigs, income, journalEntries, leads, personalRecords,
+  beatSales, beats, books, courses, dailyCheckins, focusSessions, gameCommits, gigEmails, gigs, income, journalEntries, leads, personalRecords,
   readingSessions, studySessions, tasks, userSettings, youtubeChannels, youtubeVideos,
 } from "@/lib/db/schema";
 import { completionStreak } from "@/lib/productivity";
@@ -13,7 +13,7 @@ const count = sql<number>`count(*)::int`;
 const n = (v: unknown) => Number(v ?? 0) || 0;
 
 async function skillCountsFor(userId: number, streak: number): Promise<SkillCounts & { earnedKm: number }> {
-  const [t, ck, ld, gg, money, commits, yt, bt, sold, pr, rd, bk, st, cs, jr] = await Promise.all([
+  const [t, ck, ld, gg, money, commits, yt, bt, sold, pr, rd, bk, st, cs, jr, fc] = await Promise.all([
     db.select({ n: count }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "done"))),
     db.select({
       days: count,
@@ -47,10 +47,11 @@ async function skillCountsFor(userId: number, streak: number): Promise<SkillCoun
     db.select({ h: sql<number>`coalesce(sum(${studySessions.hours}),0)::real` }).from(studySessions).where(eq(studySessions.userId, userId)),
     db.select({ n: count }).from(courses).where(and(eq(courses.userId, userId), isNotNull(courses.completedAt))),
     db.select({ n: count }).from(journalEntries).where(eq(journalEntries.userId, userId)),
+    db.select({ m: sql<number>`coalesce(sum(${focusSessions.minutes}),0)::int` }).from(focusSessions).where(eq(focusSessions.userId, userId)),
   ]);
   const c = ck[0];
   return {
-    tasksDone: n(t[0]?.n), checkinDays: n(c?.days), streak,
+    tasksDone: n(t[0]?.n), checkinDays: n(c?.days), streak, focusMinutes: n(fc[0]?.m),
     outreachSent: n(ld[0]?.sent), outreachReplies: n(ld[0]?.replies), clients: n(ld[0]?.clients), gigsApplied: n(gg[0]?.applied),
     earnedKm: Math.round(n(money[0]?.km) / 100),
     gameCommits: n(commits[0]?.n), webClients: n(ld[0]?.clients) + n(gg[0]?.web),

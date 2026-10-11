@@ -32,7 +32,7 @@ export const RANKS = ["Rookie", "Hustler", "Operator", "Builder", "Closer", "Fou
 
 /** Raw counts gathered from your data (see lib/services/hud.ts). */
 export type SkillCounts = {
-  tasksDone: number; checkinDays: number; streak: number;
+  tasksDone: number; checkinDays: number; streak: number; focusMinutes: number;
   outreachSent: number; outreachReplies: number; clients: number; gigsApplied: number; earnedKm: number;
   gameCommits: number; webClients: number;
   videos: number; shorts: number; views: number; youtubeDays: number;
@@ -44,11 +44,11 @@ export type SkillCounts = {
 
 export const SKILLS = [
   { key: "discipline", label: "Discipline", emoji: "🎯", tone: "amber",
-    how: "10 XP per finished task · 5 per daily check-in · streak bonus",
-    xp: (c: SkillCounts) => c.tasksDone * 10 + c.checkinDays * 5 + Math.min(c.streak, 60) * 5 },
+    how: "6 XP per finished task · 4 per daily check-in · 1 per 5 focus minutes · streak bonus",
+    xp: (c: SkillCounts) => c.tasksDone * 6 + c.checkinDays * 4 + c.focusMinutes / 5 + Math.min(c.streak, 60) * 3 },
   { key: "hustle", label: "Hustle", emoji: "💼", tone: "emerald",
-    how: "3 XP per outreach sent · 15 per reply · 25 per gig applied · 250 per client · ½ per KM earned",
-    xp: (c: SkillCounts) => c.outreachSent * 3 + c.outreachReplies * 15 + c.gigsApplied * 25 + c.clients * 250 + c.earnedKm * 0.5 },
+    how: "2 XP per outreach sent · 10 per reply · 15 per gig applied · 250 per client · 1 per 5 KM earned",
+    xp: (c: SkillCounts) => c.outreachSent * 2 + c.outreachReplies * 10 + c.gigsApplied * 15 + c.clients * 250 + c.earnedKm * 0.2 },
   { key: "coding", label: "Coding", emoji: "💻", tone: "sky",
     how: "8 XP per game commit · 150 per website client",
     xp: (c: SkillCounts) => c.gameCommits * 8 + c.webClients * 150 },
@@ -70,12 +70,15 @@ export const SKILLS = [
 ] as const;
 export type SkillKey = (typeof SKILLS)[number]["key"];
 
-/** Skills level faster than the overall level (a gentler curve). */
+// Steep curves on purpose: levels should mean months of real work, not a week.
+export const OVERALL_CURVE = { base: 400, growth: 300 } as const; // L2 400 · L3 +700 · L4 +1000 · L5 +1300 …
+export const SKILL_CURVE = { base: 120, growth: 90 } as const; //   L2 120 · L3 +210 · L4 +300 …
+
 export function skillLevels(c: SkillCounts) {
   const skills = SKILLS.map((s) => {
     const xp = Math.round(s.xp(c));
-    return { key: s.key, label: s.label, emoji: s.emoji, tone: s.tone, how: s.how, xp, ...levelFor(xp, 50, 25) };
+    return { key: s.key, label: s.label, emoji: s.emoji, tone: s.tone, how: s.how, xp, ...levelFor(xp, SKILL_CURVE.base, SKILL_CURVE.growth) };
   });
   const total = skills.reduce((sum, s) => sum + s.xp, 0);
-  return { skills, totalXp: total, ...levelFor(total), rank: "" as string };
+  return { skills, totalXp: total, ...levelFor(total, OVERALL_CURVE.base, OVERALL_CURVE.growth), rank: "" as string };
 }

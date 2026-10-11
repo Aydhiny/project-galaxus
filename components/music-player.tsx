@@ -6,8 +6,10 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { useAmbientStore } from "@/lib/store/ambient";
 import { useFeedVideoStore } from "@/lib/store/feed-video";
+import { FOCUS_TRACK_ID, FOCUS_VIDEO_ID, useMusicStore } from "@/lib/store/music";
 
 const TRACKS: { id: string; label: string; icon: React.ReactNode; videoId: string; color: string }[] = [
+  { id: FOCUS_TRACK_ID, label: "My focus", icon: <Music2 className="w-3 h-3"/>, videoId: FOCUS_VIDEO_ID, color: "oklch(0.70 0.13 190)" },
   { id: "lofi",      label: "Lofi Beats",    icon: <Radio className="w-3 h-3"/>,    videoId: "jfKfPfyJRdk", color: "oklch(0.65 0.20 290)" },
   { id: "classical", label: "Classical",     icon: <Music className="w-3 h-3"/>,    videoId: "OYifjZ8jLQs", color: "oklch(0.72 0.14 78)"  },
   { id: "zelda",     label: "Zelda & Chill", icon: <Gamepad2 className="w-3 h-3"/>, videoId: "GdzrrWA8e7A", color: "oklch(0.68 0.14 158)" },
@@ -222,8 +224,8 @@ function AmbientControl({
 
 // ─── Main player ──────────────────────────────────────────────────────────────
 export function MusicPlayer() {
-  const [activeId, setActiveId] = useState<string|null>(null);
-  const [playerOpen, setPlayerOpen] = useState(false);
+  // Shared store: the top bar, focus mode and sleep guardian start/stop this player.
+  const { activeId, playerOpen, play, stop, setPlayerOpen } = useMusicStore();
   const { rainVol, fireVol, brownVol, setRainVol, setFireVol, setBrownVol } = useAmbientStore();
   const { pinned, collapsed: feedCollapsed, setPinned, setCollapsed: setFeedCollapsed } = useFeedVideoStore();
 
@@ -233,12 +235,12 @@ export function MusicPlayer() {
   const { setVolume: setBrownAudio } = useAmbientSound("brown", brownVol, setBrownVol);
 
   const track = TRACKS.find(t=>t.id===activeId);
-  const showMusicVideo = activeId && track && playerOpen;
+  const showMusicVideo = !!(activeId && track);
   const showFeedVideo = pinned && !feedCollapsed;
 
   function selectTrack(id: string) {
-    if (activeId===id) setPlayerOpen(o=>!o);
-    else { setActiveId(id); setPlayerOpen(true); }
+    if (activeId===id) setPlayerOpen(!playerOpen);
+    else { play(id); setPlayerOpen(true); }
   }
 
   return (
@@ -285,9 +287,10 @@ export function MusicPlayer() {
       )}
 
       {/* ── Music iframe ── */}
+      {/* Stays mounted while a track is active (collapsed = height 0) so music keeps playing. */}
       {showMusicVideo && (
-        <div className="border-b border-border relative">
-          <button onClick={() => { setPlayerOpen(false); setActiveId(null); }}
+        <div className={cn("border-b border-border relative", !playerOpen && "h-0 overflow-hidden border-b-0")}>
+          <button onClick={() => stop()}
             className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors">
             <X className="w-3 h-3" />
           </button>
@@ -319,7 +322,7 @@ export function MusicPlayer() {
         </div>
 
         {activeId && (
-          <button onClick={() => setPlayerOpen(o=>!o)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <button onClick={() => setPlayerOpen(!playerOpen)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
             {playerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
         )}

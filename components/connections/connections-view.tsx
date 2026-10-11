@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 import type { Connections } from "@/lib/actions/connections";
 import { addCalendar, removeCalendar } from "@/lib/client/calendar";
 import { saveYoutubeKeys } from "@/lib/client/youtube";
+import { saveOutreachSettings } from "@/lib/client/outreach";
+import { saveStripeKeyC } from "@/lib/client/money";
+import { saveRedditKeyC } from "@/lib/client/gigs";
+import { connectGmailC } from "@/lib/client/autopilot";
+import { saveVoiceGithubKey } from "@/lib/client/voice";
 import { BrandTile, type Brand } from "@/components/brand-icon";
 import { RedditConnectionCard } from "@/components/connections/reddit-connection";
 import type { RedditConnection } from "@/lib/client/reddit";
@@ -47,53 +52,138 @@ function Card({ brand, name, what, status, children, href, cta }: {
   );
 }
 
+/** Every connector Galaxus has, grouped — each one connectable right here. */
 export function ConnectionsView({ connections: c, reddit }: { connections: Connections; reddit: RedditConnection }) {
+  const total = 13;
+  const on = [c.calendars.length > 0, c.gmail, c.anthropic, c.claudeRunner, c.youtube, c.google, c.foursquare, c.stripe, c.redditApp, c.github, c.mcpTokens > 0, reddit.connected, true].filter(Boolean).length;
   return (
     <div className="max-w-4xl mx-auto px-5 md:px-10 py-8 md:py-12">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Connections</h1>
-        <p className="text-sm text-muted-foreground mt-1">Everything Galaxus talks to. Keys and links are stored encrypted and never shown again.</p>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Connections</h1>
+          <p className="text-sm text-muted-foreground mt-1">Everything Galaxus talks to. Keys are stored encrypted and never shown again.</p>
+        </div>
+        <p className="font-hud uppercase tracking-wide text-2xl tabular-nums">{on}<span className="text-muted-foreground text-base">/{total} connected</span></p>
       </header>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <Group title="AI">
+        <Card brand="claude" name="Claude · subscription runner" what="Your Claude Code subscription runs voice commands, gig scoring, the daily brief and email replies (GitHub Actions)."
+          status={<Status on={c.claudeRunner} label={c.claudeRunner ? "Working" : "Token expired"} />}>
+          {!c.claudeRunner && (
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>The last job failed to authenticate. In a terminal, run these two (free alternatives keep working meanwhile):</p>
+              <pre className="rounded-lg bg-muted p-2 font-mono text-[11px] overflow-x-auto">claude setup-token{"\n"}gh secret set CLAUDE_CODE_OAUTH_TOKEN</pre>
+            </div>
+          )}
+        </Card>
+        <Card brand="claude" name="Claude · API key" what="Writes outreach messages, reviews your YouTube channel and scripts Shorts (pay-as-you-go)."
+          status={<Status on={c.anthropic} />}>
+          <KeyForm saved={c.anthropic} placeholder="sk-ant-…" onSave={(v) => saveYoutubeKeys({ anthropic: v })} />
+        </Card>
+        <Card brand="anthropic" name="AI assistants (MCP)" what="Let Claude Code, Claude Desktop or Cursor read and plan your tasks and goals."
+          status={<Status on={c.mcpTokens > 0} label={c.mcpTokens ? `${c.mcpTokens} token${c.mcpTokens > 1 ? "s" : ""}` : undefined} />} href="/settings#ai" cta="Create a token" />
+      </Group>
+
+      <Group title="Google">
         <div className="md:col-span-2">
           <Card brand="googlecalendar" name="Google Calendar" what="Your next meeting in the top bar, the week in a dropdown. Read-only."
             status={<Status on={c.calendars.length > 0} label={c.calendars.length ? `${c.calendars.length} calendar${c.calendars.length > 1 ? "s" : ""}` : undefined} />}>
             <CalendarSetup calendars={c.calendars} />
           </Card>
         </div>
-
         <Card brand="gmail" name="Gmail" what="Gig autopilot sends applications from your Gmail and answers routine client replies within minutes."
-          status={<Status on={c.gmail} />} href="/gigs" cta="Gig autopilot" />
-
-        <RedditConnectionCard connection={reddit} />
-
-        <Card brand="claude" name="Claude · voice" what="Speak a command; Claude Code on your own subscription creates the tasks, routines and goals."
-          status={<Status on={c.github} label={c.github ? "Instant start" : "10-min start"} />} href="/voice" cta="Open Voice" />
-
-        <Card brand="claude" name="Claude · API" what="Writes outreach messages, reviews your YouTube channel and scripts Shorts."
-          status={<Status on={c.anthropic} />}>
-          <KeyForm saved={c.anthropic} placeholder="sk-ant-…" onSave={(v) => saveYoutubeKeys({ anthropic: v })} />
+          status={<Status on={c.gmail} />}>
+          <GmailForm saved={c.gmail} />
         </Card>
-
-        <Card brand="youtube" name="YouTube" what="Sync your channel, audit every video, plan Shorts with Claude."
-          status={<Status on={c.youtube} />} href="/youtube" cta="Open YouTube" />
-
+        <Card brand="youtube" name="YouTube Data API" what="Sync your channel, audit videos, plan Shorts. A Google API key (AIza…)."
+          status={<Status on={c.youtube} />}>
+          <KeyForm saved={c.youtube} placeholder="AIza…" onSave={(v) => saveYoutubeKeys({ youtube: v })} />
+        </Card>
         <Card brand="googlemaps" name="Google Places" what="Finds businesses for outreach. Capped below Google's free allowance."
-          status={<Status on={c.google} label={c.google ? "Connected" : "Optional"} />} href="/outreach" cta="Outreach setup" />
+          status={<Status on={c.google} label={c.google ? "Connected" : "Optional"} />}>
+          <KeyForm saved={c.google} placeholder="AIza…" onSave={(v) => saveOutreachSettings({ googleKey: v })} />
+        </Card>
+      </Group>
 
-        <Card brand="openstreetmap" name="OpenStreetMap" what="Free business search for outreach — no key, no billing."
-          status={<Status on label="Always on" />} href="/outreach" cta="Add a search" />
-
+      <Group title="Money">
+        <Card brand="stripe" name="Stripe" what="Payments from clients show up in Money automatically. Use a restricted read-only key."
+          status={<Status on={c.stripe} />}>
+          <KeyForm saved={c.stripe} placeholder="rk_live_… (read-only)" onSave={(v) => saveStripeKeyC(v)} />
+        </Card>
         <Card brand="whatsapp" name="WhatsApp" what="Click-to-chat: messages open prefilled, you press send. Nothing is sent automatically."
           status={<Status on label="No setup" />} />
+      </Group>
 
-        <Card brand="github" name="GitHub" what="Runs the voice job. A fine-grained token lets Galaxus start it instantly."
-          status={<Status on={c.github} label={c.github ? "Connected" : "Optional"} />} href="/voice" cta="Voice setup" />
+      <Group title="Gigs, leads & community">
+        <Card brand="reddit" name="Reddit · gig radar" what="Optional app key so the gig radar reads Reddit through the official API (more reliable than RSS)."
+          status={<Status on={c.redditApp} label={c.redditApp ? "Connected" : "RSS (no key)"} />}>
+          <PairForm saved={c.redditApp} a="Client ID" b="Client secret" onSave={(clientId, clientSecret) => saveRedditKeyC({ clientId, clientSecret })} />
+        </Card>
+        <RedditConnectionCard connection={reddit} />
+        <Card brand="foursquare" name="Foursquare" what="Second free lead source — often has the phone numbers OpenStreetMap is missing."
+          status={<Status on={c.foursquare} label={c.foursquare ? "Connected" : "Optional"} />}>
+          <KeyForm saved={c.foursquare} placeholder="Service API key" onSave={(v) => saveOutreachSettings({ foursquareKey: v })} />
+        </Card>
+        <Card brand="openstreetmap" name="OpenStreetMap" what="Free business search for outreach — no key, no billing."
+          status={<Status on label="Always on" />} href="/outreach" cta="Auto-scout" />
+        <Card brand="ycombinator" name="Job boards" what="Remotive, RemoteOK, We Work Remotely and Hacker News — read for freelance and contract gigs."
+          status={<Status on label="Always on" />} href="/gigs" cta="Gig radar" />
+        <Card brand="discord" name="Discord" what="Community scout checks invite links with Discord's public API — no key, nothing joins for you."
+          status={<Status on label="Always on" />} href="/community" cta="Community" />
+        <Card brand="rss" name="News feeds" what="16 outlets (Al Jazeera, Klix, BBC, The Verge…) for your daily brief, with images."
+          status={<Status on label="Always on" />} href="/brief" cta="Daily brief" />
+      </Group>
 
-        <Card brand="anthropic" name="AI assistants (MCP)" what="Let Claude Code, Claude Desktop or Cursor read and plan your tasks and goals."
-          status={<Status on={c.mcpTokens > 0} label={c.mcpTokens ? `${c.mcpTokens} token${c.mcpTokens > 1 ? "s" : ""}` : undefined} />} href="/settings#ai" cta="Manage tokens" />
+      <Group title="Developer">
+        <Card brand="github" name="GitHub" what="A fine-grained token lets Galaxus start the Claude runner instantly instead of on the next beat."
+          status={<Status on={c.github} label={c.github ? "Connected" : "Optional"} />}>
+          <KeyForm saved={c.github} placeholder="github_pat_…" onSave={(v) => saveVoiceGithubKey(v)} />
+        </Card>
+      </Group>
+    </div>
+  );
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-8">
+      <h2 className="font-hud uppercase tracking-wide text-sm text-muted-foreground mb-3">{title}</h2>
+      <div className="grid md:grid-cols-2 gap-4">{children}</div>
+    </section>
+  );
+}
+
+function PairForm({ saved, a, b, onSave }: { saved: boolean; a: string; b: string; onSave: (a: string, b: string) => Promise<unknown> }) {
+  const [x, setX] = useState("");
+  const [y, setY] = useState("");
+  const [busy, start] = useTransition();
+  return (
+    <div className="flex flex-col gap-2">
+      <input value={x} onChange={(e) => setX(e.target.value)} placeholder={saved ? `New ${a.toLowerCase()}` : a} className="input-base" />
+      <div className="flex gap-2">
+        <input type="password" autoComplete="off" value={y} onChange={(e) => setY(e.target.value)} placeholder={b} className="input-base flex-1" />
+        <button onClick={() => start(async () => { try { await onSave(x.trim(), y.trim()); setX(""); setY(""); toast.success("Saved."); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save."); } })}
+          disabled={busy || !x.trim() || !y.trim()} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">Save</button>
       </div>
+    </div>
+  );
+}
+
+function GmailForm({ saved }: { saved: boolean }) {
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [busy, start] = useTransition();
+  return (
+    <div className="flex flex-col gap-2">
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={saved ? "Connected — enter again to replace" : "you@gmail.com"} className="input-base" />
+      <div className="flex gap-2">
+        <input type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="16-letter app password" className="input-base flex-1" />
+        <button onClick={() => start(async () => { try { await connectGmailC({ email: email.trim(), appPassword: pass.replace(/\s/g, "") }); setEmail(""); setPass(""); toast.success("Gmail connected — sending and reading verified."); } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't connect."); } })}
+          disabled={busy || !email.trim() || !pass.trim()} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Connect"}
+        </button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">Google Account → Security → 2-Step Verification on → <a className="underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">App passwords</a>. Also turn on IMAP in Gmail settings.</p>
     </div>
   );
 }

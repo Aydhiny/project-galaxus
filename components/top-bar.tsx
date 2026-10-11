@@ -13,9 +13,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BrandIcon } from "@/components/brand-icon";
 import { openVoice } from "@/lib/voice-events";
 import { HudLevel, HudMoney, HudStats, useHud } from "@/components/hud";
+import { useGuardianStore } from "@/lib/store/guardian";
+import { FOCUS_TRACK_ID, useMusicStore } from "@/lib/store/music";
+import { Headphones, Shield, Target } from "lucide-react";
 
 const TITLES: Record<string, string> = {
-  overview: "Today", brief: "Daily brief", community: "Community", level: "Level", deals: "Deal desk", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
+  overview: "Today", brief: "Daily brief", community: "Community", level: "Level", deals: "Deal desk", diary: "Diary", hold: "Hold the line", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
   review: "Weekly Review", daily: "Daily Check-in", goals: "Goals", goal: "Goal", outreach: "Outreach", gigs: "Gig radar", money: "Money",
   youtube: "YouTube", game: "Game dev", connections: "Connections", settings: "Settings", dashboard: "Feed",
 };
@@ -39,6 +42,7 @@ export function TopBar() {
         <Search className="w-3.5 h-3.5" /> Search…
         <kbd className="ml-auto rounded border border-border bg-muted px-1 font-mono text-[10px]">Ctrl K</kbd>
       </button>
+      <GuardianButtons />
       <button onClick={openVoice} title="Talk to Claude (Alt+V)" aria-label="Talk to Claude"
         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
         <Mic className="w-4 h-4" />
@@ -158,4 +162,27 @@ export function MeetingsPill({ compact }: { compact?: boolean }) {
 function dayLabel(iso: string) {
   const d = new Date(iso);
   return isToday(d) ? "Today" : isTomorrow(d) ? "Tomorrow" : format(d, "EEE d MMM");
+}
+
+/** Focus music on/off, focus mode, and the Hold the line emergency button. */
+function GuardianButtons() {
+  const { activeId, play, stop } = useMusicStore();
+  const openFocus = useGuardianStore((s) => s.openFocusPrompt);
+  const openEmergency = useGuardianStore((s) => s.openEmergency);
+  const playing = activeId === FOCUS_TRACK_ID;
+  return (
+    <>
+      <button onClick={() => (playing ? stop() : play(FOCUS_TRACK_ID))} title={playing ? "Stop focus music" : "Play my focus music"} aria-pressed={playing}
+        className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent/60", playing ? "text-teal-500" : "text-muted-foreground hover:text-foreground")}>
+        <Headphones className={cn("w-4 h-4", playing && "animate-pulse")} />
+      </button>
+      <button onClick={openFocus} title="Focus mode" className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
+        <Target className="w-4 h-4" />
+      </button>
+      <button onClick={openEmergency} title="Hold the line" aria-label="Hold the line"
+        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:bg-rose-500/10">
+        <Shield className="w-4 h-4" />
+      </button>
+    </>
+  );
 }

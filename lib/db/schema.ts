@@ -348,6 +348,10 @@ export const userSettings = pgTable("user_settings", {
   incomeGoalKm: integer("income_goal_km"),
   usdToKm: real("usd_to_km").default(1.8),
   leaderboardOptIn: boolean("leaderboard_opt_in").default(false),
+  // Sleep Guardian: from bedtime to wake time Galaxus goes dark and shows only "sleep time".
+  sleepEnabled: boolean("sleep_enabled").default(false),
+  bedTime: varchar("bed_time", { length: 5 }).default("23:00"),
+  wakeTime: varchar("wake_time", { length: 5 }).default("07:00"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -1102,6 +1106,71 @@ export const communities = pgTable(
   (t) => [uniqueIndex("uq_communities_user_guild").on(t.userId, t.guildId)]
 );
 export type Community = typeof communities.$inferSelect;
+
+// Diary — title and text encrypted at rest (lib/crypto-box). Imported entries keep their source id.
+export const diaryEntries = pgTable(
+  "diary_entries",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    externalId: varchar("external_id", { length: 80 }), // MyDiary folder id — re-imports never duplicate
+    source: varchar("source", { length: 20 }).notNull().default("galaxus"), // galaxus | mydiary
+    date: timestamp("date").notNull(),
+    titleEnc: text("title_enc").notNull(),
+    contentEnc: text("content_enc").notNull(),
+    mood: varchar("mood", { length: 40 }),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    unlockAt: timestamp("unlock_at"), // a letter to your future self: sealed until this date
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("idx_diary_user_date").on(t.userId, t.date), uniqueIndex("uq_diary_user_external").on(t.userId, t.externalId)]
+);
+
+// "Hold the line" album: your own photos (childhood → today), stored right in
+// Postgres as compressed JPEG data — small (≈150 KB each after in-browser resize).
+export const memories = pgTable(
+  "memories",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    year: integer("year"),
+    caption: varchar("caption", { length: 200 }),
+    orderIndex: integer("order_index").notNull().default(0),
+    mime: varchar("mime", { length: 30 }).notNull().default("image/jpeg"),
+    data: text("data").notNull(), // base64
+    bytes: integer("bytes").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_memories_user").on(t.userId)]
+);
+
+// Each time you press "Hold the line": did you hold? Powers "days won this month" (never a streak that resets).
+export const urgeLogs = pgTable(
+  "urge_logs",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    at: timestamp("at").notNull().defaultNow(),
+    outcome: varchar("outcome", { length: 10 }).notNull(), // held | slipped
+    triggers: jsonb("triggers").$type<string[]>().notNull().default([]), // tired | alone | late | stressed | bored | phone
+  },
+  (t) => [index("idx_urge_user_at").on(t.userId, t.at)]
+);
+
+// Focus sessions from the daily focus mode — they count toward Discipline XP.
+export const focusSessions = pgTable(
+  "focus_sessions",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    minutes: integer("minutes").notNull(),
+    label: varchar("label", { length: 200 }),
+    completed: boolean("completed").notNull().default(true),
+    startedAt: timestamp("started_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_focus_user").on(t.userId)]
+);
 
 // Deal Desk: only what you change by hand. Deals themselves are read live from
 // gig emails, applied gigs and outreach leads (lib/services/deals.ts).

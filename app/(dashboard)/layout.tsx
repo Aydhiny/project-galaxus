@@ -33,6 +33,7 @@ const ShortcutCheatsheet = dynamic(() => import("@/components/shortcut-cheatshee
 const OnboardingFlow = dynamic(() => import("@/components/onboarding").then((m) => m.OnboardingFlow), { ssr: false });
 const InstallHint = dynamic(() => import("@/components/install/install-hint").then((m) => m.InstallHint), { ssr: false });
 const ComebackPrompt = dynamic(() => import("@/components/tasks/comeback-prompt").then((m) => m.ComebackPrompt), { ssr: false });
+const Guardian = dynamic(() => import("@/components/guardian").then((m) => m.Guardian), { ssr: false });
 const DailyCheckinReminder = dynamic(() => import("@/components/daily-checkin-reminder").then((m) => m.DailyCheckinReminder), { ssr: false });
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -81,6 +82,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* iPhone Safari only: one-time "Add to Home Screen" nudge */}
       <InstallHint />
+
+      {/* Hold the line · Sleep Guardian · daily focus — z=940–1100 */}
+      <Guardian />
 
       {/* Daily check-in nudge toast — checks server prefs + today's status once */}
       <DailyCheckinReminder />

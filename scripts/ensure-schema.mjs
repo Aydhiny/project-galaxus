@@ -511,6 +511,58 @@ const STATEMENTS = [
     CONSTRAINT "communities_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_communities_user_guild" ON "communities" ("user_id", "guild_id")`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "sleep_enabled" boolean DEFAULT false`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "bed_time" varchar(5) DEFAULT '23:00'`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "wake_time" varchar(5) DEFAULT '07:00'`,
+  `CREATE TABLE IF NOT EXISTS "diary_entries" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "external_id" varchar(80),
+    "source" varchar(20) DEFAULT 'galaxus' NOT NULL,
+    "date" timestamp NOT NULL,
+    "title_enc" text NOT NULL,
+    "content_enc" text NOT NULL,
+    "mood" varchar(40),
+    "tags" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "unlock_at" timestamp,
+    "created_at" timestamp DEFAULT now(),
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "diary_entries_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_diary_user_date" ON "diary_entries" ("user_id", "date")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_diary_user_external" ON "diary_entries" ("user_id", "external_id")`,
+  `CREATE TABLE IF NOT EXISTS "memories" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "year" integer,
+    "caption" varchar(200),
+    "order_index" integer DEFAULT 0 NOT NULL,
+    "mime" varchar(30) DEFAULT 'image/jpeg' NOT NULL,
+    "data" text NOT NULL,
+    "bytes" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "memories_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_memories_user" ON "memories" ("user_id")`,
+  `CREATE TABLE IF NOT EXISTS "urge_logs" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "at" timestamp DEFAULT now() NOT NULL,
+    "outcome" varchar(10) NOT NULL,
+    "triggers" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    CONSTRAINT "urge_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_urge_user_at" ON "urge_logs" ("user_id", "at")`,
+  `CREATE TABLE IF NOT EXISTS "focus_sessions" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "minutes" integer NOT NULL,
+    "label" varchar(200),
+    "completed" boolean DEFAULT true NOT NULL,
+    "started_at" timestamp DEFAULT now() NOT NULL,
+    CONSTRAINT "focus_sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_focus_user" ON "focus_sessions" ("user_id")`,
   `CREATE TABLE IF NOT EXISTS "deal_overrides" (
     "id" serial PRIMARY KEY NOT NULL,
     "user_id" integer NOT NULL,
