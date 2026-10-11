@@ -12,6 +12,8 @@ import {
 } from "@/lib/client/gigs";
 import { BrandIcon } from "@/components/brand-icon";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { AutopilotPanel } from "./autopilot-panel";
+import type { AutopilotState } from "@/lib/client/autopilot";
 
 const scoreTone = (s: number | null) =>
   (s ?? 0) >= 70 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : (s ?? 0) >= 45 ? "bg-amber-500/15 text-amber-800 dark:text-amber-200" : "bg-muted text-muted-foreground";
@@ -24,7 +26,7 @@ const SOURCE_TONE: Record<string, string> = {
   hn: "bg-amber-500/12 text-amber-800 dark:text-amber-200",
 };
 
-export function GigsView({ state }: { state: RadarState }) {
+export function GigsView({ state, autopilot }: { state: RadarState; autopilot: AutopilotState }) {
   const [profileId, setProfileId] = useState<number | "all">("all");
   const [tab, setTab] = useState<"new" | "saved" | "applied">("new");
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
@@ -75,6 +77,8 @@ export function GigsView({ state }: { state: RadarState }) {
           </button>
         </div>
       </header>
+
+      <AutopilotPanel state={autopilot} />
 
       {!state.redditConnected && <RedditConnect />}
 

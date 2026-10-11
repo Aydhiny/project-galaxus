@@ -7,7 +7,7 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { digests, gameSettings, gigProfiles, gigs, playtestFeedback, voiceCommands, youtubeChannels, youtubeComments, youtubeIdeas, youtubeVideos, type VoiceCommand } from "@/lib/db/schema";
+import { autopilotSettings, digests, gameSettings, gigProfiles, gigs, playtestFeedback, voiceCommands, youtubeChannels, youtubeComments, youtubeIdeas, youtubeVideos, type VoiceCommand } from "@/lib/db/schema";
 import {
   commentRepliesPrompt, devlogPrompt, hooksPrompt, parseDevlog, parseHooks, parseReplies, parseThemes, playtestPrompt,
   parseJsonReply, type DevlogCommit, type JobKind,
@@ -18,6 +18,7 @@ import { dispatchRunner } from "@/lib/services/voice";
 import { digestPrompt } from "@/lib/digest";
 import { gigsPrompt, parseGigScores } from "@/lib/gigs";
 import { applyDigestResult } from "@/lib/services/digest";
+import { applyEmailReplyResult, buildEmailReplyPrompt } from "@/lib/services/autopilot";
 
 export async function enqueueJobFor(userId: number, kind: Exclude<JobKind, "voice">, label: string, payload: Record<string, unknown>) {
   if (!checkRateLimit(`voice:${userId}`, VOICE_RATE.max, VOICE_RATE.windowMs).allowed) {
@@ -85,12 +86,16 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       const rows = ids.length ? await db.select().from(gigs).where(and(eq(gigs.userId, row.userId), inArray(gigs.id, ids))) : [];
       if (rows.length === 0) throw new Error("Nothing to score.");
       const [profile] = await db.select().from(gigProfiles).where(eq(gigProfiles.id, rows[0].profileId ?? -1)).limit(1);
+      const [ap] = await db.select({ portfolio: autopilotSettings.portfolioUrl }).from(autopilotSettings).where(eq(autopilotSettings.userId, row.userId)).limit(1);
       return gigsPrompt({
         profile: profile?.name ?? "Freelancer",
         pitch: profile?.pitch ?? "",
+        portfolioUrl: ap?.portfolio ?? "https://plansio.agency",
         gigs: rows.map((g) => ({ id: g.id, title: g.title, body: g.body ?? "", budget: g.budget, source: g.source })),
       });
     }
+    case "email_reply":
+      return buildEmailReplyPrompt(row.userId, Number(p.gigEmailId));
     case "digest": {
       const [d] = await db.select().from(digests).where(and(eq(digests.id, Number(p.digestId)), eq(digests.userId, row.userId))).limit(1);
       if (!d) throw new Error("Digest not found.");
@@ -142,11 +147,13 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
     }
     case "digest":
       return applyDigestResult(row.userId, Number(p.digestId), text);
+    case "email_reply":
+      return applyEmailReplyResult(row.userId, Number(p.gigEmailId), text);
     case "gigs": {
       const scores = parseGigScores(parseJsonReply(text));
       if (scores.length === 0) throw new Error("Claude's gig scores couldn't be read.");
       for (const g of scores) {
-        await db.update(gigs).set({ score: g.score, reason: g.reason, draft: g.reply, scoredBy: "claude" })
+        await db.update(gigs).set({ score: g.score, reason: g.reason, draft: g.reply, subject: g.subject || null, scoredBy: "claude" })
           .where(and(eq(gigs.id, g.id), eq(gigs.userId, row.userId)));
       }
       const best = Math.max(...scores.map((g) => g.score));
@@ -155,4 +162,19 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
     default:
       return "Done";
   }
+}
+
+/**
+ * Is the Claude runner working? If the most recent finished job failed on
+ * authentication (and nothing succeeded since), don't queue more jobs — the
+ * free fallbacks handle the work until the token is fixed.
+ */
+export async function claudeHealthy(userId: number): Promise<boolean> {
+  const [last] = await db
+    .select({ status: voiceCommands.status, error: voiceCommands.error })
+    .from(voiceCommands)
+    .where(and(eq(voiceCommands.userId, userId), inArray(voiceCommands.status, ["done", "failed"])))
+    .orderBy(desc(voiceCommands.finishedAt))
+    .limit(1);
+  return !(last?.status === "failed" && /authenticat|401|invalid bearer|oauth|token/i.test(last.error ?? ""));
 }

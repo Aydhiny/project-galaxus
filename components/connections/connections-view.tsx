@@ -61,6 +61,12 @@ export function ConnectionsView({ connections: c }: { connections: Connections }
           </Card>
         </div>
 
+        <Card brand="gmail" name="Gmail" what="Gig autopilot sends applications from your Gmail and answers routine client replies within minutes."
+          status={<Status on={c.gmail} />} href="/gigs" cta="Gig autopilot" />
+
+        <Card brand="reddit" name="Reddit" what="Gig radar reads hiring posts from r/forhire, r/HireAnEditor and more. Never posts."
+          status={<Status on label="Reading" />} href="/gigs" cta="Gig radar" />
+
         <Card brand="claude" name="Claude · voice" what="Speak a command; Claude Code on your own subscription creates the tasks, routines and goals."
           status={<Status on={c.github} label={c.github ? "Instant start" : "10-min start"} />} href="/voice" cta="Open Voice" />
 

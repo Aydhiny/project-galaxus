@@ -864,6 +864,8 @@ export const gigs = pgTable(
     scoredBy: varchar("scored_by", { length: 10 }), // 'claude' | 'keywords'
     reason: text("reason"),
     draft: text("draft"),
+    subject: varchar("subject", { length: 300 }), // email subject Claude wrote (autopilot)
+    contactEmail: varchar("contact_email", { length: 200 }), // address the post asks applications to go to
     status: varchar("status", { length: 12 }).notNull().default("new"), // new | saved | applied | dismissed
     notifiedAt: timestamp("notified_at"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -905,6 +907,51 @@ export const income = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [index("idx_income_user_time").on(t.userId, t.receivedAt), uniqueIndex("uq_income_user_external").on(t.userId, t.externalId)]
+);
+
+// ─── Gig autopilot ─────────────────────────────────────────────────────────────
+// Applies by email (only to posts that invite email), answers routine replies
+// and follows up — from the user's own Gmail. Starts in "shadow" (drafts only).
+export const autopilotSettings = pgTable("autopilot_settings", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  mode: varchar("mode", { length: 10 }).notNull().default("shadow"), // off | shadow | on
+  dailyCap: integer("daily_cap").notNull().default(10),
+  minScore: integer("min_score").notNull().default(70),
+  websiteMinKm: integer("website_min_km").notNull().default(1500),
+  portfolioUrl: text("portfolio_url").default("https://plansio.agency"),
+  bookingUrl: text("booking_url"),
+  senderName: varchar("sender_name", { length: 100 }),
+  followUps: boolean("follow_ups").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const gigEmails = pgTable(
+  "gig_emails",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    gigId: integer("gig_id").references(() => gigs.id, { onDelete: "set null" }),
+    toEmail: varchar("to_email", { length: 200 }).notNull(),
+    subject: varchar("subject", { length: 300 }).notNull(),
+    body: text("body").notNull(),
+    // shadow (would send) | sent | failed | skipped
+    status: varchar("status", { length: 10 }).notNull(),
+    messageId: varchar("message_id", { length: 300 }),
+    sentAt: timestamp("sent_at"),
+    followUpAt: timestamp("follow_up_at"),
+    // Inbox robot
+    replyCount: integer("reply_count").notNull().default(0),
+    lastReplyAt: timestamp("last_reply_at"),
+    lastReplyText: text("last_reply_text"),
+    lastReplyMessageId: varchar("last_reply_message_id", { length: 300 }),
+    category: varchar("category", { length: 30 }), // interested | question | negotiation | rejection | out_of_office | scam | other
+    suggestedReply: text("suggested_reply"),
+    needsYou: boolean("needs_you").notNull().default(false),
+    autoReplied: integer("auto_replied").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_gig_emails_user_status").on(t.userId, t.status), index("idx_gig_emails_to").on(t.userId, t.toEmail)]
 );
 
 export type User = typeof users.$inferSelect;
@@ -950,3 +997,5 @@ export type Digest = typeof digests.$inferSelect;
 export type GigProfile = typeof gigProfiles.$inferSelect;
 export type Gig = typeof gigs.$inferSelect;
 export type Income = typeof income.$inferSelect;
+export type AutopilotSettings = typeof autopilotSettings.$inferSelect;
+export type GigEmail = typeof gigEmails.$inferSelect;
