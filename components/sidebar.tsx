@@ -9,7 +9,7 @@ import {
   Music2, NotebookPen, Target, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet, Users, Handshake, Shield, BookHeart,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet, Users, Handshake, Shield, BookHeart, Castle,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -36,6 +36,7 @@ const TONE: Record<string, string> = {
   "/outreach":     "bg-teal-500/12 text-teal-600 dark:text-teal-400",
   "/gigs":         "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
   "/money":        "bg-green-500/12 text-green-600 dark:text-green-400",
+  "/empire":       "bg-sky-500/12 text-sky-600 dark:text-sky-400",
   "/deals":        "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
   "/diary":        "bg-fuchsia-500/12 text-fuchsia-600 dark:text-fuchsia-400",
   "/hold":         "bg-rose-500/12 text-rose-600 dark:text-rose-400",
@@ -64,6 +65,7 @@ const TONE: Record<string, string> = {
 
 // Pinned: what you open first thing every day.
 const PRIMARY: NavItem[] = [
+  { href: "/empire",   icon: Castle,    label: "Empire"      },
   { href: "/overview", icon: Sunrise,   label: "Today"       },
   { href: "/brief",    icon: Newspaper, label: "Daily brief" },
   { href: "/voice",    icon: Mic,       label: "Voice"       },

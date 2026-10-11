@@ -15,10 +15,11 @@ import { openVoice } from "@/lib/voice-events";
 import { HudLevel, HudMoney, HudStats, useHud } from "@/components/hud";
 import { useGuardianStore } from "@/lib/store/guardian";
 import { FOCUS_TRACK_ID, useMusicStore } from "@/lib/store/music";
-import { Headphones, Shield, Target } from "lucide-react";
+import { Headphones, Shield, Target, Volume2, VolumeX } from "lucide-react";
+import { play, setSfxSettings, sfxSettings } from "@/lib/sfx";
 
 const TITLES: Record<string, string> = {
-  overview: "Today", brief: "Daily brief", community: "Community", level: "Level", deals: "Deal desk", diary: "Diary", hold: "Hold the line", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
+  overview: "Today", brief: "Daily brief", community: "Community", empire: "Empire", level: "Level", deals: "Deal desk", diary: "Diary", hold: "Hold the line", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
   review: "Weekly Review", daily: "Daily Check-in", goals: "Goals", goal: "Goal", outreach: "Outreach", gigs: "Gig radar", money: "Money",
   youtube: "YouTube", game: "Game dev", connections: "Connections", settings: "Settings", dashboard: "Feed",
 };
@@ -179,10 +180,29 @@ function GuardianButtons() {
       <button onClick={openFocus} title="Focus mode" className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
         <Target className="w-4 h-4" />
       </button>
+      <SoundToggle />
       <button onClick={openEmergency} title="Hold the line" aria-label="Hold the line"
         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:bg-rose-500/10">
         <Shield className="w-4 h-4" />
       </button>
     </>
+  );
+}
+
+/** Global mute for UI sound effects (remembered on this device). */
+function SoundToggle() {
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    const sync = () => setOn(sfxSettings().on);
+    sync();
+    window.addEventListener("galaxus:sfx", sync);
+    return () => window.removeEventListener("galaxus:sfx", sync);
+  }, []);
+  return (
+    <button data-no-sfx onClick={() => { const next = !on; setSfxSettings({ ...sfxSettings(), on: next }); setOn(next); if (next) play("toggle"); }}
+      title={on ? "Mute sounds" : "Turn sounds on"} aria-pressed={on}
+      className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
+      {on ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+    </button>
   );
 }

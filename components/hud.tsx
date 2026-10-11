@@ -9,6 +9,8 @@ import { Coins, Flame, ListChecks, MailWarning, Radar, Vault } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { getHudC, type Hud } from "@/lib/client/hud";
 import { PrayerChip } from "@/components/prayer-chip";
+import { toast } from "sonner";
+import { play } from "@/lib/sfx";
 
 /** Numbers roll up to their new value, like a game counter. */
 function useCountUp(value: number, ms = 700) {
@@ -97,7 +99,17 @@ export function useHud() {
   const [hud, setHud] = useState<Hud | null>(null);
   useEffect(() => {
     let alive = true;
-    const load = () => getHudC().then((h) => { if (alive) setHud(h); }).catch(() => {});
+    const load = () => getHudC().then((h) => {
+      if (!alive) return;
+      // Celebrate real progress: a level up gets a fanfare, new income a coin.
+      try {
+        const prev = JSON.parse(localStorage.getItem("galaxus-hud-last") ?? "null") as { level: number; monthKm: number } | null;
+        if (prev && h.level > prev.level) { play("levelup"); toast.success(`LEVEL UP — you're level ${h.level} · ${h.rank}`, { duration: 8000 }); }
+        else if (prev && h.monthKm > prev.monthKm) play("coin");
+        localStorage.setItem("galaxus-hud-last", JSON.stringify({ level: h.level, monthKm: h.monthKm }));
+      } catch { /* storage blocked */ }
+      setHud(h);
+    }).catch(() => {});
     load();
     const t = setInterval(load, 120_000);
     const onFocus = () => load();
