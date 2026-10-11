@@ -23,6 +23,7 @@ export type RawGig = {
   postedAt: Date | null;
   flair?: string | null;
   subreddit?: string | null;
+  image?: string | null; // post preview or company logo (hotlinked)
 };
 
 export const DEFAULT_PROFILES = [
@@ -43,6 +44,82 @@ export const DEFAULT_PROFILES = [
     pitch: "I run Plansio (plansio.agency), a full-stack studio: websites and production web apps (C# .NET, React, Next.js, TypeScript), design and games. We ship real products end to end — booking systems, dashboards, SaaS, our own game Hunter Mouse 2. Remote, English-speaking, based in Bosnia.",
   },
 ] as const;
+
+/**
+ * Gig types anyone can add with one tap — each is just a ready-made profile
+ * (keywords + where to look). Users can edit them or write their own.
+ */
+export const GIG_PRESETS: { name: string; emoji: string; keywords: string; exclude: string; subreddits: string; sources: GigSource[]; pitch: string }[] = [
+  { ...DEFAULT_PROFILES[0], sources: [...DEFAULT_PROFILES[0].sources], emoji: "🎬" },
+  { ...DEFAULT_PROFILES[1], sources: [...DEFAULT_PROFILES[1].sources], emoji: "💻" },
+  {
+    name: "Quick one-off jobs", emoji: "⚡",
+    keywords: "one-time, one time, one-off, one off, quick task, quick job, small task, simple task, small job, quick gig, quick fix, fix my, need someone to, will pay, paying, fixed price, one video, one logo, one thumbnail, a single, today, asap, urgent",
+    exclude: "for hire, [for hire], homework, essay, exam, assignment, upvote, review swap, airdrop, onlyfans, unpaid, exposure",
+    subreddits: "slavelabour, forhire, freelance_forhire, hiring, Jobs4Bitcoins, Jobs4Crypto, HireAnEditor, VideoEditingRequests, PhotoshopRequest, DesignJobs",
+    sources: ["reddit"],
+    pitch: "Fast, reliable freelancer: video editing, websites, design and quick technical fixes. I can usually start today and deliver within 24–48 hours.",
+  },
+  {
+    name: "Thumbnails & graphic design", emoji: "🎨",
+    keywords: "thumbnail, thumbnails, graphic designer, logo, banner, poster, flyer, photoshop, canva, illustrator, brand identity, social media graphics",
+    exclude: "for hire, [for hire], unpaid, contest, spec work",
+    subreddits: "forhire, hiring, DesignJobs, HungryArtists, slavelabour, PhotoshopRequest, freelance_forhire",
+    sources: ["reddit", "remotive", "remoteok"],
+    pitch: "Designer for thumbnails, logos and social graphics — bold, click-worthy, on brand. Quick turnaround, revisions included.",
+  },
+  {
+    name: "Writing & copywriting", emoji: "✍️",
+    keywords: "copywriter, copywriting, content writer, ghostwriter, script writer, scriptwriter, youtube script, blog writer, newsletter writer, seo writer, ad copy",
+    exclude: "for hire, [for hire], unpaid, homework, essay, academic",
+    subreddits: "forhire, hiring, HireaWriter, freelanceWriters, slavelabour, freelance_forhire",
+    sources: ["reddit", "remotive", "remoteok", "wwr"],
+    pitch: "Writer for scripts, ads and articles that people actually finish reading. Clear, punchy, researched.",
+  },
+  {
+    name: "Music & audio", emoji: "🎧",
+    keywords: "music producer, beat, beats, mixing, mastering, sound design, composer, voice over, voiceover, podcast editor, audio editor, jingle",
+    exclude: "for hire, [for hire], unpaid, exposure, collab only",
+    subreddits: "forhire, hiring, gameDevClassifieds, musicians, slavelabour, VoiceActing, freelance_forhire",
+    sources: ["reddit", "remotive"],
+    pitch: "Producer and audio editor: beats, mixing, sound design and podcast editing — radio-ready sound, fast.",
+  },
+  {
+    name: "Game development", emoji: "🎮",
+    keywords: "unity developer, unity, unreal, godot, game developer, gamedev, c# developer, game designer, level designer, prototype, roblox, mod",
+    exclude: "for hire, [for hire], rev share, revshare, unpaid, equity only",
+    subreddits: "gameDevClassifieds, INAT, forhire, hiring, robloxgamedev",
+    sources: ["reddit", "remotive", "remoteok", "hn"],
+    pitch: "Unity/C# game developer who has shipped a game end to end — gameplay, UI, tools and polish.",
+  },
+  {
+    name: "Virtual assistant & data", emoji: "🗂️",
+    keywords: "virtual assistant, data entry, research assistant, transcription, transcribe, translate, translation, bosnian, croatian, serbian, spreadsheet, excel, admin assistant",
+    exclude: "for hire, [for hire], unpaid, survey, mlm",
+    subreddits: "forhire, hiring, slavelabour, freelance_forhire, VirtualAssistant",
+    sources: ["reddit", "remotive", "remoteok", "wwr"],
+    pitch: "Detail-oriented assistant: research, data entry, transcription and English/Bosnian translation. Fast and accurate.",
+  },
+  {
+    name: "Social media management", emoji: "📱",
+    keywords: "social media manager, social media management, content creator, ugc, tiktok manager, instagram manager, community manager, smm",
+    exclude: "for hire, [for hire], unpaid, exposure",
+    subreddits: "forhire, hiring, freelance_forhire, slavelabour, socialmedia",
+    sources: ["reddit", "remotive", "remoteok", "wwr"],
+    pitch: "I grow accounts with consistent short-form content, scheduling and community replies — results you can see in a month.",
+  },
+];
+
+/**
+ * "Do it once, get paid": a single deliverable with a fixed price, not an
+ * ongoing role. Good for fast money with no commitment.
+ */
+export function isOneTime(text: string): boolean {
+  const t = text.toLowerCase();
+  if (/\b(full[- ]time|part[- ]time|long[- ]term|ongoing|monthly retainer|per month|\/mo\b|salary|\/yr|per year|annual|benefits|401k)\b/.test(t)) return false;
+  return /\b(one[- ]time|one[- ]off|single (video|task|job|logo|edit|project)|quick (task|job|fix|gig|edit)|small (task|job|project)|fixed price|just (one|a single)|for one (video|edit|logo|thumbnail)|today|asap|urgent)\b/.test(t)
+    || /[$€£]\s?\d+\s*(?:for|to)\s+(?:a|one|this|the)\b/.test(t);
+}
 
 export const splitList = (s: string | null | undefined) =>
   (s ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
@@ -84,6 +161,7 @@ export function keywordScore(g: RawGig, hits: string[], now = new Date()): numbe
   s += ageH < 6 ? 20 : ageH < 24 ? 12 : ageH < 72 ? 5 : 0;
   if (/\b(ongoing|long[- ]term|recurring|monthly|weekly|daily)\b/i.test(g.body)) s += 10;
   if (/\bremote\b/i.test(`${g.title} ${g.body}`)) s += 5;
+  if (isOneTime(`${g.title} ${g.body}`)) s += 8; // quick money, no commitment
   return Math.max(0, Math.min(100, s));
 }
 
@@ -103,7 +181,9 @@ const decode = (s: string) =>
 /** Feeds often HTML-escape their HTML: decode first, then drop tags. */
 const stripHtml = (s: string) => decode(decode(s).replace(/<[^>]+>/g, " ")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-type RedditChild = { data: { id: string; title: string; selftext?: string; permalink: string; author?: string; created_utc?: number; link_flair_text?: string | null; subreddit?: string; over_18?: boolean } };
+type RedditChild = { data: { id: string; title: string; selftext?: string; permalink: string; author?: string; created_utc?: number; link_flair_text?: string | null; subreddit?: string; over_18?: boolean; thumbnail?: string; preview?: { images?: { source?: { url?: string } }[] } } };
+
+const httpsImage = (u: unknown): string | null => (typeof u === "string" && /^https:\/\//.test(u) && u.length < 1000 ? decode(u) : null);
 
 export function parseRedditListing(json: unknown): RawGig[] {
   const children = (json as { data?: { children?: RedditChild[] } })?.data?.children ?? [];
@@ -119,6 +199,7 @@ export function parseRedditListing(json: unknown): RawGig[] {
       postedAt: c.data.created_utc ? new Date(c.data.created_utc * 1000) : null,
       flair: c.data.link_flair_text ?? null,
       subreddit: c.data.subreddit ?? null,
+      image: httpsImage(c.data.preview?.images?.[0]?.source?.url) ?? httpsImage(c.data.thumbnail),
     }));
 }
 
@@ -137,12 +218,13 @@ export function parseRedditRss(xml: string): RawGig[] {
       postedAt: get(/<published>([^<]+)<\/published>/) ? new Date(get(/<published>([^<]+)<\/published>/)) : null,
       flair: null,
       subreddit: get(/<category term="([^"]+)"/) || null,
+      image: httpsImage(get(/<media:thumbnail url="([^"]+)"/)) ?? httpsImage(decode(get(/<content[^>]*>([\s\S]*?)<\/content>/)).match(/<img src="([^"]+)"/)?.[1]),
     };
   }).filter((g) => g.title && g.url && g.externalId !== "reddit:");
 }
 
 export function parseRemotive(json: unknown): RawGig[] {
-  const jobs = (json as { jobs?: { id: number; url: string; title: string; company_name?: string; description?: string; publication_date?: string; salary?: string }[] })?.jobs ?? [];
+  const jobs = (json as { jobs?: { id: number; url: string; title: string; company_name?: string; company_logo?: string; description?: string; publication_date?: string; salary?: string }[] })?.jobs ?? [];
   return jobs.map((j) => ({
     source: "remotive" as const,
     externalId: `remotive:${j.id}`,
@@ -151,13 +233,14 @@ export function parseRemotive(json: unknown): RawGig[] {
     body: `${j.salary ? `Salary: ${j.salary}. ` : ""}${stripHtml(j.description ?? "")}`.slice(0, 3000),
     author: j.company_name ?? null,
     postedAt: j.publication_date ? new Date(j.publication_date) : null,
+    image: httpsImage(j.company_logo),
   }));
 }
 
 export function parseRemoteOk(json: unknown): RawGig[] {
   const list = Array.isArray(json) ? json : [];
   return list
-    .filter((j): j is { id: string | number; position: string; company?: string; url: string; description?: string; date?: string; tags?: string[]; salary_min?: number; salary_max?: number } =>
+    .filter((j): j is { id: string | number; position: string; company?: string; url: string; description?: string; date?: string; tags?: string[]; salary_min?: number; salary_max?: number; logo?: string; company_logo?: string } =>
       !!j && typeof j === "object" && "position" in j && "url" in j)
     .map((j) => ({
       source: "remoteok" as const,
@@ -167,6 +250,7 @@ export function parseRemoteOk(json: unknown): RawGig[] {
       body: `${j.salary_min ? `Salary: $${j.salary_min}–$${j.salary_max ?? j.salary_min}/yr. ` : ""}Tags: ${(j.tags ?? []).join(", ")}. ${stripHtml(j.description ?? "")}`.slice(0, 3000),
       author: j.company ?? null,
       postedAt: j.date ? new Date(j.date) : null,
+      image: httpsImage(j.company_logo) ?? httpsImage(j.logo),
     }));
 }
 
@@ -182,6 +266,7 @@ export function parseWwrRss(xml: string): RawGig[] {
       body: stripHtml(get("description")).slice(0, 3000),
       author: null,
       postedAt: get("pubDate") ? new Date(get("pubDate")) : null,
+      image: httpsImage(it.match(/<media:content[^>]+url="([^"]+)"/)?.[1]),
     };
   }).filter((g) => g.title && /^https?:\/\//.test(g.url));
 }

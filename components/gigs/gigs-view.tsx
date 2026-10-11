@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
-import { Bell, BellOff, Bookmark, Check, Copy, ExternalLink, Loader2, Radar, RefreshCw, Settings2, X } from "lucide-react";
+import { Bell, BellOff, Bookmark, Check, Copy, ExternalLink, Loader2, Plus, Radar, RefreshCw, Settings2, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Gig, GigProfile } from "@/lib/db/schema";
-import { GIG_SOURCES, SOURCE_LABEL, type GigSource } from "@/lib/gigs";
+import { GIG_PRESETS, GIG_SOURCES, SOURCE_LABEL, isOneTime, type GigSource } from "@/lib/gigs";
 import {
   saveGigProfileC, saveRedditKeyC, scanGigsNowC, setGigNotificationsC, updateGigC, type RadarState,
 } from "@/lib/client/gigs";
@@ -31,10 +31,13 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
   const [tab, setTab] = useState<"new" | "saved" | "applied">("new");
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
   const [editing, setEditing] = useState<GigProfile | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [oneTime, setOneTime] = useState(false);
   const [notify, setNotify] = useState(state.notify);
   const [busy, start] = useTransition();
 
-  const list = state.gigs.filter((g) => !hidden.has(g.id) && g.status === tab && (profileId === "all" || g.profileId === profileId));
+  const list = state.gigs.filter((g) => !hidden.has(g.id) && g.status === tab && (profileId === "all" || g.profileId === profileId)
+    && (!oneTime || isOneTime(`${g.title} ${g.body ?? ""}`)));
   const counts = { new: 0, saved: 0, applied: 0 };
   for (const g of state.gigs) if (!hidden.has(g.id) && g.status in counts) counts[g.status as keyof typeof counts]++;
 
@@ -93,6 +96,9 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
             </button>
           </span>
         ))}
+        <button onClick={() => setAdding(true)} className="h-8 px-3 rounded-full text-sm border border-dashed border-border text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <Plus className="w-3.5 h-3.5" /> Add gig type
+        </button>
       </div>
 
       <div className="mt-4 inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
@@ -103,6 +109,10 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
           </button>
         ))}
       </div>
+      <button onClick={() => setOneTime((v) => !v)} title="A single job with a fixed price — do it once, get paid"
+        className={cn("ml-2 h-8 px-3 rounded-lg border text-sm inline-flex items-center gap-1 align-top mt-4", oneTime ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground")}>
+        <Zap className="w-3.5 h-3.5" /> One-time only
+      </button>
 
       {list.length === 0 ? (
         <p className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
@@ -119,6 +129,11 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
       <Sheet open={editing !== null} onOpenChange={(o) => { if (!o) setEditing(null); }}>
         <SheetContent side="right" className="w-full sm:max-w-lg p-0 gap-0 overflow-y-auto">
           {editing && <ProfileEditor key={editing.id} profile={editing} onSaved={() => setEditing(null)} />}
+        </SheetContent>
+      </Sheet>
+      <Sheet open={adding} onOpenChange={setAdding}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 gap-0 overflow-y-auto">
+          <PresetPicker have={new Set(state.profiles.map((p) => p.name.toLowerCase()))} onDone={() => setAdding(false)} />
         </SheetContent>
       </Sheet>
     </div>
@@ -144,19 +159,23 @@ function GigCard({ gig: g, profile, onStatus }: { gig: Gig; profile?: GigProfile
   return (
     <li className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start gap-3">
-        <span className={cn("shrink-0 rounded-lg px-2 py-1 text-xs font-semibold tabular-nums", scoreTone(g.score))} title={g.scoredBy === "claude" ? "Scored by Claude" : "Keyword score — Claude will refine it"}>
-          {g.score ?? "–"}
-        </span>
+        <div className="shrink-0 flex flex-col items-center gap-2">
+          <span className={cn("rounded-lg px-2 py-1 text-xs font-semibold tabular-nums", scoreTone(g.score))} title={g.scoredBy === "claude" ? "Scored by Claude" : "Keyword score"}>
+            {g.score ?? "–"}
+          </span>
+        </div>
         <div className="flex-1 min-w-0">
           <a href={g.url} target="_blank" rel="noreferrer" className="font-medium leading-snug hover:underline underline-offset-4">{g.title}</a>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground" suppressHydrationWarning>
             <span className={cn("rounded px-1.5 py-px font-medium", SOURCE_TONE[g.source])}>{SOURCE_LABEL[g.source as GigSource] ?? g.source}</span>
             {g.budget && <span className="rounded px-1.5 py-px font-semibold bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">{g.budget}</span>}
+            {isOneTime(`${g.title} ${g.body ?? ""}`) && <span className="rounded px-1.5 py-px font-medium bg-amber-500/12 text-amber-800 dark:text-amber-200 inline-flex items-center gap-0.5"><Zap className="w-3 h-3" /> One-time</span>}
             {g.postedAt && <span>{formatDistanceToNowStrict(new Date(g.postedAt))} ago</span>}
             {profile && <span>· {profile.name}</span>}
             {g.scoredBy === "claude" && <span className="inline-flex items-center gap-1"><BrandIcon name="claude" className="w-3 h-3" /> scored</span>}
           </p>
           {g.reason && <p className="mt-1.5 text-xs text-muted-foreground">{g.reason}</p>}
+          <GigImage src={g.image} />
           {g.body && (
             <button onClick={() => setOpen((v) => !v)} className="mt-1.5 block text-left text-sm text-muted-foreground">
               <span className={cn(!open && "line-clamp-2")}>{g.body}</span>
@@ -261,4 +280,59 @@ function ProfileEditor({ profile: p, onSaved }: { profile: GigProfile; onSaved: 
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="text-xs font-medium text-muted-foreground">{label}</span><div className="mt-1.5">{children}</div></label>;
+}
+
+/** Post preview or company logo; disappears quietly if the host blocks it. */
+function GigImage({ src }: { src: string | null }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)}
+      className="mt-2 max-h-48 max-w-full rounded-lg border border-border object-cover bg-muted" />
+  );
+}
+
+/** One tap = a ready-made profile the radar starts scanning for on the next pass. */
+function PresetPicker({ have, onDone }: { have: Set<string>; onDone: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  async function add(p: (typeof GIG_PRESETS)[number] | null) {
+    setBusy(p?.name ?? "custom");
+    try {
+      await saveGigProfileC(null, p
+        ? { name: p.name, keywords: p.keywords, exclude: p.exclude, subreddits: p.subreddits, pitch: p.pitch, sources: p.sources }
+        : { name: "My gigs", keywords: "looking for someone, need someone", active: false, sources: ["reddit", "remotive", "remoteok", "wwr"] });
+      toast.success(p ? `Scanning for ${p.name.toLowerCase()} from the next pass.` : "Added (paused) — tap its gear, set your keywords and switch it on.");
+      onDone();
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
+  }
+  return (
+    <div className="p-6">
+      <SheetTitle>What gigs do you want?</SheetTitle>
+      <SheetDescription className="mt-1">Pick any — the radar scans Reddit and job boards for each, every hour. You can tweak keywords later.</SheetDescription>
+      <ul className="mt-5 space-y-2">
+        {GIG_PRESETS.map((p) => {
+          const added = have.has(p.name.toLowerCase());
+          return (
+            <li key={p.name}>
+              <button disabled={added || busy !== null} onClick={() => add(p)}
+                className="w-full text-left rounded-xl border border-border p-3 hover:bg-accent/40 disabled:opacity-50 flex items-start gap-3">
+                <span className="text-xl leading-none mt-0.5">{p.emoji}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="font-medium text-sm flex items-center gap-2">{p.name} {added && <span className="text-[11px] text-muted-foreground">added</span>}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5 line-clamp-2">{p.keywords.split(", ").slice(0, 7).join(" · ")}</span>
+                </span>
+                {busy === p.name ? <Loader2 className="w-4 h-4 animate-spin mt-0.5" /> : !added && <Plus className="w-4 h-4 mt-0.5 text-muted-foreground" />}
+              </button>
+            </li>
+          );
+        })}
+        <li>
+          <button disabled={busy !== null} onClick={() => add(null)} className="w-full text-left rounded-xl border border-dashed border-border p-3 text-sm text-muted-foreground hover:text-foreground">
+            + Something else (write your own keywords)
+          </button>
+        </li>
+      </ul>
+    </div>
+  );
 }

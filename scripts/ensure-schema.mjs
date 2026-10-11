@@ -488,6 +488,7 @@ const STATEMENTS = [
   // ── 2026-10 · Gig autopilot ─────────────────────────────────────────────
   `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "subject" varchar(300)`,
   `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "contact_email" varchar(200)`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "image" text`,
   `CREATE TABLE IF NOT EXISTS "autopilot_settings" (
     "user_id" integer PRIMARY KEY NOT NULL,
     "mode" varchar(10) DEFAULT 'shadow' NOT NULL,

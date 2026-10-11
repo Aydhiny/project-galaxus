@@ -866,6 +866,7 @@ export const gigs = pgTable(
     draft: text("draft"),
     subject: varchar("subject", { length: 300 }), // email subject Claude wrote (autopilot)
     contactEmail: varchar("contact_email", { length: 200 }), // address the post asks applications to go to
+    image: text("image"), // post preview or company logo, hotlinked
     status: varchar("status", { length: 12 }).notNull().default("new"), // new | saved | applied | dismissed
     notifiedAt: timestamp("notified_at"),
     createdAt: timestamp("created_at").defaultNow(),

@@ -190,6 +190,7 @@ export async function scanGigsFor(userId: number, opts: { forceBoards?: boolean 
         postedAt: g.postedAt, score: keywordScore(g, hits, now), scoredBy: "keywords", reason: `Matches: ${hits.slice(0, 4).join(", ")}`,
         draft: templateReply(g, p.pitch ?? ""),
         contactEmail: extractContactEmail(`${g.title}\n${g.body}`),
+        image: g.image ?? null,
       });
       break;
     }
