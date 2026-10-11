@@ -12,6 +12,7 @@ import { useCommandStore } from "@/lib/store/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BrandIcon } from "@/components/brand-icon";
 import { openVoice } from "@/lib/voice-events";
+import { HudLevel, HudMoney, HudStats, useHud } from "@/components/hud";
 
 const TITLES: Record<string, string> = {
   overview: "Today", brief: "Daily brief", community: "Community", voice: "Voice", productivity: "Productivity", tasks: "Tasks", pages: "Pages",
@@ -26,12 +27,15 @@ export function TopBar() {
   const pathname = usePathname();
   const title = TITLES[pathname.split("/")[1] ?? ""] ?? "";
   const { openPalette } = useCommandStore();
+  const hud = useHud();
 
   return (
-    <div className="hidden md:flex items-center gap-2 h-12 px-4 border-b border-border/70 bg-background/80 shrink-0">
-      <p className="text-sm font-medium text-muted-foreground truncate">{title}</p>
+    <div className="hidden md:flex items-center gap-3 h-14 px-4 border-b border-border/70 bg-background/80 shrink-0">
+      {hud ? <HudLevel hud={hud} /> : <span className="h-7 w-40 rounded bg-muted/50 animate-pulse" aria-hidden />}
+      <p className="hidden xl:block font-hud uppercase tracking-wider text-[13px] text-muted-foreground truncate border-l border-border pl-3">{title}</p>
       <div className="flex-1" />
-      <button onClick={openPalette} className="inline-flex items-center gap-2 h-8 px-2.5 rounded-lg border border-border/80 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 w-52">
+      {hud && <HudStats hud={hud} />}
+      <button onClick={openPalette} className="hidden lg:inline-flex items-center gap-2 h-8 px-2.5 rounded-lg border border-border/80 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 w-44">
         <Search className="w-3.5 h-3.5" /> Search…
         <kbd className="ml-auto rounded border border-border bg-muted px-1 font-mono text-[10px]">Ctrl K</kbd>
       </button>
@@ -39,7 +43,9 @@ export function TopBar() {
         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
         <Mic className="w-4 h-4" />
       </button>
-      <MeetingsPill />
+      <MeetingsPill compact />
+      {hud && <span className="w-px h-7 bg-border" aria-hidden />}
+      {hud && <HudMoney hud={hud} />}
     </div>
   );
 }

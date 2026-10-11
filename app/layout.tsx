@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { DM_Sans, Geist_Mono, Oswald, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
@@ -11,6 +11,8 @@ import { ChunkReload } from "@/components/chunk-reload";
 
 const dmSans = DM_Sans({ variable: "--font-sans", subsets: ["latin"], weight: ["300","400","500","600"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Condensed display face for the game-style HUD numbers.
+const oswald = Oswald({ variable: "--font-hud", subsets: ["latin"], weight: ["500", "600"] });
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-heading", subsets: ["latin"],
   weight: ["500","600","700","800"],
@@ -77,7 +79,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${geistMono.variable} ${plusJakarta.variable} h-full`} suppressHydrationWarning>
+    <html lang="en" className={`${dmSans.variable} ${geistMono.variable} ${plusJakarta.variable} ${oswald.variable} h-full`} suppressHydrationWarning>
       <head>
         {/* Next 16 emits only the standard "mobile-web-app-capable"; older iOS
             versions still need Apple's prefixed tag to open full-screen. */}
