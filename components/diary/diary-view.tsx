@@ -1,25 +1,45 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { BookHeart, Eye, EyeOff, Loader2, Lock, PenLine, Search, Trash2, Upload } from "lucide-react";
+import { BookHeart, Eye, EyeOff, Flame, Heart, Loader2, Lock, PenLine, Search, Trash2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MOODS, moodOf, onThisDay, parseImport, wordCount } from "@/lib/diary";
 import { deleteDiaryEntryC, finishDiaryImport, importDiaryChunkC, saveDiaryEntryC, type DiaryEntry } from "@/lib/client/diary";
 
 const hud = "font-hud uppercase tracking-wide";
 
+/** Consecutive days with an entry (today counts; yesterday keeps the streak alive). */
+function streakOf(dates: string[], now: Date) {
+  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const days = new Set(dates.map((d) => key(new Date(d))));
+  const cur = new Date(now);
+  if (!days.has(key(cur))) cur.setDate(cur.getDate() - 1);
+  let n = 0;
+  while (days.has(key(cur))) { n++; cur.setDate(cur.getDate() - 1); }
+  return n;
+}
+
+const REFLECT = "I held the line today.\nWhat was going on: \nWhat helped: ";
+
 export function DiaryView({ entries }: { entries: DiaryEntry[] }) {
+  const params = useSearchParams();
+  const [kind, setKind] = useState<"all" | "diary" | "gratitude">("all");
   const [q, setQ] = useState("");
   const [year, setYear] = useState<string>("all");
   const [hidden, setHidden] = useState(true); // privacy blur until you choose to read
   const [open, setOpen] = useState<number | null>(null);
-  const [writing, setWriting] = useState(false);
+  // Arriving from "Hold the line" → open a short reflection right away.
+  const [writing, setWriting] = useState<false | "diary" | "gratitude" | "reflect">(params.get("reflect") ? "reflect" : false);
+  useEffect(() => { if (params.get("reflect")) window.history.replaceState(null, "", "/diary"); }, [params]);
   const [now] = useState(() => new Date());
   const years = useMemo(() => [...new Set(entries.map((e) => e.date.slice(0, 4)))].sort().reverse(), [entries]);
   const memories = useMemo(() => onThisDay(entries.filter((e) => !e.locked), now), [entries, now]);
-  const list = entries.filter((e) => (year === "all" || e.date.startsWith(year)) && (!q || `${e.title} ${e.content}`.toLowerCase().includes(q.toLowerCase())));
+  const list = entries.filter((e) => (kind === "all" || e.kind === kind) && (year === "all" || e.date.startsWith(year)) && (!q || `${e.title} ${e.content}`.toLowerCase().includes(q.toLowerCase())));
+  const writingStreak = useMemo(() => streakOf(entries.filter((e) => e.kind === "diary").map((e) => e.date), now), [entries, now]);
+  const gratitudeStreak = useMemo(() => streakOf(entries.filter((e) => e.kind === "gratitude").map((e) => e.date), now), [entries, now]);
   const words = useMemo(() => entries.reduce((s, e) => s + wordCount(e.content), 0), [entries]);
 
   return (
@@ -37,13 +57,27 @@ export function DiaryView({ entries }: { entries: DiaryEntry[] }) {
             {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />} {hidden ? "Hidden" : "Visible"}
           </button>
           <ImportButton />
-          <button onClick={() => setWriting(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-foreground text-background text-sm font-medium">
+          <button onClick={() => setWriting("gratitude")} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border text-sm">
+            <Heart className="w-4 h-4 text-rose-500" /> Gratitude
+          </button>
+          <button onClick={() => setWriting("diary")} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-foreground text-background text-sm font-medium">
             <PenLine className="w-4 h-4" /> Write
           </button>
         </div>
       </header>
 
-      {writing && <Editor onDone={() => setWriting(false)} />}
+      <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
+          <span className="w-9 h-9 rounded-xl bg-orange-500/12 text-orange-500 flex items-center justify-center"><Flame className="w-4 h-4" /></span>
+          <div><p className={cn("text-2xl leading-none tabular-nums", hud)}>{writingStreak}</p><p className="text-[11px] text-muted-foreground mt-0.5">day writing streak</p></div>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
+          <span className="w-9 h-9 rounded-xl bg-rose-500/12 text-rose-500 flex items-center justify-center"><Heart className="w-4 h-4" /></span>
+          <div><p className={cn("text-2xl leading-none tabular-nums", hud)}>{gratitudeStreak}</p><p className="text-[11px] text-muted-foreground mt-0.5">day gratitude streak</p></div>
+        </div>
+      </div>
+
+      {writing && <Editor kind={writing === "gratitude" ? "gratitude" : "diary"} initial={writing === "reflect" ? REFLECT : ""} initialTitle={writing === "reflect" ? "Held the line" : writing === "gratitude" ? "Gratitude" : ""} onDone={() => setWriting(false)} />}
 
       {memories.length > 0 && (
         <section className="mt-6 rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 p-4">
@@ -58,7 +92,14 @@ export function DiaryView({ entries }: { entries: DiaryEntry[] }) {
         </section>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
+      <div className="mt-6 inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
+        {(["all", "diary", "gratitude"] as const).map((k) => (
+          <button key={k} onClick={() => setKind(k)} className={cn("px-3 h-7 rounded-md text-sm capitalize", kind === k ? "bg-background shadow-xs" : "text-muted-foreground")}>
+            {k === "all" ? "All" : k === "diary" ? "Diary" : "Gratitude"}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">
           <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your diary" className="w-full h-9 rounded-lg border border-border bg-transparent pl-8 pr-3 text-sm" />
@@ -112,9 +153,9 @@ function EntryCard({ e, hidden, open, onToggle }: { e: DiaryEntry; hidden: boole
   );
 }
 
-function Editor({ entry, onDone }: { entry?: DiaryEntry; onDone: () => void }) {
-  const [title, setTitle] = useState(entry?.title ?? "");
-  const [content, setContent] = useState(entry?.content ?? "");
+function Editor({ entry, onDone, kind = "diary", initial = "", initialTitle = "" }: { entry?: DiaryEntry; onDone: () => void; kind?: "diary" | "gratitude"; initial?: string; initialTitle?: string }) {
+  const [title, setTitle] = useState(entry?.title ?? initialTitle);
+  const [content, setContent] = useState(entry?.content ?? initial);
   const [mood, setMood] = useState<string | null>(entry?.mood ?? "mood_basic_002");
   const [sealed, setSealed] = useState(false);
   const [unlockAt, setUnlockAt] = useState("");
@@ -130,7 +171,8 @@ function Editor({ entry, onDone }: { entry?: DiaryEntry; onDone: () => void }) {
             className={cn("w-9 h-9 rounded-lg text-xl", mood === m.key ? "bg-primary/15 ring-1 ring-primary/40" : "hover:bg-muted")}>{m.emoji}</button>
         ))}
       </div>
-      <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={10} autoFocus placeholder="Dragi dnevniče…"
+      <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={kind === "gratitude" ? 5 : 10} autoFocus
+        placeholder={kind === "gratitude" ? "Zahvalan sam na… (3 stvari)" : "Dragi dnevniče…"}
         className="mt-3 w-full rounded-xl border border-border bg-transparent p-3 text-[15px] leading-relaxed" />
       {harsh && (
         <p className="mt-2 text-xs rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-200 p-2">
@@ -147,7 +189,7 @@ function Editor({ entry, onDone }: { entry?: DiaryEntry; onDone: () => void }) {
         <button disabled={pending || !content.trim() || (sealed && !unlockAt)}
           onClick={() => start(async () => {
             try {
-              await saveDiaryEntryC(entry?.id ?? null, { title, content, mood, unlockAt: sealed ? unlockAt : null });
+              await saveDiaryEntryC(entry?.id ?? null, { title, content, mood, unlockAt: sealed ? unlockAt : null, kind: entry?.kind ?? kind });
               toast.success(sealed ? "Sealed. It opens on that day." : "Saved.");
               onDone();
             } catch (e) { toast.error((e as Error).message); }

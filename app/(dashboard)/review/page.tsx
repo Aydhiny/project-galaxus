@@ -7,6 +7,10 @@ import { format, startOfWeek, endOfWeek, subWeeks, eachDayOfInterval, isWithinIn
 import type { DailyCheckin } from "@/lib/db/schema";
 import { listTaskHistory } from "@/lib/actions/tasks";
 import { TaskWeeklyReview } from "@/components/review/task-weekly-review";
+import { WeekOverview } from "@/components/review/week-overview";
+import { PageTitle } from "@/components/page-title";
+import { requireUserId } from "@/lib/auth-session";
+import { weekOverviewFor } from "@/lib/services/week";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -57,6 +61,7 @@ export default async function ReviewPage() {
 
   const thisWeek = getWeekInterval(0);
   const lastWeek = getWeekInterval(1);
+  const week = await weekOverviewFor(await requireUserId(), thisWeek.start, new Date(thisWeek.end.getTime() + 1));
 
   const days = eachDayOfInterval({ start: thisWeek.start, end: thisWeek.end });
 
@@ -116,7 +121,7 @@ export default async function ReviewPage() {
   function getHabitDone(row: DailyCheckin | null, key: string): boolean {
     if (!row) return false;
     if (key === "prayers") return allPrayers(row);
-    return !!(row as any)[key];
+    return !!(row as unknown as Record<string, unknown>)[key];
   }
 
   function delta(current: number, prev: number) {
@@ -132,13 +137,11 @@ export default async function ReviewPage() {
   return (
     <div className="page max-w-4xl">
       {/* Header */}
-      <div>
-        <p className="section-label mb-1">Reflect</p>
-        <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Weekly Review</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {format(thisWeek.start, "MMM d")} – {format(thisWeek.end, "MMM d, yyyy")}
-        </p>
-      </div>
+      <PageTitle icon={BarChart3} tone="bg-indigo-500/12 text-indigo-600 dark:text-indigo-400" eyebrow="Reflect" title="Weekly Review"
+        subtitle={`${format(thisWeek.start, "MMM d")} – ${format(thisWeek.end, "MMM d, yyyy")}`} />
+
+      {/* Everything this week, across the whole app */}
+      <WeekOverview w={week} />
 
       {/* Tasks review — client side so weeks use the viewer's local dates */}
       <TaskWeeklyReview tasks={taskHistory} serverToday={format(new Date(), "yyyy-MM-dd")} />
@@ -272,7 +275,7 @@ export default async function ReviewPage() {
 
       {/* Motivational quote */}
       <div className="glass p-5 text-center space-y-2">
-        <p className="text-sm text-foreground/70 italic leading-relaxed">"{quote}"</p>
+        <p className="text-sm text-foreground/70 italic leading-relaxed">&ldquo;{quote}&rdquo;</p>
       </div>
     </div>
   );

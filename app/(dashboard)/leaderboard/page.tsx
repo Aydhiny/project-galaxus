@@ -6,6 +6,11 @@ import { GlobalLeaderboard } from "@/components/global-leaderboard";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SpotlightCard } from "@/components/aceternity/spotlight-card";
+import Link from "next/link";
+import { PageTitle } from "@/components/page-title";
+import { requireUserId } from "@/lib/auth-session";
+import { hudFor } from "@/lib/services/hud";
+import { ACHIEVEMENT_XP } from "@/lib/hud";
 import {
   Trophy, Flame, Dumbbell, BookOpen, Moon, Music2,
   Star, Sun, TrendingUp, Calendar, BarChart2, Heart, Sparkles, PenLine, Award,
@@ -31,9 +36,10 @@ export default async function LeaderboardPage() {
   const data = await getLeaderboardData();
   const hasData = data.totalDays > 0;
   const badges = getAchievements(data);
-  const [{ entries, viewerEntry }, optedIn] = await Promise.all([
+  const [{ entries, viewerEntry }, optedIn, hud] = await Promise.all([
     getGlobalLeaderboard(),
     getLeaderboardOptIn(),
+    requireUserId().then(hudFor),
   ]);
 
   const personalContent = (
@@ -187,21 +193,18 @@ export default async function LeaderboardPage() {
   return (
     <div className="page max-w-4xl">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-[0_0_24px_#fbbf2440]"
-          style={{ background: "linear-gradient(135deg,#fbbf2420,#f5970820)", border: "1px solid #fbbf2440" }}>
-          <Trophy className="w-6 h-6 text-[#fbbf24]" />
+      <PageTitle icon={Trophy} tone="bg-amber-500/12 text-amber-600 dark:text-amber-400" eyebrow="Records" title="Leaderboard"
+        subtitle={hasData ? `${data.totalDays} days logged` : "No data yet — start your daily check-in to build records."} />
+
+      {/* One XP economy: badges here are worth XP on your Level screen. */}
+      <Link href="/level" className="rounded-2xl border border-border bg-card p-4 flex flex-wrap items-center gap-4 hover:border-foreground/20 transition-colors">
+        <span className="h-8 px-2.5 inline-flex items-center bg-foreground text-background -skew-x-12 rounded-[3px] font-hud uppercase tracking-wide"><span className="skew-x-12">LV {hud.level}</span></span>
+        <div className="flex-1 min-w-40">
+          <p className="font-hud uppercase tracking-wide text-lg leading-none">{hud.rank} · {hud.xp.toLocaleString()} XP</p>
+          <div className="mt-2 h-1.5 bg-muted overflow-hidden -skew-x-12"><div className="h-full bg-teal-400" style={{ width: `${hud.progress}%` }} /></div>
         </div>
-        <div>
-          <p className="section-label mb-1">Records</p>
-          <h1 className="text-2xl font-bold heading-gradient" style={{ fontFamily: "var(--font-heading)" }}>Leaderboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {hasData
-              ? `${data.totalDays} days logged in the database`
-              : "No data yet — start your daily check-in to build records."}
-          </p>
-        </div>
-      </div>
+        <p className="text-xs text-muted-foreground"><Award className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />{hud.achievements} badges · +{hud.achievementXp} XP ({ACHIEVEMENT_XP} each)</p>
+      </Link>
 
       <LeaderboardTabs personal={personalContent} global={globalContent} />
     </div>

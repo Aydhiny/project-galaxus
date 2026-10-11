@@ -73,6 +73,7 @@ export function LevelView({ hud: h, name, image }: { hud: Hud; name: string; ima
           <div className="text-right">
             <p className={cn("text-3xl leading-none tabular-nums", hud)}>{fmt(h.xp)} <span className="text-base text-muted-foreground">XP</span></p>
             <p className="text-xs text-muted-foreground mt-1">{fmt(h.need - h.into)} XP to level {h.level + 1}</p>
+            {h.achievements > 0 && <p className="text-[11px] text-muted-foreground">incl. +{fmt(h.achievementXp)} from {h.achievements} badges</p>}
           </div>
         </div>
         <div className="mt-6 h-3 bg-muted overflow-hidden -skew-x-12">

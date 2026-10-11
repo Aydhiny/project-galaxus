@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-session";
 import { toResult } from "@/lib/action-result";
 import {
-  addMemoryFor, deleteMemoryFor, holdStatsFor, logFocusFor, logUrgeFor, memoriesFor, saveSleepSettingsFor, sleepSettingsFor, updateMemoryFor,
+  addMemoryFor, deleteMemoryFor, holdStatsFor, lateNightsFor, logFocusFor, logUrgeFor, memoriesFor, saveSleepSettingsFor, sleepInsightsFor, sleepSettingsFor, updateMemoryFor,
 } from "@/lib/services/wellbeing";
 
 export async function getHoldState() {
   const userId = await requireUserId();
-  const [album, stats, sleep] = await Promise.all([memoriesFor(userId), holdStatsFor(userId), sleepSettingsFor(userId)]);
-  return { album, stats, sleep };
+  const [album, stats, sleep, sleepInsights] = await Promise.all([memoriesFor(userId), holdStatsFor(userId), sleepSettingsFor(userId), sleepInsightsFor(userId)]);
+  return { album, stats, sleep, sleepInsights };
 }
 export type HoldState = Awaited<ReturnType<typeof getHoldState>>;
 
@@ -18,8 +18,8 @@ export type HoldState = Awaited<ReturnType<typeof getHoldState>>;
 export async function getGuardianState() {
   return toResult(async () => {
     const userId = await requireUserId();
-    const [album, sleep] = await Promise.all([memoriesFor(userId), sleepSettingsFor(userId)]);
-    return { album: album.map((m) => ({ id: m.id, year: m.year, caption: m.caption })), sleep };
+    const [album, sleep, lateNights] = await Promise.all([memoriesFor(userId), sleepSettingsFor(userId), lateNightsFor(userId)]);
+    return { album: album.map((m) => ({ id: m.id, year: m.year, caption: m.caption })), sleep, lateNights };
   });
 }
 

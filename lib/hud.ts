@@ -32,7 +32,12 @@ export const RANKS = ["Rookie", "Hustler", "Operator", "Builder", "Closer", "Fou
 
 /** Raw counts gathered from your data (see lib/services/hud.ts). */
 export type SkillCounts = {
-  tasksDone: number; checkinDays: number; streak: number; focusMinutes: number;
+  tasksDone: number; checkinDays: number; streak: number; focusMinutes: number; goodNights: number; dailyGoalsDone: number;
+  // Tasks tagged with an area, and monthly goals achieved per area — feed the matching skill.
+  areaTasks: Partial<Record<"training" | "faith" | "reading" | "youtube" | "mind" | "sleep" | "study", number>>;
+  areaGoals: Partial<Record<"training" | "faith" | "reading" | "youtube" | "mind" | "sleep" | "study", number>>;
+  goalsAchieved: number;
+  achievements: number;
   outreachSent: number; outreachReplies: number; clients: number; gigsApplied: number; earnedKm: number;
   gameCommits: number; webClients: number;
   videos: number; shorts: number; views: number; youtubeDays: number;
@@ -44,8 +49,9 @@ export type SkillCounts = {
 
 export const SKILLS = [
   { key: "discipline", label: "Discipline", emoji: "🎯", tone: "amber",
-    how: "6 XP per finished task · 4 per daily check-in · 1 per 5 focus minutes · streak bonus",
-    xp: (c: SkillCounts) => c.tasksDone * 6 + c.checkinDays * 4 + c.focusMinutes / 5 + Math.min(c.streak, 60) * 3 },
+    how: "6 XP per task · 4 per check-in · 1 per 5 focus minutes · 8 per good night · 2 per daily goal · 100 per monthly goal achieved",
+    xp: (c: SkillCounts) => c.tasksDone * 6 + c.checkinDays * 4 + c.focusMinutes / 5 + Math.min(c.streak, 60) * 3 + c.goodNights * 8 + c.dailyGoalsDone * 2
+      + (c.areaTasks.sleep ?? 0) * 4 + (c.areaGoals.sleep ?? 0) * 150 + c.goalsAchieved * 100 },
   { key: "hustle", label: "Hustle", emoji: "💼", tone: "emerald",
     how: "2 XP per outreach sent · 10 per reply · 15 per gig applied · 250 per client · 1 per 5 KM earned",
     xp: (c: SkillCounts) => c.outreachSent * 2 + c.outreachReplies * 10 + c.gigsApplied * 15 + c.clients * 250 + c.earnedKm * 0.2 },
@@ -53,24 +59,26 @@ export const SKILLS = [
     how: "8 XP per game commit · 150 per website client",
     xp: (c: SkillCounts) => c.gameCommits * 8 + c.webClients * 150 },
   { key: "editing", label: "Editing", emoji: "🎬", tone: "rose",
-    how: "40 XP per video · 20 per Short · 5 per 1,000 views · 10 per YouTube day",
-    xp: (c: SkillCounts) => c.videos * 40 + c.shorts * 20 + (c.views / 1000) * 5 + c.youtubeDays * 10 },
+    how: "40 XP per video · 20 per Short · 5 per 1,000 views · 10 per YouTube day · 4 per #youtube task · 150 per YouTube goal",
+    xp: (c: SkillCounts) => c.videos * 40 + c.shorts * 20 + (c.views / 1000) * 5 + c.youtubeDays * 10 + (c.areaTasks.youtube ?? 0) * 4 + (c.areaGoals.youtube ?? 0) * 150 },
   { key: "music", label: "Music", emoji: "🎧", tone: "violet",
     how: "30 XP per finished beat · 100 per sale · 1 per 10 minutes producing",
     xp: (c: SkillCounts) => c.beatsFinished * 30 + c.beatsSold * 100 + c.musicMinutes / 10 },
   { key: "fitness", label: "Fitness", emoji: "💪", tone: "orange",
-    how: "10 XP per training day · 1 per 10 minutes · 25 per personal record",
-    xp: (c: SkillCounts) => c.trainingDays * 10 + c.trainingMinutes / 10 + c.records * 25 },
+    how: "10 XP per training day · 1 per 10 minutes · 25 per personal record · 4 per #training task · 150 per training goal",
+    xp: (c: SkillCounts) => c.trainingDays * 10 + c.trainingMinutes / 10 + c.records * 25 + (c.areaTasks.training ?? 0) * 4 + (c.areaGoals.training ?? 0) * 150 },
   { key: "faith", label: "Faith", emoji: "🕌", tone: "teal",
-    how: "2 XP per prayer · 1 per Qur'an page",
-    xp: (c: SkillCounts) => c.prayers * 2 + c.quranPages },
+    how: "2 XP per prayer · 1 per Qur'an page · 4 per #faith task · 150 per faith goal",
+    xp: (c: SkillCounts) => c.prayers * 2 + c.quranPages + (c.areaTasks.faith ?? 0) * 4 + (c.areaGoals.faith ?? 0) * 150 },
   { key: "mind", label: "Mind", emoji: "📚", tone: "indigo",
-    how: "½ XP per page read · 100 per book · 10 per study hour · 150 per course · 1 per 5 min meditation · 5 per journal entry",
-    xp: (c: SkillCounts) => c.pagesRead * 0.5 + c.booksDone * 100 + c.studyHours * 10 + c.coursesDone * 150 + c.meditationMinutes / 5 + c.journalEntries * 5 },
+    how: "½ XP per page · 100 per book · 10 per study hour · 150 per course · 1 per 5 min meditation · 5 per diary entry · 4 per #reading/#mind/#study task · 150 per goal",
+    xp: (c: SkillCounts) => c.pagesRead * 0.5 + c.booksDone * 100 + c.studyHours * 10 + c.coursesDone * 150 + c.meditationMinutes / 5 + c.journalEntries * 5
+      + ((c.areaTasks.reading ?? 0) + (c.areaTasks.mind ?? 0) + (c.areaTasks.study ?? 0)) * 4 + ((c.areaGoals.reading ?? 0) + (c.areaGoals.mind ?? 0) + (c.areaGoals.study ?? 0)) * 150 },
 ] as const;
 export type SkillKey = (typeof SKILLS)[number]["key"];
 
 // Steep curves on purpose: levels should mean months of real work, not a week.
+export const ACHIEVEMENT_XP = 40;
 export const OVERALL_CURVE = { base: 400, growth: 300 } as const; // L2 400 · L3 +700 · L4 +1000 · L5 +1300 …
 export const SKILL_CURVE = { base: 120, growth: 90 } as const; //   L2 120 · L3 +210 · L4 +300 …
 
@@ -79,6 +87,8 @@ export function skillLevels(c: SkillCounts) {
     const xp = Math.round(s.xp(c));
     return { key: s.key, label: s.label, emoji: s.emoji, tone: s.tone, how: s.how, xp, ...levelFor(xp, SKILL_CURVE.base, SKILL_CURVE.growth) };
   });
-  const total = skills.reduce((sum, s) => sum + s.xp, 0);
-  return { skills, totalXp: total, ...levelFor(total, OVERALL_CURVE.base, OVERALL_CURVE.growth), rank: "" as string };
+  // Achievements share the same economy: each unlocked badge is worth XP toward your level.
+  const achievementXp = c.achievements * ACHIEVEMENT_XP;
+  const total = skills.reduce((sum, s) => sum + s.xp, 0) + achievementXp;
+  return { skills, achievementXp, totalXp: total, ...levelFor(total, OVERALL_CURVE.base, OVERALL_CURVE.growth), rank: "" as string };
 }

@@ -1,72 +1,44 @@
 "use server";
 
-import { db } from "@/lib/db";
-import { journalEntries } from "@/lib/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+// The Journal now lives inside the encrypted Diary (lib/services/diary.ts).
+// These keep their old shapes so the Weekly Review, Year in Review and
+// streak widgets keep working: "writing" = diary entries, "gratitude" = gratitude.
+
 import { revalidatePath } from "next/cache";
-import { format } from "date-fns";
 import { requireUserId } from "@/lib/auth-session";
+import { deleteDiaryEntryFor, diaryFor, saveDiaryEntryFor, streakOf } from "@/lib/services/diary";
+
+type JournalType = "gratitude" | "writing";
+const localDay = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 export async function getJournalEntries(type?: string) {
   try {
-    const userId = await requireUserId();
-    const all = await db.select().from(journalEntries).where(eq(journalEntries.userId, userId)).orderBy(desc(journalEntries.createdAt));
-    return type ? all.filter((e) => e.type === type) : all;
+    const all = (await diaryFor(await requireUserId())).filter((e) => !e.locked);
+    const mapped = all.map((e) => ({
+      id: e.id, type: (e.kind === "gratitude" ? "gratitude" : "writing") as JournalType, content: e.content,
+      mood: null as number | null, date: localDay(e.date), createdAt: new Date(e.date),
+    }));
+    return type ? mapped.filter((e) => e.type === type) : mapped;
   } catch {
     return [];
   }
 }
 
-export async function addJournalEntry(data: {
-  type: "gratitude" | "writing";
-  content: string;
-  mood?: number;
-}) {
-  const userId = await requireUserId();
-  await db.insert(journalEntries).values({
-    userId,
-    type: data.type,
-    content: data.content,
-    mood: data.mood,
-    date: format(new Date(), "yyyy-MM-dd"),
-  });
-  revalidatePath("/journal");
+export async function addJournalEntry(data: { type: JournalType; content: string; mood?: number }) {
+  await saveDiaryEntryFor(await requireUserId(), null, { content: data.content, kind: data.type === "gratitude" ? "gratitude" : "diary", title: data.type === "gratitude" ? "Gratitude" : "" });
+  revalidatePath("/diary");
   revalidatePath("/");
 }
 
 export async function deleteJournalEntry(id: number) {
-  const userId = await requireUserId();
-  await db.delete(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)));
-  revalidatePath("/journal");
+  await deleteDiaryEntryFor(await requireUserId(), id);
+  revalidatePath("/diary");
 }
 
-export async function getJournalStreak(type: "gratitude" | "writing") {
-  const userId = await requireUserId();
-  const entries = await db
-    .select()
-    .from(journalEntries)
-    .where(and(eq(journalEntries.userId, userId), eq(journalEntries.type, type)))
-    .orderBy(desc(journalEntries.date));
-
-  const dates = [...new Set(entries.map((e) => e.date))].sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
-
-  let streak = 0;
-  let expected = new Date();
-
-  for (const dateStr of dates) {
-    const d = new Date(dateStr);
-    const diffDays = Math.floor(
-      (expected.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    if (diffDays <= 1) {
-      streak++;
-      expected = d;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+export async function getJournalStreak(type: JournalType) {
+  const entries = await getJournalEntries(type);
+  return streakOf(entries.map((e) => e.date));
 }

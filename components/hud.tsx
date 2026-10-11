@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Coins, Flame, ListChecks, MailWarning, Radar, Vault } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getHudC, type Hud } from "@/lib/client/hud";
+import { PrayerChip } from "@/components/prayer-chip";
 
 /** Numbers roll up to their new value, like a game counter. */
 function useCountUp(value: number, ms = 700) {
@@ -65,6 +66,7 @@ function Chip({ href, icon: Icon, value, label, tone, pulse }: { href: string; i
 export function HudStats({ hud }: { hud: Hud }) {
   return (
     <div className="flex items-center">
+      <PrayerChip />
       <Chip href="/tasks" icon={Flame} value={String(hud.streak)} label={`${hud.streak}-day streak`} tone="bg-orange-500/15 text-orange-500" />
       <Chip href="/tasks" icon={ListChecks} value={`${hud.tasksDone}/${hud.tasksToday}`} label="Tasks done today" tone="bg-violet-500/15 text-violet-500" />
       <Chip href="/gigs" icon={Radar} value={hud.hotGigs > 0 ? `${hud.newGigs}·${hud.hotGigs}🔥` : String(hud.newGigs)} label={`${hud.newGigs} new gigs, ${hud.hotGigs} hot`} tone="bg-emerald-500/15 text-emerald-500" />

@@ -4,10 +4,10 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Check, ChevronRight, Gamepad2, GitCommitHorizontal, Loader2, MessagesSquare, Plus, Star, Trash2, Users } from "lucide-react";
+import { ListPlus, Check, ChevronRight, Gamepad2, GitCommitHorizontal, Loader2, MessagesSquare, Plus, Star, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlaytestTheme } from "@/lib/db/schema";
-import { addFeedbackC, deleteFeedbackC, draftDevlogC, groupFeedbackC, saveGameRepoC, themeToTaskC, type GameState } from "@/lib/client/game";
+import { addFeedbackC, deleteFeedbackC, draftDevlogC, feedbackToTaskC, groupFeedbackC, saveGameRepoC, themeToTaskC, type GameState } from "@/lib/client/game";
 import { BrandIcon } from "@/components/brand-icon";
 import { ClaudeJob } from "@/components/claude-job";
 
@@ -221,6 +221,10 @@ function PlaytestCard({ state }: { state: GameState }) {
                     {[f.tester, f.build && `build ${f.build}`, f.rating && `${f.rating}/5`, f.createdAt && format(new Date(f.createdAt), "d MMM")].filter(Boolean).join(" · ")}
                   </p>
                 </div>
+                <button onClick={() => start(async () => { try { await feedbackToTaskC(f.id); toast.success("Added to your tasks."); } catch (e) { toast.error((e as Error).message); } })}
+                  title="Turn into a task" className="h-7 px-2 inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <ListPlus className="w-3.5 h-3.5" /> Task
+                </button>
                 <button onClick={() => start(async () => { await deleteFeedbackC(f.id); })} aria-label="Delete note"
                   className="w-7 h-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                   <Trash2 className="w-3.5 h-3.5" />

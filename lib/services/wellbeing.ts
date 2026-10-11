@@ -2,7 +2,8 @@
 
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { focusSessions, memories, urgeLogs, userSettings } from "@/lib/db/schema";
+import { dailyCheckins, focusSessions, memories, urgeLogs, userSettings } from "@/lib/db/schema";
+import { averageSleep, isGoodNight } from "@/lib/sleep";
 
 const MAX_PHOTO_BYTES = 900_000; // the browser resizes first; this is a safety net
 const MAX_PHOTOS = 120;
@@ -100,4 +101,30 @@ export async function logFocusFor(userId: number, minutes: number, label: string
   const m = Math.max(1, Math.min(240, Math.round(minutes)));
   await db.insert(focusSessions).values({ userId, minutes: m, label: label?.slice(0, 200) ?? null, completed });
   return m;
+}
+
+// ─── Sleep, from your check-ins ───────────────────────────────────────────────
+
+/** Your real average bedtime (last 3 weeks of check-ins) and good nights this month. */
+export async function sleepInsightsFor(userId: number) {
+  const since = new Date(Date.now() - 21 * 86_400_000).toISOString().slice(0, 10);
+  const month = new Date().toISOString().slice(0, 7);
+  const [rows, s] = await Promise.all([
+    db.select({ date: dailyCheckins.date, bedTime: dailyCheckins.bedTime, wakeTime: dailyCheckins.wakeTime, sleepHours: dailyCheckins.sleepHours })
+      .from(dailyCheckins).where(and(eq(dailyCheckins.userId, userId), gte(dailyCheckins.date, since))),
+    sleepSettingsFor(userId),
+  ]);
+  const thisMonth = rows.filter((r) => r.date.startsWith(month));
+  return {
+    average: averageSleep(rows),
+    goodNightsThisMonth: thisMonth.filter((r) => isGoodNight(r, s.enabled ? s.bedTime : null)).length,
+    loggedNightsThisMonth: thisMonth.filter((r) => r.bedTime || r.sleepHours).length,
+  };
+}
+
+/** Hold-the-line moments marked "late night" (or after 23:00) in the last 7 days. */
+export async function lateNightsFor(userId: number) {
+  const rows = await db.select({ at: urgeLogs.at, triggers: urgeLogs.triggers }).from(urgeLogs)
+    .where(and(eq(urgeLogs.userId, userId), gte(urgeLogs.at, new Date(Date.now() - 7 * 86_400_000))));
+  return rows.filter((r) => r.triggers.includes("late") || r.at.getHours() >= 23 || r.at.getHours() < 5).length;
 }

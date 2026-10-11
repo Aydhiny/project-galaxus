@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inSleepWindow, inWindDown, nightKey } from "./sleep";
+import { averageSleep, inSleepWindow, inWindDown, isGoodNight, nightKey } from "./sleep";
 
 const at = (h: number, m = 0) => new Date(2026, 9, 11, h, m);
 
@@ -26,5 +26,18 @@ describe("sleep guardian timing", () => {
     expect(nightKey(evening, "07:00")).toBe("2026-10-11");
     expect(nightKey(earlyMorning, "07:00")).toBe("2026-10-11");
     expect(nightKey(noon, "07:00")).toBe("2026-10-12");
+  });
+});
+
+describe("sleep from check-ins", () => {
+  it("averages bedtimes across midnight", () => {
+    const rows = ["23:30", "00:30", "00:00"].map((b, i) => ({ date: `2026-10-0${i + 1}`, bedTime: b, wakeTime: "08:00", sleepHours: null }));
+    expect(averageSleep(rows)).toEqual({ bedTime: "00:00", wakeTime: "08:00", nights: 3 });
+    expect(averageSleep(rows.slice(0, 2))).toBeNull();
+  });
+  it("counts good nights by hours or bedtime", () => {
+    expect(isGoodNight({ date: "x", bedTime: "02:00", wakeTime: null, sleepHours: 7.5 }, "23:00")).toBe(true);
+    expect(isGoodNight({ date: "x", bedTime: "23:10", wakeTime: null, sleepHours: 6 }, "23:00")).toBe(true);
+    expect(isGoodNight({ date: "x", bedTime: "00:30", wakeTime: null, sleepHours: 6 }, "23:00")).toBe(false);
   });
 });

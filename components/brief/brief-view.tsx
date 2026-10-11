@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { DIGEST_SECTIONS, SECTION_META, type DigestItem, type DigestSection } from "@/lib/digest";
 import { buildBriefNowC, setBriefNotificationsC, type BriefState } from "@/lib/client/brief";
 import { BrandIcon } from "@/components/brand-icon";
+import { PrayerStrip } from "@/components/prayer-chip";
 
 const TONE: Record<DigestSection, string> = {
   islam: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
@@ -128,6 +129,7 @@ export function BriefView({ state }: { state: BriefState }) {
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <span className={cn("rounded-md px-1.5 py-0.5", TONE[s.section])}>{SECTION_META[s.section].emoji}</span> {SECTION_META[s.section].label}
                   </h3>
+                  {s.section === "islam" && <PrayerStrip className="mb-3" />}
                   <div className="grid gap-4 md:grid-cols-2">
                     {s.stories.map((st, i) => (
                       <a key={st.item.id} href={st.item.link} target="_blank" rel="noreferrer"

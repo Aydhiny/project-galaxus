@@ -530,6 +530,7 @@ const STATEMENTS = [
     CONSTRAINT "diary_entries_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
   )`,
   `CREATE INDEX IF NOT EXISTS "idx_diary_user_date" ON "diary_entries" ("user_id", "date")`,
+  `ALTER TABLE "diary_entries" ADD COLUMN IF NOT EXISTS "kind" varchar(12) DEFAULT 'diary' NOT NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_diary_user_external" ON "diary_entries" ("user_id", "external_id")`,
   `CREATE TABLE IF NOT EXISTS "memories" (
     "id" serial PRIMARY KEY NOT NULL,

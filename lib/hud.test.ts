@@ -19,12 +19,23 @@ describe("HUD levels", () => {
 import { skillLevels } from "./hud";
 describe("skills", () => {
   it("levels every skill from real counts", () => {
-    const zero = Object.fromEntries(["tasksDone","checkinDays","streak","focusMinutes","outreachSent","outreachReplies","clients","gigsApplied","earnedKm","gameCommits","webClients","videos","shorts","views","youtubeDays","beatsFinished","beatsSold","musicMinutes","trainingDays","trainingMinutes","records","prayers","quranPages","pagesRead","booksDone","studyHours","coursesDone","meditationMinutes","journalEntries"].map((k) => [k, 0])) as never;
-    const r = skillLevels({ ...(zero as object), tasksDone: 20, prayers: 150, beatsFinished: 4 } as never);
+    const zero = Object.fromEntries(["tasksDone","checkinDays","streak","focusMinutes","goodNights","dailyGoalsDone","goalsAchieved","achievements","outreachSent","outreachReplies","clients","gigsApplied","earnedKm","gameCommits","webClients","videos","shorts","views","youtubeDays","beatsFinished","beatsSold","musicMinutes","trainingDays","trainingMinutes","records","prayers","quranPages","pagesRead","booksDone","studyHours","coursesDone","meditationMinutes","journalEntries"].map((k) => [k, 0])) as never;
+    const r = skillLevels({ ...(zero as object), areaTasks: {}, areaGoals: {}, tasksDone: 20, prayers: 150, beatsFinished: 4 } as never);
     expect(r.skills.find((s) => s.key === "discipline")!.xp).toBe(120);
     expect(r.skills.find((s) => s.key === "faith")!.xp).toBe(300);
     expect(r.skills.find((s) => s.key === "music")!.level).toBe(2); // exactly 120 XP = level 2
     expect(r.totalXp).toBe(540);
     expect(r.level).toBe(2); // 400 for level 2, 1100 for level 3
+  });
+});
+
+describe("one XP economy", () => {
+  it("area tasks, goals and achievements all count", () => {
+    const zero = Object.fromEntries(["tasksDone","checkinDays","streak","focusMinutes","goodNights","dailyGoalsDone","goalsAchieved","achievements","outreachSent","outreachReplies","clients","gigsApplied","earnedKm","gameCommits","webClients","videos","shorts","views","youtubeDays","beatsFinished","beatsSold","musicMinutes","trainingDays","trainingMinutes","records","prayers","quranPages","pagesRead","booksDone","studyHours","coursesDone","meditationMinutes","journalEntries"].map((k) => [k, 0]));
+    const r = skillLevels({ ...zero, areaTasks: { training: 5, faith: 2 }, areaGoals: { faith: 1 }, goalsAchieved: 1, achievements: 3, goodNights: 2 } as never);
+    expect(r.skills.find((s) => s.key === "fitness")!.xp).toBe(20);
+    expect(r.skills.find((s) => s.key === "faith")!.xp).toBe(158);
+    expect(r.skills.find((s) => s.key === "discipline")!.xp).toBe(116);
+    expect(r.achievementXp).toBe(120);
   });
 });

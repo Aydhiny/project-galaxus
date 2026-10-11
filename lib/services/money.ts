@@ -97,3 +97,25 @@ export async function syncStripeFor(userId: number) {
   }
   return { synced };
 }
+
+/**
+ * Client retainers count as income: once a month each paying client's
+ * retainer is logged (the unique external id makes it safe to run daily).
+ * If one month wasn't paid, delete that entry in Money.
+ */
+export async function logRetainersFor(userId: number) {
+  const clients = await db.select({ id: leads.id, name: leads.name, retainerKm: leads.retainerKm }).from(leads)
+    .where(and(eq(leads.userId, userId), eq(leads.status, "client")));
+  const month = new Date().toISOString().slice(0, 7);
+  let added = 0;
+  for (const c of clients) {
+    if (!c.retainerKm || c.retainerKm <= 0) continue;
+    const r = await db.insert(income).values({
+      userId, source: "retainer", externalId: `retainer:${c.id}:${month}`, amountKmCents: c.retainerKm * 100,
+      originalAmountCents: c.retainerKm * 100, originalCurrency: "KM", description: `Retainer · ${c.name} · ${month}`, leadId: c.id,
+      receivedAt: new Date(`${month}-01T12:00:00Z`),
+    }).onConflictDoNothing().returning({ id: income.id });
+    added += r.length;
+  }
+  return { added };
+}

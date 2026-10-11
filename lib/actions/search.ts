@@ -38,11 +38,8 @@ export async function searchContent(query: string): Promise<SearchResult[]> {
     const like = `%${q}%`;
 
     const [journalRows, checkinRows] = await Promise.all([
-      db
-        .select()
-        .from(journalEntries)
-        .where(and(eq(journalEntries.userId, userId), ilike(journalEntries.content, like), gte(journalEntries.date, since)))
-        .limit(10),
+      // Journal text now lives encrypted in the Diary — it can't be (and shouldn't be) searched in SQL.
+      Promise.resolve([] as (typeof journalEntries.$inferSelect)[]),
       db
         .select()
         .from(dailyCheckins)

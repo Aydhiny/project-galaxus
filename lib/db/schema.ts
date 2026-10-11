@@ -1114,7 +1114,8 @@ export const diaryEntries = pgTable(
     id: serial("id").primaryKey(),
     userId: userIdCol(),
     externalId: varchar("external_id", { length: 80 }), // MyDiary folder id — re-imports never duplicate
-    source: varchar("source", { length: 20 }).notNull().default("galaxus"), // galaxus | mydiary
+    source: varchar("source", { length: 20 }).notNull().default("galaxus"), // galaxus | mydiary | journal
+    kind: varchar("kind", { length: 12 }).notNull().default("diary"), // diary | gratitude
     date: timestamp("date").notNull(),
     titleEnc: text("title_enc").notNull(),
     contentEnc: text("content_enc").notNull(),

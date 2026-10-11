@@ -9,7 +9,7 @@ export async function getDiary() {
   return diaryFor(await requireUserId());
 }
 
-export async function saveDiaryEntry(id: number | null, input: { title?: string; content: string; mood?: string | null; date?: string; unlockAt?: string | null }) {
+export async function saveDiaryEntry(id: number | null, input: { title?: string; content: string; mood?: string | null; date?: string; unlockAt?: string | null; kind?: "diary" | "gratitude" }) {
   return toResult(async () => { const r = await saveDiaryEntryFor(await requireUserId(), id, input); revalidatePath("/diary"); return r; });
 }
 

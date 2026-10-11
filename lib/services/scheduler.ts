@@ -10,7 +10,7 @@ import { localNow } from "@/lib/outreach";
 import { ensureTodayDigestFor } from "@/lib/services/digest";
 import { pruneGigsFor, scanGigsFor } from "@/lib/services/gigs";
 import { scanCommunitiesFor } from "@/lib/services/community";
-import { syncStripeFor } from "@/lib/services/money";
+import { logRetainersFor, syncStripeFor } from "@/lib/services/money";
 import { runAutopilotFollowUpsFor, runAutopilotInboxFor, runAutopilotSendFor } from "@/lib/services/autopilot";
 import { runRedditDailyFor } from "@/lib/services/reddit";
 import {
@@ -29,6 +29,7 @@ export const TASKS: Task[] = [
   { id: "community", when: { daily: 11 }, run: (u) => scanCommunitiesFor(u, { maxLookups: 25 }) },
   { id: "reddit_game", when: { daily: 12 }, run: (u) => runRedditDailyFor(u) },
   { id: "stripe", when: { daily: 6 }, run: (u) => syncStripeFor(u) },
+  { id: "retainers", when: { daily: 9 }, run: (u) => logRetainersFor(u) },
   { id: "new_business", when: { daily: 7 }, needsOutreach: true, run: (u, c) => findNewBusinessesFor(u, c.lastRunAt) },
   { id: "site_checks", when: { daily: 8 }, needsOutreach: true, run: (u) => checkLeadSitesFor(u) },
   { id: "followups", when: { daily: 8 }, needsOutreach: true, run: (u, c) => queueFollowUpsFor(u, c.day) },

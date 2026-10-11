@@ -3,6 +3,18 @@ import { persist } from "zustand/middleware";
 
 export type PomodoroMode = "idle" | "work" | "break" | "longBreak";
 
+/** Save focus time to your account (focus sessions → Discipline XP, HUD, Weekly Review). */
+function logFocus(minutes: number, completed: boolean) {
+  if (typeof window === "undefined" || minutes < 1) return;
+  void import("@/lib/client/wellbeing").then((m) => m.logFocusC(minutes, "Pomodoro", completed)).catch(() => {});
+}
+/** Notification exists on desktop browsers but not on iOS Safari tabs — guard before touching it. */
+function notify(title: string, body: string) {
+  if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body, icon: "/icons/icon-192.png" });
+  }
+}
+
 interface PomodoroState {
   mode: PomodoroMode;
   secondsLeft: number;
@@ -49,7 +61,9 @@ export const usePomodoroStore = create<PomodoroState>()(
       },
 
       skip: () => {
-        const { mode, sessionsCompleted, workMins, breakMins, longBreakMins, longBreakAfter } = get();
+        const { mode, sessionsCompleted, workMins, breakMins, longBreakMins, longBreakAfter, secondsLeft } = get();
+        // Skipping mid-session still counts the minutes you actually focused (5+).
+        if (mode === "work") { const done = Math.floor((workMins * 60 - secondsLeft) / 60); if (done >= 5) logFocus(done, false); }
         if (mode === "work" || mode === "idle") {
           const completed = sessionsCompleted + (mode === "work" ? 1 : 0);
           const isLong = completed > 0 && completed % longBreakAfter === 0;
@@ -74,13 +88,8 @@ export const usePomodoroStore = create<PomodoroState>()(
         if (mode === "work") {
           const completed = sessionsCompleted + 1;
           const isLong = completed % longBreakAfter === 0;
-          // Browser notification
-          if (typeof window !== "undefined" && Notification.permission === "granted") {
-            new Notification("Pomodoro complete!", {
-              body: isLong ? "Time for a long break. Well done." : "Short break — 5 minutes.",
-              icon: "/icons/icon-192.png",
-            });
-          }
+          logFocus(workMins, true);
+          notify("Pomodoro complete!", isLong ? "Time for a long break. Well done." : "Short break — 5 minutes.");
           set({
             mode: isLong ? "longBreak" : "break",
             secondsLeft: isLong ? longBreakMins * 60 : breakMins * 60,
@@ -89,9 +98,7 @@ export const usePomodoroStore = create<PomodoroState>()(
           });
         } else {
           // break → work
-          if (typeof window !== "undefined" && Notification.permission === "granted") {
-            new Notification("Break over", { body: "Time to focus.", icon: "/icons/icon-192.png" });
-          }
+          notify("Break over", "Time to focus.");
           set({ mode: "work", secondsLeft: workMins * 60, isRunning: false });
         }
       },

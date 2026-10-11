@@ -154,3 +154,14 @@ export async function themeToTaskFor(userId: number, index: number) {
   const [row] = await db.insert(tasks).values({ userId, title: theme.task.slice(0, 500), notes, priority }).returning({ id: tasks.id });
   return row;
 }
+
+/** One playtest note straight to your task list — low ratings become high priority. */
+export async function feedbackToTaskFor(userId: number, id: number) {
+  const [f] = await db.select().from(playtestFeedback).where(and(eq(playtestFeedback.id, id), eq(playtestFeedback.userId, userId))).limit(1);
+  if (!f) throw new Error("Note not found.");
+  const priority = f.rating != null && f.rating <= 2 ? "high" : f.rating != null && f.rating <= 3 ? "medium" : "low";
+  const title = `Playtest: ${f.text.replace(/\s+/g, " ").slice(0, 120)}`;
+  const notes = [`"${f.text}"`, f.tester && `— ${f.tester}`, f.build && `build ${f.build}`, f.rating && `${f.rating}/5`].filter(Boolean).join("\n");
+  const [row] = await db.insert(tasks).values({ userId, title, notes, priority, area: null }).returning({ id: tasks.id });
+  return row;
+}

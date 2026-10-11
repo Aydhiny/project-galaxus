@@ -66,7 +66,7 @@ export function HoldView({ state }: { state: HoldState }) {
       <SlipLogger />
 
       <AlbumManager album={album} />
-      <SleepSettings sleep={state.sleep} />
+      <SleepSettings sleep={state.sleep} insights={state.sleepInsights} />
     </div>
   );
 }
@@ -151,7 +151,7 @@ function AlbumTile({ m }: { m: HoldState["album"][number] }) {
   );
 }
 
-function SleepSettings({ sleep }: { sleep: HoldState["sleep"] }) {
+function SleepSettings({ sleep, insights }: { sleep: HoldState["sleep"]; insights: HoldState["sleepInsights"] }) {
   const [f, setF] = useState(sleep);
   const [pending, start] = useTransition();
   return (
@@ -165,6 +165,21 @@ function SleepSettings({ sleep }: { sleep: HoldState["sleep"] }) {
         <label className="inline-flex items-center gap-2 text-sm">
           <input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} /> On
         </label>
+      </div>
+      <div className="mt-4 grid sm:grid-cols-2 gap-3">
+        <div className="rounded-xl bg-muted/40 p-3">
+          <p className={cn("text-2xl leading-none tabular-nums", hud)}>{insights.goodNightsThisMonth}<span className="text-sm text-muted-foreground">/{insights.loggedNightsThisMonth || "—"}</span></p>
+          <p className="text-[11px] text-muted-foreground mt-1">good nights this month (7h+ or in bed on time) · +8 Discipline XP each · from your Daily Check-in</p>
+        </div>
+        <div className="rounded-xl bg-muted/40 p-3">
+          {insights.average ? (
+            <>
+              <p className={cn("text-2xl leading-none tabular-nums", hud)}>{insights.average.bedTime} → {insights.average.wakeTime}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">your real average ({insights.average.nights} check-ins, 3 weeks).{" "}
+                <button onClick={() => setF({ ...f, bedTime: insights.average!.bedTime, wakeTime: insights.average!.wakeTime })} className="underline">Use these</button> — then pull bedtime earlier by 15 minutes a week.</p>
+            </>
+          ) : <p className="text-[11px] text-muted-foreground">Log bedtime and wake time in your Daily Check-in for a few days — Galaxus will suggest your real schedule here.</p>}
+        </div>
       </div>
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="text-xs text-muted-foreground">Bedtime

@@ -15,9 +15,16 @@ import { inSleepWindow, inWindDown, nightKey } from "@/lib/sleep";
 import { SLEEP_SETTINGS_EVENT, useGuardianStore } from "@/lib/store/guardian";
 import { FOCUS_TRACK_ID, useMusicStore } from "@/lib/store/music";
 import { getGuardianStateC, logFocusC, logUrgeC } from "@/lib/client/wellbeing";
+import { getUpcomingMeetings } from "@/lib/client/calendar";
+import type { Meeting } from "@/lib/calendar";
+import { useRouter } from "next/navigation";
 
 type Album = { id: number; year: number | null; caption: string | null }[];
-type Sleep = { enabled: boolean; bedTime: string; wakeTime: string };
+type Sleep = { enabled: boolean; bedTime: string; wakeTime: string; windDownMinutes?: number };
+
+/** A meeting that's live now or starts within `withinMin` minutes. */
+const meetingSoon = (ms: Meeting[], withinMin: number, now = Date.now()) =>
+  ms.find((m) => !m.allDay && new Date(m.end).getTime() > now && new Date(m.start).getTime() - now < withinMin * 60_000) ?? null;
 
 const store = {
   get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -29,8 +36,11 @@ const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${St
 export function Guardian() {
   const [album, setAlbum] = useState<Album>([]);
   const [sleep, setSleep] = useState<Sleep | null>(null);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const load = useCallback(() => {
-    getGuardianStateC().then((s) => { setAlbum(s.album); setSleep(s.sleep); }).catch(() => {});
+    // Rough weeks (2+ late-night moments) start the wind-down 30 minutes earlier.
+    getGuardianStateC().then((s) => { setAlbum(s.album); setSleep({ ...s.sleep, windDownMinutes: s.lateNights >= 2 ? 45 : 15 }); }).catch(() => {});
+    getUpcomingMeetings().then((r) => setMeetings(r.connected ? r.meetings : [])).catch(() => {});
   }, []);
   useEffect(() => {
     load();
@@ -39,13 +49,13 @@ export function Guardian() {
     return () => { clearInterval(t); window.removeEventListener(SLEEP_SETTINGS_EVENT, load); };
   }, [load]);
 
-  const sleeping = useSleepState(sleep);
+  const sleeping = useSleepState(sleep, meetings);
   return (
     <>
       <HoldTheLine album={album} />
       {sleeping === "sleep" && sleep && <SleepScreen sleep={sleep} />}
-      {sleeping === "winddown" && sleep && <WindDownBanner bedTime={sleep.bedTime} />}
-      {sleeping === "awake" && <DailyFocus />}
+      {sleeping === "winddown" && sleep && <WindDownBanner bedTime={sleep.bedTime} early={(sleep.windDownMinutes ?? 15) > 15} />}
+      {sleeping === "awake" && <DailyFocus meetings={meetings} />}
       <FocusOverlay />
     </>
   );
@@ -53,13 +63,15 @@ export function Guardian() {
 
 // ─── Sleep Guardian ───────────────────────────────────────────────────────────
 
-function useSleepState(sleep: Sleep | null): "awake" | "winddown" | "sleep" {
+function useSleepState(sleep: Sleep | null, meetings: Meeting[]): "awake" | "winddown" | "sleep" {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 20_000); return () => clearInterval(t); }, []);
   const stopMusic = useMusicStore((s) => s.stop);
+  // A meeting that's on (or about to start) always wins over the sleep screen.
+  const busy = !!meetingSoon(meetings, 10, now.getTime());
   const state = !sleep?.enabled ? "awake"
-    : inSleepWindow(now, sleep.bedTime, sleep.wakeTime) && Number(store.get(`sleep-snooze:${nightKey(now, sleep.wakeTime)}`) ?? 0) < now.getTime() ? "sleep"
-    : inWindDown(now, sleep.bedTime) ? "winddown" : "awake";
+    : !busy && inSleepWindow(now, sleep.bedTime, sleep.wakeTime) && Number(store.get(`sleep-snooze:${nightKey(now, sleep.wakeTime)}`) ?? 0) < now.getTime() ? "sleep"
+    : inWindDown(now, sleep.bedTime, sleep.windDownMinutes ?? 15) ? "winddown" : "awake";
 
   // One chime per night for each phase.
   useEffect(() => {
@@ -73,11 +85,11 @@ function useSleepState(sleep: Sleep | null): "awake" | "winddown" | "sleep" {
   return state;
 }
 
-function WindDownBanner({ bedTime }: { bedTime: string }) {
+function WindDownBanner({ bedTime, early }: { bedTime: string; early: boolean }) {
   return (
     <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[900] rounded-2xl border border-indigo-500/30 bg-indigo-950/90 text-indigo-100 px-5 py-3 shadow-xl flex items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-2">
       <Moon className="w-5 h-5 text-indigo-300" />
-      <p className="text-sm">Wind down — sleep time at <b>{bedTime}</b>. Phone out of the bedroom, lights low.</p>
+      <p className="text-sm">Wind down — sleep time at <b>{bedTime}</b>. Phone out of the bedroom, lights low.{early && " (Earlier this week — the nights have been late.)"}</p>
     </div>
   );
 }
@@ -141,6 +153,7 @@ function HoldTheLine({ album }: { album: Album }) {
 }
 
 function EmergencyScreen({ album, close }: { album: Album; close: () => void }) {
+  const router = useRouter();
   const [i, setI] = useState(0);
   const [left, setLeft] = useState(600);
   const [phase, setPhase] = useState<"in" | "out">("in");
@@ -162,7 +175,10 @@ function EmergencyScreen({ album, close }: { album: Album; close: () => void }) 
   function held() {
     logUrgeC("held", triggers).catch(() => {});
     playChime("done");
-    toast.success("You held the line. That's a win — it counts.", { duration: 6000 });
+    toast.success("You held the line. That's a win — it counts.", {
+      duration: 10_000,
+      action: { label: "Write 2 lines", onClick: () => router.push("/diary?reflect=held") },
+    });
     close();
   }
 
@@ -229,7 +245,7 @@ function EmergencyScreen({ album, close }: { album: Album; close: () => void }) 
 
 // ─── Daily focus ──────────────────────────────────────────────────────────────
 
-function DailyFocus() {
+function DailyFocus({ meetings }: { meetings: Meeting[] }) {
   const prompt = useGuardianStore((s) => s.focusPrompt);
   const openPrompt = useGuardianStore((s) => s.openFocusPrompt);
   const closePrompt = useGuardianStore((s) => s.closeFocusPrompt);
@@ -238,6 +254,15 @@ function DailyFocus() {
   const [minutes, setMinutes] = useState(50);
   const [label, setLabel] = useState("");
   const [music, setMusic] = useState(true);
+  // A clock that ticks only while the prompt is open (render must stay pure).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!prompt) return;
+    const sync = () => setNow(Date.now());
+    const first = setTimeout(sync, 0);
+    const t = setInterval(sync, 30_000);
+    return () => { clearTimeout(first); clearInterval(t); };
+  }, [prompt]);
 
   // Once a day, a few seconds after you open Galaxus.
   useEffect(() => {
@@ -247,6 +272,9 @@ function DailyFocus() {
   }, [openPrompt]);
 
   if (!prompt) return null;
+  // Don't plan a 90-minute block straight into a call.
+  const next = meetingSoon(meetings, 120, now);
+  const minsToMeeting = next ? Math.max(0, Math.round((new Date(next.start).getTime() - now) / 60_000)) : null;
   return (
     <div className="fixed inset-0 z-[950] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in-0">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95">
@@ -259,17 +287,22 @@ function DailyFocus() {
         </div>
         <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="The one thing I'll finish…"
           className="mt-5 w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm" />
+        {next && minsToMeeting !== null && (
+          <p className="mt-3 text-xs rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-200 p-2">
+            📅 &quot;{next.title}&quot; {minsToMeeting === 0 ? "is on now" : `starts in ${minsToMeeting} min`} — sessions longer than that are disabled.
+          </p>
+        )}
         <div className="mt-3 grid grid-cols-3 gap-2">
           {[25, 50, 90].map((m) => (
-            <button key={m} onClick={() => setMinutes(m)}
-              className={cn("h-11 rounded-xl border font-hud text-lg", minutes === m ? "border-teal-500 bg-teal-500/10" : "border-border text-muted-foreground")}>{m} min</button>
+            <button key={m} onClick={() => setMinutes(m)} disabled={minsToMeeting !== null && m > minsToMeeting}
+              className={cn("h-11 rounded-xl border font-hud text-lg disabled:opacity-30 disabled:line-through", minutes === m ? "border-teal-500 bg-teal-500/10" : "border-border text-muted-foreground")}>{m} min</button>
           ))}
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
           <input type="checkbox" checked={music} onChange={(e) => setMusic(e.target.checked)} /> <Headphones className="w-4 h-4" /> Play my focus music
         </label>
         <div className="mt-5 flex gap-2">
-          <button onClick={() => { if (music) play(FOCUS_TRACK_ID); start({ minutes, label: label.trim() || "Deep work", startedAt: Date.now() }); }}
+          <button onClick={() => { if (music) play(FOCUS_TRACK_ID); start({ minutes: minsToMeeting !== null ? Math.max(5, Math.min(minutes, minsToMeeting - 2)) : minutes, label: label.trim() || "Deep work", startedAt: Date.now() }); }}
             className="flex-1 h-11 rounded-xl bg-foreground text-background font-medium">Start focus</button>
           <button onClick={closePrompt} className="h-11 px-4 rounded-xl border border-border text-sm text-muted-foreground">Not now</button>
         </div>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { toResult } from "@/lib/action-result";
 import { requireUserId } from "@/lib/auth-session";
 import {
-  addFeedbackFor, deleteFeedbackFor, devlogFromCommitsFor, gameStateFor, groupFeedbackFor, saveRepoFor, themeToTaskFor,
+  addFeedbackFor, deleteFeedbackFor, feedbackToTaskFor, devlogFromCommitsFor, gameStateFor, groupFeedbackFor, saveRepoFor, themeToTaskFor,
 } from "@/lib/services/game";
 
 const refresh = () => revalidatePath("/game");
@@ -37,6 +37,14 @@ export async function groupFeedback() {
 export async function themeToTask(index: number) {
   return toResult(async () => {
     const row = await themeToTaskFor(await requireUserId(), index);
+    revalidatePath("/tasks");
+    return row;
+  });
+}
+
+export async function feedbackToTask(id: number) {
+  return toResult(async () => {
+    const row = await feedbackToTaskFor(await requireUserId(), id);
     revalidatePath("/tasks");
     return row;
   });

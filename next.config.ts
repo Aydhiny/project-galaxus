@@ -18,7 +18,7 @@ const csp = [
   // News/gig images are hotlinked from many outlets (with no-referrer), so any https image host is allowed.
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.public.blob.vercel-storage.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.sentry.io",
+  "connect-src 'self' https://api.aladhan.com https://*.public.blob.vercel-storage.com https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.sentry.io",
   "media-src 'self' blob: https://*.public.blob.vercel-storage.com",
   "frame-src 'self' https://www.youtube-nocookie.com https://*.public.blob.vercel-storage.com",
   "object-src 'none'",

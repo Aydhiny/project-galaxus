@@ -28,3 +28,30 @@ export function nightKey(now: Date, wakeTime: string): string {
   // Local calendar date (toISOString would shift it by the time zone).
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+// ─── From your check-ins ──────────────────────────────────────────────────────
+
+/** Bedtimes after midnight count as "late", not "early": 00:40 → 24:40 for averaging. */
+const bedMinutes = (hhmm: string) => { const m = toMin(hhmm); return m < 12 * 60 ? m + 1440 : m; };
+const fmt = (m: number) => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`; };
+
+export type CheckinSleep = { date: string; bedTime: string | null; wakeTime: string | null; sleepHours: number | null };
+
+/** Your real average bedtime / wake time over recent check-ins (null if too few). */
+export function averageSleep(rows: CheckinSleep[]): { bedTime: string; wakeTime: string; nights: number } | null {
+  const beds = rows.map((r) => r.bedTime).filter((t): t is string => !!t && /^\d{2}:\d{2}$/.test(t));
+  const wakes = rows.map((r) => r.wakeTime).filter((t): t is string => !!t && /^\d{2}:\d{2}$/.test(t));
+  if (beds.length < 3 || wakes.length < 3) return null;
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  return { bedTime: fmt(avg(beds.map(bedMinutes))), wakeTime: fmt(avg(wakes.map(toMin))), nights: Math.min(beds.length, wakes.length) };
+}
+
+/**
+ * A "good night": 7+ hours, or in bed within 15 minutes of your Sleep Guardian
+ * bedtime. Counted per check-in — you can't lose more than one night at a time.
+ */
+export function isGoodNight(r: CheckinSleep, targetBed: string | null): boolean {
+  if ((r.sleepHours ?? 0) >= 7) return true;
+  if (targetBed && r.bedTime && /^\d{2}:\d{2}$/.test(r.bedTime)) return bedMinutes(r.bedTime) <= bedMinutes(targetBed) + 15;
+  return false;
+}
