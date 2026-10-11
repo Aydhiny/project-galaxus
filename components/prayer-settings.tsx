@@ -77,9 +77,11 @@ export function PrayerSettings({ className }: { className?: string }) {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3">
-        <p className="text-sm flex-1 min-w-48">{s?.azanFile ? <>Azan: <b>{s.azanFile.name}</b> <span className="text-muted-foreground text-xs">({Math.round(s.azanFile.bytes / 1024)} KB)</span></> : "No azan recording yet — upload your favourite (MP3, max 4 MB)."}</p>
-        {s?.azanFile && (
-          <button onClick={() => { if (playing) { stopAzan(); setPlaying(false); } else { void playAzan().then(() => setPlaying(true)).catch(() => toast.error("Couldn't play — tap again.")); } }}
+        <p className="text-sm flex-1 min-w-48">{s?.azanFile
+          ? <>Your azan: <b>{s.azanFile.name}</b> <span className="text-muted-foreground text-xs">({Math.round(s.azanFile.bytes / 1024)} KB)</span></>
+          : <>Built-in azan · Aaqib Azeez <span className="text-muted-foreground text-xs">(<a className="underline" href="https://commons.wikimedia.org/wiki/File:The_Adhan_-_Muslim_Call_to_Prayer_-_Aaqib_Azeez.mp3" target="_blank" rel="noreferrer">Wikimedia Commons</a>, CC BY-SA 4.0)</span> — or upload your favourite.</>}</p>
+        {(
+          <button onClick={() => { if (playing) { stopAzan(); setPlaying(false); } else { void playAzan(!!s?.azanFile).then(() => setPlaying(true)).catch(() => toast.error("Couldn't play — tap again.")); } }}
             className="h-9 px-3 rounded-lg border border-border text-sm inline-flex items-center gap-1.5">{playing ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />} {playing ? "Stop" : "Test"}</button>
         )}
         <button onClick={() => file.current?.click()} className="h-9 px-3 rounded-lg bg-foreground text-background text-sm inline-flex items-center gap-1.5"><Upload className="w-3.5 h-3.5" /> {s?.azanFile ? "Replace" : "Upload azan"}</button>
