@@ -10,6 +10,7 @@ import { localNow } from "@/lib/outreach";
 import { ensureTodayDigestFor } from "@/lib/services/digest";
 import { pruneGigsFor, scanGigsFor } from "@/lib/services/gigs";
 import { syncStripeFor } from "@/lib/services/money";
+import { runAutopilotFollowUpsFor, runAutopilotInboxFor, runAutopilotSendFor } from "@/lib/services/autopilot";
 import { runRedditDailyFor } from "@/lib/services/reddit";
 import {
   checkClientSitesFor, checkLeadSitesFor, ensureDemosFor, findNewBusinessesFor, monthlyReportsReadyFor, queueFollowUpsFor,
@@ -20,6 +21,7 @@ type When = { daily: number } | { every: number; from: number; to: number } | { 
 type Task = { id: string; when: When; needsOutreach?: boolean; run: (userId: number, ctx: Ctx) => Promise<unknown> };
 
 export const TASKS: Task[] = [
+  { id: "autopilot_inbox_fast", when: { every: 5, from: 6, to: 24 }, run: (u) => runAutopilotInboxFor(u) },
   { id: "digest", when: { daily: 6 }, run: (u) => ensureTodayDigestFor(u) },
   { id: "gigs", when: { every: 60, from: 6, to: 23 }, run: (u) => scanGigsFor(u) },
   { id: "gigs_prune", when: { daily: 6 }, run: (u) => pruneGigsFor(u) },
@@ -31,6 +33,9 @@ export const TASKS: Task[] = [
   { id: "demos", when: { every: 120, from: 6, to: 23 }, needsOutreach: true, run: (u) => ensureDemosFor(u) },
   { id: "client_uptime", when: { daily: 9 }, run: (u) => checkClientSitesFor(u) },
   { id: "client_reports", when: { monthly: 9 }, run: (u) => monthlyReportsReadyFor(u) },
+  // Gig autopilot: replies first (speed wins), then applications, then follow-ups.
+  { id: "autopilot_send", when: { every: 30, from: 9, to: 21 }, run: (u) => runAutopilotSendFor(u) },
+  { id: "autopilot_followups", when: { daily: 10 }, run: (u) => runAutopilotFollowUpsFor(u) },
 ];
 
 /** Pure: is this task due now? (tested) */

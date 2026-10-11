@@ -218,11 +218,21 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   return row;
 }
 
-const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs", reddit_post: "/game/reddit" };
+const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs", email_reply: "/gigs", reddit_post: "/game/reddit" };
 
 async function notifyDone(userId: number, c: VoiceCommand) {
   // The brief sends its own notification (with an image) — and if Claude
   // couldn't write it, the plain headlines are still worth announcing.
+  // Background scoring failing isn't news — the free scores already cover it.
+  if (c.kind === "gigs" && c.status === "failed") return;
+  // A client reply Claude couldn't handle → it's yours (the push already went out on arrival).
+  if (c.kind === "email_reply") {
+    if (c.status === "failed") {
+      const { gigEmails } = await import("@/lib/db/schema");
+      await db.update(gigEmails).set({ needsYou: true }).where(eq(gigEmails.id, Number((c.payload ?? {}).gigEmailId)));
+    }
+    return;
+  }
   if (c.kind === "digest") {
     if (c.status === "failed") {
       const { digests } = await import("@/lib/db/schema");

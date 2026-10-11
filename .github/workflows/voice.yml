@@ -21,7 +21,7 @@ run-name: Voice
 on:
   workflow_dispatch: {} # Galaxus starts it the moment you send a command
   schedule:
-    - cron: "*/10 4-21 * * *" # queue fallback + the daily brief (built once after 06:00 your time)
+    - cron: "*/5 4-22 * * *" # every 5 min: client replies get answered fast; also the daily automations
 
 permissions: {}
 

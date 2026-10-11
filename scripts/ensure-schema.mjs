@@ -544,6 +544,50 @@ const STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "idx_income_user_time" ON "income" ("user_id", "received_at")`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_income_user_external" ON "income" ("user_id", "external_id")`,
 
+  // ── 2026-10 · Gig autopilot ─────────────────────────────────────────────
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "subject" varchar(300)`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "contact_email" varchar(200)`,
+  `ALTER TABLE "gigs" ADD COLUMN IF NOT EXISTS "image" text`,
+  `CREATE TABLE IF NOT EXISTS "autopilot_settings" (
+    "user_id" integer PRIMARY KEY NOT NULL,
+    "mode" varchar(10) DEFAULT 'shadow' NOT NULL,
+    "daily_cap" integer DEFAULT 10 NOT NULL,
+    "min_score" integer DEFAULT 70 NOT NULL,
+    "website_min_km" integer DEFAULT 1500 NOT NULL,
+    "portfolio_url" text DEFAULT 'https://plansio.agency',
+    "booking_url" text,
+    "sender_name" varchar(100),
+    "follow_ups" boolean DEFAULT true NOT NULL,
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "autopilot_settings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE TABLE IF NOT EXISTS "gig_emails" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "gig_id" integer,
+    "to_email" varchar(200) NOT NULL,
+    "subject" varchar(300) NOT NULL,
+    "body" text NOT NULL,
+    "status" varchar(10) NOT NULL,
+    "message_id" varchar(300),
+    "sent_at" timestamp,
+    "follow_up_at" timestamp,
+    "reply_count" integer DEFAULT 0 NOT NULL,
+    "last_reply_at" timestamp,
+    "last_reply_text" text,
+    "last_reply_message_id" varchar(300),
+    "category" varchar(30),
+    "suggested_reply" text,
+    "needs_you" boolean DEFAULT false NOT NULL,
+    "auto_replied" integer DEFAULT 0 NOT NULL,
+    "error" text,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "gig_emails_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade,
+    CONSTRAINT "gig_emails_gig_id_gigs_id_fk" FOREIGN KEY ("gig_id") REFERENCES "gigs"("id") ON DELETE set null
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_gig_emails_user_status" ON "gig_emails" ("user_id", "status")`,
+  `CREATE INDEX IF NOT EXISTS "idx_gig_emails_to" ON "gig_emails" ("user_id", "to_email")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

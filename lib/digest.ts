@@ -48,6 +48,9 @@ export type DigestItem = {
   snippet: string;
   publishedAt: string | null;
   image: string | null; // hotlinked from the outlet, never copied
+  /** Top stories only: the article's own description + opening, read from its page. */
+  summary?: string;
+  top?: boolean;
 };
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@", textNodeName: "#text", processEntities: true });
@@ -198,4 +201,88 @@ export function parseBriefing(json: unknown, items: DigestItem[]): Briefing | nu
     .filter((s) => s.items.length > 0);
   if (sections.length === 0) return null;
   return { oneLiner: String(j.oneLiner ?? "").slice(0, 300), sections };
+}
+
+// ─── Top stories (works without Claude) ───────────────────────────────────────
+
+const STOP = new Set(("the a an and or of to in on for with from by at as is are was were be been has have had it its this that after over into about "
+  + "says say said new more than will would could can not but who what when how why their they his her he she we you our out up off "
+  + "i u na za se je su od do da iz po sa ili što kao biti nije koji koja koje").split(" "));
+const words = (t: string) => new Set(norm(t).split(" ").filter((w) => w.length > 3 && !STOP.has(w)));
+const overlap = (a: Set<string>, b: Set<string>) => { let n = 0; for (const w of a) if (b.has(w)) n++; return n; };
+
+/**
+ * The 2–3 biggest stories per topic. "Big" = covered by several outlets
+ * (shared title words across sources), then fresh, with a picture and a real
+ * description. Near-duplicates are skipped so one event isn't picked twice.
+ */
+export function pickTopStories(items: DigestItem[], perSection = 3, now = new Date()): number[] {
+  const kw = items.map((i) => words(`${i.title} ${i.snippet.slice(0, 160)}`));
+  const score = items.map((it, a) => {
+    let coverage = 0;
+    items.forEach((other, b) => { if (b !== a && other.source !== it.source && overlap(kw[a], kw[b]) >= 2) coverage++; });
+    const hours = it.publishedAt ? (now.getTime() - new Date(it.publishedAt).getTime()) / 3_600_000 : 24;
+    return Math.min(coverage, 6) * 3 + (it.image ? 2 : 0) + (hours < 8 ? 2 : hours < 18 ? 1 : 0) + (it.snippet.length > 80 ? 1 : 0);
+  });
+  const picked: number[] = [];
+  for (const section of DIGEST_SECTIONS) {
+    const idx = items.map((it, i) => i).filter((i) => items[i].section === section).sort((a, b) => score[b] - score[a]);
+    const chosen: number[] = [];
+    for (const i of idx) {
+      if (chosen.length >= perSection) break;
+      if (chosen.some((c) => overlap(kw[c], kw[i]) >= 3)) continue;
+      chosen.push(i);
+    }
+    picked.push(...chosen.map((i) => items[i].id));
+  }
+  return picked;
+}
+
+const decodeEntities = (s: string) =>
+  s.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+
+/** Bigger versions of known feed thumbnails (BBC 240px, Klix small crops) and entity-safe URLs. */
+export function upgradeImage(url: string | null): string | null {
+  if (!url) return null;
+  return url.replace(/&#0?38;|&amp;/g, "&")
+    .replace(/(ichef\.bbci\.co\.uk\/(?:ace\/)?standard)\/\d{2,4}\//, "$1/800/")
+    .replace(/(static\.klix\.ba\/media\/images\/vijesti\/)img32_(\d+)\.jpg/, "$1og_$2.jpg");
+}
+/** Feed images too small to show big (Guardian ?width=140 and similar). */
+export const isThumbnail = (url: string | null) => !url || /[?&](?:width|w)=(?:[1-2]\d\d|\d\d)\b|\/(?:120|144|160|240)\//.test(url);
+
+function metaContent(html: string, name: string): string | null {
+  const m =
+    html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]*content=["']([^"']*)["']`, "i")) ??
+    html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${name}["']`, "i"));
+  const v = m?.[1] ? decodeEntities(m[1]).replace(/\s+/g, " ").trim() : "";
+  return v || null;
+}
+
+const JUNK = /cookie|subscribe|newsletter|javascript|all rights reserved|©|sign up|log in|advertis|pretplat|prijavi|kolačić/i;
+
+/**
+ * What a top story card shows: the outlet's own description plus the
+ * article's opening paragraphs — a few sentences, always linking to the full piece.
+ */
+export function articleSummary(html: string, fallback: string, maxChars = 650): { summary: string; image: string | null } {
+  const body = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, " ");
+  const description = metaContent(body, "og:description") ?? metaContent(body, "description") ?? "";
+  const paras: string[] = [];
+  for (const m of body.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)) {
+    const t = decodeEntities(m[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    if (t.length < 80 || JUNK.test(t)) continue;
+    if (description && (t.startsWith(description.slice(0, 40)) || description.startsWith(t.slice(0, 40)))) continue;
+    paras.push(t);
+    if (paras.join(" ").length > maxChars) break;
+  }
+  let summary = [description, ...paras].filter(Boolean).join(" ").trim() || fallback;
+  if (summary.length > maxChars) {
+    const cut = summary.slice(0, maxChars);
+    const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+    summary = end > maxChars * 0.5 ? cut.slice(0, end + 1) : `${cut.replace(/\s+\S*$/, "")}…`;
+  }
+  return { summary, image: upgradeImage(ogImageFrom(body)) };
 }

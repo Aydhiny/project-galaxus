@@ -8,13 +8,14 @@ import { listApiTokensFor } from "@/lib/services/api-tokens";
 /** Which connectors are set up — booleans and labels only, never key material. */
 export async function getConnections() {
   const userId = await requireUserId();
-  const [calendar, anthropic, google, youtube, github, tokens] = await Promise.all([
+  const [calendar, anthropic, google, youtube, github, tokens, gmail] = await Promise.all([
     calendarStatusFor(userId),
     getSecret(userId, "anthropic"),
     getSecret(userId, "google"),
     getSecret(userId, "youtube"),
     getSecret(userId, "github"),
     listApiTokensFor(userId),
+    getSecret(userId, "gmail"),
   ]);
   return {
     calendars: calendar.feeds,
@@ -23,6 +24,7 @@ export async function getConnections() {
     youtube: !!youtube || !!google,
     github: !!github,
     mcpTokens: tokens.length,
+    gmail: !!gmail,
   };
 }
 export type Connections = Awaited<ReturnType<typeof getConnections>>;

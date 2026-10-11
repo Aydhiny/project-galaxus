@@ -63,6 +63,9 @@ export function ConnectionsView({ connections: c, reddit }: { connections: Conne
           </Card>
         </div>
 
+        <Card brand="gmail" name="Gmail" what="Gig autopilot sends applications from your Gmail and answers routine client replies within minutes."
+          status={<Status on={c.gmail} />} href="/gigs" cta="Gig autopilot" />
+
         <RedditConnectionCard connection={reddit} />
 
         <Card brand="claude" name="Claude · voice" what="Speak a command; Claude Code on your own subscription creates the tasks, routines and goals."

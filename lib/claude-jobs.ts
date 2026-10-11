@@ -4,7 +4,7 @@
 
 import type { PlaytestTheme } from "@/lib/db/schema";
 
-export const JOB_KINDS = ["voice", "devlog", "hooks", "comment_replies", "playtest", "digest", "gigs", "reddit_post"] as const;
+export const JOB_KINDS = ["voice", "devlog", "hooks", "comment_replies", "playtest", "digest", "gigs", "email_reply", "reddit_post"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const JOB_LABEL: Record<JobKind, string> = {
@@ -15,6 +15,7 @@ export const JOB_LABEL: Record<JobKind, string> = {
   playtest: "Playtest themes",
   digest: "Daily brief",
   gigs: "Gig scoring",
+  email_reply: "Client reply",
   reddit_post: "Reddit post",
 };
 

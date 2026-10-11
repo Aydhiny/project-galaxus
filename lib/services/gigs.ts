@@ -14,6 +14,7 @@ import {
   parseRedditRss, parseRemoteOk, parseRemotive, parseWwrRss, splitList, templateReply, type GigSource, type RawGig,
 } from "@/lib/gigs";
 import { getSecret, setSecret } from "@/lib/services/secrets";
+import { extractContactEmail } from "@/lib/autopilot";
 import { notifyUser } from "@/lib/services/outreach/push";
 
 const UA = "web:galaxus-gig-radar:1.0 (personal gig finder)";
@@ -188,6 +189,8 @@ export async function scanGigsFor(userId: number, opts: { forceBoards?: boolean 
         body: g.body.slice(0, 3000), author: g.author?.slice(0, 120) ?? null, budget: detectBudget(`${g.title} ${g.body}`),
         postedAt: g.postedAt, score: keywordScore(g, hits, now), scoredBy: "keywords", reason: `Matches: ${hits.slice(0, 4).join(", ")}`,
         draft: templateReply(g, p.pitch ?? ""),
+        contactEmail: extractContactEmail(`${g.title}\n${g.body}`),
+        image: g.image ?? null,
       });
       break;
     }
@@ -219,6 +222,8 @@ async function notifyNewGigs(userId: number, fresh: { id: number; score: number 
 
 /** Claude re-scores + writes replies for gigs only keyword-scored so far (one job in flight at a time). */
 export async function queueClaudeScoring(userId: number) {
+  const { claudeHealthy } = await import("@/lib/services/claude-jobs");
+  if (!(await claudeHealthy(userId))) return null; // keyword scores + built-in writer cover it
   const inFlight = await db.select({ id: voiceCommands.id }).from(voiceCommands)
     .where(and(eq(voiceCommands.userId, userId), eq(voiceCommands.kind, "gigs"), inArray(voiceCommands.status, ["queued", "running"]))).limit(1);
   if (inFlight.length) return null;

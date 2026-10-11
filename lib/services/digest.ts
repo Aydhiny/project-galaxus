@@ -6,7 +6,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { digests, outreachSettings, userSettings, voiceCommands, type Digest } from "@/lib/db/schema";
-import { FEEDS, SECTION_META, ogImageFrom, parseFeed, parseBriefing, selectItems, type DigestItem } from "@/lib/digest";
+import { FEEDS, SECTION_META, articleSummary, isThumbnail, ogImageFrom, parseFeed, parseBriefing, pickTopStories, selectItems, upgradeImage, type DigestItem } from "@/lib/digest";
 import { localNow } from "@/lib/outreach";
 import { parseJsonReply } from "@/lib/claude-jobs";
 import { notifyUser } from "@/lib/services/outreach/push";
@@ -34,16 +34,33 @@ async function fetchText(url: string, maxBytes: number, timeoutMs: number): Prom
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
-/** Missing images: read the article's og:image (only the <head>, ~120 KB max). */
-async function fillImages(items: DigestItem[], limit = 45) {
-  const todo = items.filter((i) => !i.image).slice(0, limit);
+/** Missing or thumbnail-sized images: read the article's og:image (only the <head>, ~120 KB max). */
+async function fillImages(items: DigestItem[], limit = 60) {
+  const todo = items.filter((i) => isThumbnail(i.image)).slice(0, limit);
   for (let i = 0; i < todo.length; i += 9) {
     await Promise.all(
       todo.slice(i, i + 9).map(async (it) => {
         try {
-          it.image = ogImageFrom(await fetchText(it.link, 120_000, 6_000));
+          it.image = upgradeImage(ogImageFrom(await fetchText(it.link, 120_000, 6_000))) ?? it.image;
         } catch {
           /* no image is fine */
+        }
+      })
+    );
+  }
+}
+
+async function readTopStories(items: DigestItem[]) {
+  for (let i = 0; i < items.length; i += 8) {
+    await Promise.all(
+      items.slice(i, i + 8).map(async (it) => {
+        it.top = true;
+        try {
+          const { summary, image } = articleSummary(await fetchText(it.link, 600_000, 8_000), it.snippet);
+          it.summary = summary;
+          if (image) it.image = image;
+        } catch {
+          it.summary = it.snippet;
         }
       })
     );
@@ -61,7 +78,11 @@ export async function collectHeadlines(): Promise<DigestItem[]> {
     })
   );
   const items = selectItems(lists.flat());
-  await fillImages(items);
+  for (const it of items) it.image = upgradeImage(it.image);
+  // The 2–3 biggest stories per topic get their full-size picture and a real summary from the article.
+  const top = new Set(pickTopStories(items, 3));
+  await readTopStories(items.filter((i) => top.has(i.id)));
+  await fillImages(items.filter((i) => !top.has(i.id)));
   return items;
 }
 

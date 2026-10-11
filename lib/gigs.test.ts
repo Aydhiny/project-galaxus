@@ -49,7 +49,7 @@ describe("parsers", () => {
       .toMatchObject({ externalId: "remotive:7", title: "Video Editor — Acme", body: "Salary: $40k. Edit" });
   });
   it("reads Claude's scores defensively", () => {
-    expect(parseGigScores({ gigs: [{ id: 1, score: 140, reason: "great", reply: "Hi" }, { id: 2, score: 50 }] })).toEqual([{ id: 1, score: 100, reason: "great", reply: "Hi" }]);
+    expect(parseGigScores({ gigs: [{ id: 1, score: 140, reason: "great", subject: "Shorts\nfor Acme", reply: "Hi" }, { id: 2, score: 50 }] })).toEqual([{ id: 1, score: 100, reason: "great", subject: "Shorts for Acme", reply: "Hi" }]);
   });
   it("writes a fallback reply without Claude", () => {
     expect(templateReply({ title: "[Hiring] Shorts editor", source: "reddit" }, "I edit shorts. Fast turnaround. Extra.")).toContain('"Shorts editor"');
