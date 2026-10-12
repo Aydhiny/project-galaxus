@@ -14,7 +14,7 @@ import { BrandIcon, type Brand } from "@/components/brand-icon";
 import { useMusicStore } from "@/lib/store/music";
 import { useSpotifyStore } from "@/lib/client/spotify";
 import { setAzanVolume, usePrayerStore } from "@/components/azan-player";
-import { addOpportunityTaskC } from "@/lib/client/opportunities";
+import { addOpportunityTaskC, setOpportunityStatusC } from "@/lib/client/opportunities";
 import { EmpireAudio } from "@/lib/empire-audio";
 import { nextVakat } from "@/lib/vaktija";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ import { InteriorView } from "./interior";
 import { BuildingCard } from "./building-card";
 import { CustomizePanel } from "./customize";
 import { SimpleView } from "./simple-view";
+import { AirshipCard } from "./airship-card";
 import type { EmpireEngine } from "./engine";
 
 const hud = "font-hud uppercase tracking-wide";
@@ -104,14 +105,8 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       const e = new EmpireEngine(mount.current);
       e.onPick = (id) => { play("pop"); setSelected(id); e.focus(id); };
       e.onHover = (id) => { setHovered(id); if (id) play("hover"); };
-      e.onPickAirship = (id) => {
-        play("pop");
-        addOpportunityTaskC(id).then(() => {
-          e.landAirship(id);
-          play("success");
-          toast.success("Added to your tasks with its deadline.");
-        }).catch((err) => toast.error((err as Error).message));
-      };
+      // Tapping an airship opens its card — nothing is added until you say so.
+      e.onPickAirship = (id) => { play("pop"); setSelected(null); setShip(id); };
       e.onSound = (mix) => {
         const a = audioRef.current;
         if (!a) return;
@@ -130,6 +125,8 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
   }, []);
 
   const [interior, setInterior] = useState<string | null>(null);
+  const [ship, setShip] = useState<number | null>(null);
+  const [shipBusy, setShipBusy] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const [simple, setSimple] = useState(() => { try { return localStorage.getItem("empire-simple") === "1"; } catch { return false; } });
   const toggleSimple = () => { const next = !simple; setSimple(next); try { localStorage.setItem("empire-simple", next ? "1" : "0"); } catch { /* private mode */ } play("toggle"); };
@@ -363,6 +360,16 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
 
       {/* Building panel */}
       {sel && <BuildingCard b={sel} onClose={close} onNavigate={(href) => { play("whoosh"); router.push(href); }} onEnter={() => { play("whoosh"); setInterior(sel.id); }} />}
+      {ship != null && state && (() => {
+        const a = state.world.airships.find((x) => x.id === ship);
+        if (!a) return null;
+        const done = (msg: string) => { setShipBusy(false); setShip(null); toast.success(msg); };
+        return (
+          <AirshipCard a={a} busy={shipBusy} onClose={() => { play("close"); setShip(null); }}
+            onAccept={() => { setShipBusy(true); addOpportunityTaskC(a.id).then(() => { engine.current?.landAirship(a.id); play("success"); done("Added to your tasks with its deadline."); }).catch((err) => { setShipBusy(false); toast.error((err as Error).message); }); }}
+            onDismiss={() => { setShipBusy(true); setOpportunityStatusC(a.id, "hidden").then(() => { engine.current?.dismissAirship(a.id); play("whoosh"); done("Okay — it won't come back."); }).catch((err) => { setShipBusy(false); toast.error((err as Error).message); }); }} />
+        );
+      })()}
       {customizing && state && (
         <CustomizePanel value={state.style} onPreview={(st) => engine.current?.setStyle(st)}
           onClose={(saved) => { setCustomizing(false); if (saved) setState((s) => (s ? { ...s, style: saved } : s)); }} />

@@ -12,7 +12,7 @@ export type WorldEvent = {
   target?: string; // building id a job's result goes to
 };
 
-export type Airship = { id: number; title: string; kind: string; deadline: string | null; score: number };
+export type Airship = { id: number; title: string; kind: string; deadline: string | null; score: number; summary?: string | null; url?: string; prize?: string | null; location?: string | null };
 export type GoalSite = { id: number; title: string; emoji: string | null; progress: number; done: boolean };
 
 export type World = {

@@ -496,7 +496,7 @@ export class CityLife {
 
   setAirships(list: Airship[]) {
     const keep = new Set(list.map((a) => a.id));
-    for (const [id, s] of this.ships) if (!keep.has(id) && s.landing < 0) this.removeShip(id);
+    for (const [id, s] of this.ships) if (!keep.has(id) && s.landing === -1) this.removeShip(id);
     list.forEach((a, i) => {
       if (this.ships.has(a.id)) return;
       const ang = (i / Math.max(4, list.length)) * Math.PI * 2 + 0.6;
@@ -514,7 +514,7 @@ export class CityLife {
         fin.position.set(-3, y, z); fin.rotation.x = rz; g.add(fin);
       }
       const days = a.deadline ? Math.ceil((new Date(a.deadline).getTime() - Date.now()) / 86_400_000) : null;
-      const label = textSprite(a.title, `${a.kind === "jam" ? "Game jam" : a.kind === "grant" ? "Grant" : "Hackathon"}${days != null ? ` · ${days}d left` : ""} · tap to add`, `#${color.toString(16).padStart(6, "0")}`);
+      const label = textSprite(a.title, `${a.kind === "jam" ? "Game jam" : a.kind === "grant" ? "Grant" : "Hackathon"}${days != null ? ` · ${days}d left` : ""} · tap for details`, `#${color.toString(16).padStart(6, "0")}`);
       label.position.y = 2.9;
       g.add(label);
       g.traverse((o) => { o.userData.airshipId = a.id; });
@@ -525,11 +525,18 @@ export class CityLife {
     });
   }
 
-  /** Tapped → it descends onto the town hall (HQ) and is gone. */
+  /** "Not for me" → it climbs away over the horizon. */
+  dismissAirship(id: number) {
+    const s = this.ships.get(id);
+    if (s && s.landing === -1) s.landing = -2;
+  }
+
+  /** Accepted → it descends onto the town hall (HQ) and is gone. */
   landAirship(id: number) {
     const s = this.ships.get(id);
-    if (s && s.landing < 0) s.landing = 0;
+    if (s && s.landing === -1) s.landing = 0;
   }
+  private leaving = new Map<number, number>();
 
   private removeShip(id: number) {
     const s = this.ships.get(id); if (!s) return;
@@ -542,6 +549,13 @@ export class CityLife {
   private tickShips(dt: number, t: number) {
     for (const s of this.ships.values()) {
       s.t += dt;
+      if (s.landing === -2) {
+        const k = (this.leaving.get(s.data.id) ?? 0) + dt / 3;
+        this.leaving.set(s.data.id, k);
+        s.group.position.addScaledVector(s.group.position.clone().setY(0).normalize(), dt * 30).setY(s.group.position.y + dt * 8);
+        if (k >= 1) { this.leaving.delete(s.data.id); this.removeShip(s.data.id); }
+        continue;
+      }
       if (s.landing >= 0) {
         s.landing += dt / 2.2;
         const k = ease(Math.min(1, s.landing));

@@ -662,6 +662,7 @@ export class EmpireEngine {
   }
 
   landAirship(id: number) { this.life.landAirship(id); }
+  dismissAirship(id: number) { this.life.dismissAirship(id); }
 
   /** One 360° lap around the city (for recording a time-lapse). Resolves when done. */
   flyover(seconds = 15): Promise<void> {

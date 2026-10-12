@@ -28,7 +28,11 @@ export const OPP_KINDS: { key: OppKind; label: string; emoji: string }[] = [
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 
-const strip = (s: string) => s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#0?39;|&#8217;/g, "'").replace(/&quot;/g, '"').replace(/&#8211;/g, "–").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+const decode = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;|&#8217;|&apos;/g, "'").replace(/&#8211;/g, "–").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+/** Feeds often send their HTML escaped (&lt;span&gt;) — decode first, then drop the tags, so no markup leaks into the UI. */
+const strip = (s: string) => decode(decode(s).replace(/<[^>]+>/g, " ")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+/** Ignore feed items older than this — some ministry feeds haven't been updated in years. */
+export const MAX_AGE_DAYS = 120;
 
 /** Devpost's "Sep 15 - Nov 02, 2026" / "Oct 01 - 05, 2026" / "Oct 11, 2026" → end of the last day (UTC). */
 export function devpostEnd(range: string): Date | null {
@@ -111,7 +115,7 @@ export function parseEu(json: unknown, now = new Date()): Opp[] {
 }
 
 const BIH_CALL = /javni poziv|poticaj|grant|subvencij|podršk|podrsk|sufinans|program.*(mlad|poduzet|obrt|inovac|start)|mlad.*poduzet|startup|start-up|inovac/i;
-const BIH_SKIP = /nabavk|odluka o izboru|ponuđač|tender|rezultat|lista korisnika|konačn|zapisnik|obavještenje o ishodu/i;
+const BIH_SKIP = /nabavk|odluka o izboru|ponuđač|tender|rezultat|lista korisnika|konačn|zapisnik|obavještenje o ishodu|potpisan|ugovor|rang.?list|obavijest o odabir|izvještaj/i;
 
 /** "rok ... do 15.11.2026" → that date (end of day). */
 export function bihDeadline(text: string): Date | null {
@@ -121,7 +125,7 @@ export function bihDeadline(text: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function parseBihRss(xml: string, sourceName: string): Opp[] {
+export function parseBihRss(xml: string, sourceName: string, now = new Date()): Opp[] {
   const out: Opp[] = [];
   for (const [, item] of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
     const title = strip(item.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1] ?? "");
@@ -129,6 +133,8 @@ export function parseBihRss(xml: string, sourceName: string): Opp[] {
     const desc = strip(item.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/)?.[1] ?? "");
     const body = strip(item.match(/<content:encoded>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/)?.[1] ?? "");
     if (!title || !link || BIH_SKIP.test(title) || !BIH_CALL.test(`${title} ${desc}`)) continue;
+    const pub = Date.parse(item.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1]?.trim() ?? "");
+    if (!Number.isNaN(pub) && now.getTime() - pub > MAX_AGE_DAYS * 86_400_000) continue; // stale call (e.g. a 2019 post)
     out.push({
       source: "bih", extId: link.slice(0, 200), kind: "grant", title: title.slice(0, 300), summary: desc.slice(0, 400) || null,
       url: link, image: null, deadline: bihDeadline(`${desc} ${body}`), prize: null, location: sourceName, tags: ["BiH"],

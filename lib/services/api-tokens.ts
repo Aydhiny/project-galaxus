@@ -16,7 +16,7 @@ export function hashApiToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
 }
 
-export async function createApiTokenFor(userId: number, name: string) {
+export async function createApiTokenFor(userId: number, name: string, scope: TokenScope = "full") {
   const label = String(name ?? "").trim().slice(0, 100) || "MCP client";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -27,7 +27,7 @@ export async function createApiTokenFor(userId: number, name: string) {
   const raw = PREFIX + randomBytes(32).toString("base64url");
   const [row] = await db
     .insert(apiTokens)
-    .values({ userId, name: label, tokenHash: hashApiToken(raw), prefix: raw.slice(0, 10) })
+    .values({ userId, name: label, tokenHash: hashApiToken(raw), prefix: raw.slice(0, 10), scope })
     .returning({ id: apiTokens.id, name: apiTokens.name, prefix: apiTokens.prefix, createdAt: apiTokens.createdAt });
   return { token: raw, row };
 }
@@ -56,7 +56,7 @@ export async function revokeApiTokenFor(userId: number, id: number): Promise<boo
 }
 
 /** Resolve a raw bearer token to its user, or null if unknown/revoked. */
-export type TokenScope = "full" | "voice" | "game";
+export type TokenScope = "full" | "voice" | "game" | "shorts";
 
 export async function verifyApiToken(raw: string | undefined): Promise<{ userId: number; tokenId: number; scope: TokenScope } | null> {
   if (!raw || !raw.startsWith(PREFIX) || raw.length > 100) return null;
@@ -73,6 +73,6 @@ export async function verifyApiToken(raw: string | undefined): Promise<{ userId:
     .update(apiTokens)
     .set({ lastUsedAt: new Date() })
     .where(and(eq(apiTokens.id, row.id), or(isNull(apiTokens.lastUsedAt), lt(apiTokens.lastUsedAt, cutoff))));
-  const scope: TokenScope = row.scope === "voice" || row.scope === "game" ? row.scope : "full";
+  const scope: TokenScope = row.scope === "voice" || row.scope === "game" || row.scope === "shorts" ? row.scope : "full";
   return { userId: row.userId, tokenId: row.id, scope };
 }

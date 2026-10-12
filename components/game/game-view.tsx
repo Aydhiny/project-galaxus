@@ -1,5 +1,6 @@
 "use client";
 
+import { ShortsStudio } from "@/components/game/shorts-studio";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -30,6 +31,7 @@ export function GameView({ state }: { state: GameState }) {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">{s.repo?.split("/")[1]?.replace(/[-_]/g, " ") ?? "Your game"} — devlogs from your commits, and what playtesters really think.</p>
       </header>
+      <ShortsStudio />
       <DevlogCard state={state} />
       <Link href="/game/reddit" className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 hover:bg-accent/40 transition-colors">
         <span className="w-10 h-10 rounded-xl bg-orange-500/12 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0"><MessagesSquare className="w-5 h-5" /></span>

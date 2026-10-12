@@ -5,7 +5,7 @@ import { requireUserId } from "@/lib/auth-session";
 import type { RoutineStat } from "@/lib/tasks";
 import { rescheduleMissedStepsFor, type RescheduledGoal } from "@/lib/services/goals";
 import {
-  createRoutineFor, deleteRoutineFor, ensureRoutineInstancesFor, listRoutinesFor, routineStatsFor, updateRoutineFor, type RoutineInput,
+  createRoutineFor, deleteRoutineFor, ensureRoutineInstancesFor, listRoutinesFor, makeTaskDailyFor, routineStatsFor, updateRoutineFor, type RoutineInput,
 } from "@/lib/services/recurring";
 
 function revalidateTaskViews() {
@@ -19,6 +19,13 @@ export async function listRecurring() {
   } catch {
     return [];
   }
+}
+
+/** "Repeat every day" on a task: it becomes a routine, and comes back tomorrow with its streak. */
+export async function makeTaskDaily(taskId: number, localToday: string) {
+  const r = await makeTaskDailyFor(await requireUserId(), taskId, localToday);
+  revalidateTaskViews();
+  return r;
 }
 
 export async function createRecurring(input: RoutineInput) {

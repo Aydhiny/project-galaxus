@@ -1132,6 +1132,30 @@ export const activityMinutes = pgTable(
   (t) => [uniqueIndex("uq_activity_user_minute_cat").on(t.userId, t.minute, t.category), index("idx_activity_user_minute").on(t.userId, t.minute)]
 );
 
+// Shorts studio: a voice recording you upload → a worker on your own PC runs
+// Claude Code with your video pipeline (game footage stays local) → results.
+// The audio is deleted once the job finishes; only titles/thumbnails remain.
+export const shortJobs = pgTable(
+  "short_jobs",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    status: varchar("status", { length: 10 }).notNull().default("queued"), // queued | working | done | failed
+    notes: text("notes"),
+    count: integer("count").notNull().default(0), // 0 = let the agent decide (1–3)
+    audioName: varchar("audio_name", { length: 200 }),
+    audioMime: varchar("audio_mime", { length: 60 }),
+    audioData: text("audio_data"), // base64, cleared when done
+    audioBytes: integer("audio_bytes"),
+    results: jsonb("results").$type<{ title: string; file: string; seconds: number | null; hook?: string | null; thumb?: string | null }[]>(),
+    log: text("log"),
+    createdAt: timestamp("created_at").defaultNow(),
+    claimedAt: timestamp("claimed_at"),
+    finishedAt: timestamp("finished_at"),
+  },
+  (t) => [index("idx_short_jobs_user").on(t.userId, t.status)]
+);
+
 // Monthly city contest: your XP when the month started, so "XP gained" is honest.
 export const empireSnapshots = pgTable(
   "empire_snapshots",

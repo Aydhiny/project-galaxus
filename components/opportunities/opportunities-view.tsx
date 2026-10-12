@@ -143,7 +143,7 @@ function Card({ o, i, big, now, status, adding, onTask, onMark }: {
             </p>
           </div>
         </div>
-        {o.summary && <p className="mt-2 text-xs text-muted-foreground line-clamp-3">{o.summary}</p>}
+        {o.summary && <p className="mt-2 text-xs text-muted-foreground line-clamp-3">{o.summary.replace(/<[^>]+>/g, " ").replace(/&lt;[^&]*&gt;/g, " ").replace(/\s+/g, " ").trim()}</p>}
         <div className="mt-2 flex flex-wrap gap-1.5">
           {days != null && (
             <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",

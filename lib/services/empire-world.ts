@@ -48,7 +48,7 @@ export async function worldFor(userId: number, hud: { streak: number; monthKm: n
       .where(and(eq(gigs.userId, userId), gte(gigs.createdAt, recent), gte(gigs.score, 70))).orderBy(desc(gigs.createdAt)).limit(8),
     db.select({ id: voiceCommands.id, at: voiceCommands.finishedAt, kind: voiceCommands.kind }).from(voiceCommands)
       .where(and(eq(voiceCommands.userId, userId), eq(voiceCommands.status, "done"), gte(voiceCommands.finishedAt, recent))).orderBy(desc(voiceCommands.finishedAt)).limit(8),
-    db.select({ id: opportunities.id, title: opportunities.title, kind: opportunities.kind, deadline: opportunities.deadline, score: opportunities.score }).from(opportunities)
+    db.select({ id: opportunities.id, title: opportunities.title, kind: opportunities.kind, deadline: opportunities.deadline, score: opportunities.score, summary: opportunities.summary, url: opportunities.url, prize: opportunities.prize, location: opportunities.location }).from(opportunities)
       .where(and(eq(opportunities.userId, userId), eq(opportunities.status, "new"), gte(opportunities.score, 60), gte(opportunities.createdAt, new Date(now.getTime() - 7 * 86_400_000))))
       .orderBy(desc(opportunities.score)).limit(4),
     db.select({ at: taskRuns.lastRunAt }).from(taskRuns).where(and(eq(taskRuns.userId, userId), eq(taskRuns.task, "gigs"))).limit(1),

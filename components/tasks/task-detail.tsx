@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { format } from "date-fns";
+import { makeTaskDaily } from "@/lib/actions/recurring";
+import { useRouter } from "next/navigation";
 import { ExternalLink, ImagePlus, Link2, Loader2, Repeat, Sun, Sunrise, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,6 +28,7 @@ export function TaskDetail({ task, today, goals, onPatch, onDelete }: {
   onDelete: () => void;
 }) {
   const tomorrow = tomorrowOf(today);
+  const router = useRouter();
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? "");
 
@@ -89,7 +92,9 @@ export function TaskDetail({ task, today, goals, onPatch, onDelete }: {
               onChange={(e) => onPatch({ dueTime: e.target.value || null })}
               className="h-8 rounded-md border border-border bg-transparent px-2 text-sm"
             />
-            {task.recurringId && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Repeat className="w-3 h-3" /> From a routine</span>}
+            {task.recurringId ? <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Repeat className="w-3 h-3" /> Repeats daily · streak shown in your list</span>
+              : <button type="button" onClick={() => { makeTaskDaily(task.id, today).then(() => { toast.success("Now a daily routine — it comes back tomorrow with your streak."); router.refresh(); }).catch((e) => toast.error((e as Error).message)); }}
+                  className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border text-xs font-medium hover:bg-muted"><Repeat className="w-3 h-3" /> Repeat every day</button>}
           </div>
         </Field>
         <Field label="Area">

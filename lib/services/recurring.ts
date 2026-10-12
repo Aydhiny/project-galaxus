@@ -160,3 +160,18 @@ export async function routineStatsFor(userId: number, localToday: string): Promi
   }
   return out;
 }
+
+/**
+ * Turn a one-off task into a daily routine. The task itself becomes the
+ * routine's copy for its day (done → counts toward the streak; still open →
+ * moved to today), and a fresh copy appears every following day.
+ */
+export async function makeTaskDailyFor(userId: number, taskId: number, localToday: string) {
+  const [t] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);
+  if (!t) throw new Error("Task not found.");
+  if (t.recurringId) return { routineId: t.recurringId, already: true };
+  const routine = await createRoutineFor(userId, { title: t.title, days: "1111111", time: t.dueTime, priority: t.priority as TaskPriority, area: t.area });
+  const day = t.status === "done" ? (t.completedAt ? t.completedAt.toISOString().slice(0, 10) : t.dueDate ?? localToday) : localToday;
+  await db.update(tasks).set({ recurringId: routine.id, dueDate: day, updatedAt: new Date() }).where(eq(tasks.id, t.id));
+  return { routineId: routine.id, already: false };
+}
