@@ -25,6 +25,7 @@ export function VisitView({ userId }: { userId: number }) {
       e.onPick = (id) => e.focus(id);
       engine.current = e;
       e.setActive(true);
+      e.setStyle(data.style);
       e.setBuildings(data.buildings);
       e.setWorld(data.world, null);
       setCity(data);

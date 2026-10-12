@@ -14,6 +14,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Building, World, WorldEvent } from "@/lib/client/empire";
+import { DEFAULT_STYLE, PALETTES, type EmpireStyle } from "@/lib/empire-world";
 import { CityLife } from "./life";
 import { CityExtras } from "./extras";
 import { logoTexture } from "./logo-texture";
@@ -75,6 +76,9 @@ export class EmpireEngine {
   private hemi = new THREE.HemisphereLight(0xdfefff, 0x6a7d5c, 1.1);
   private groundMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
   private life!: CityLife;
+  private style: EmpireStyle = DEFAULT_STYLE;
+  private ground: THREE.Mesh | null = null;
+  private lastList: Building[] = [];
   private extras!: CityExtras;
   private eid = false;
   private lastFireworks = 0;
@@ -199,7 +203,8 @@ export class EmpireEngine {
   // ─── World ──────────────────────────────────────────────────────────────────
 
   private buildWorld() {
-    const ground = new THREE.Mesh(CityLife.groundGeometry(), this.groundMat);
+    const ground = new THREE.Mesh(CityLife.groundGeometry(this.style.ground), this.groundMat);
+    this.ground = ground;
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
@@ -322,7 +327,26 @@ export class EmpireEngine {
 
   // ─── Buildings (rebuilt when data changes shape) ───────────────────────────
 
-  private mat(color: number) { return new THREE.MeshLambertMaterial({ color }); }
+  /** Every building colour leans toward your palette (Desert, Nordic, Neon, …). */
+  private tint(color: number) {
+    const p = PALETTES[this.style.palette];
+    return p.amount ? new THREE.Color(color).lerp(new THREE.Color(p.tint), p.amount).getHex() : color;
+  }
+  private mat(color: number) { return new THREE.MeshLambertMaterial({ color: this.tint(color) }); }
+
+  /** Your city's look. Rebuilds the buildings and the ground if anything changed. */
+  setStyle(style: EmpireStyle) {
+    const same = style.palette === this.style.palette && style.ground === this.style.ground && style.flag === this.style.flag;
+    if (same) return;
+    const groundChanged = style.ground !== this.style.ground;
+    this.style = style;
+    if (groundChanged && this.ground) {
+      this.ground.geometry.dispose();
+      this.ground.geometry = CityLife.groundGeometry(style.ground);
+    }
+    this.buildingsGroup.userData.key = ""; // force a rebuild with the new colours
+    if (this.lastList.length) this.setBuildings(this.lastList);
+  }
 
   private box(w: number, h: number, d: number, color: number, y = 0) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), this.mat(color));
@@ -333,7 +357,7 @@ export class EmpireEngine {
   private windowsBox(w: number, h: number, d: number, color: number, active: boolean, seed: number) {
     const tex = windowTexture(active ? 0.7 : 0.35, seed);
     tex.repeat.set(Math.max(1, Math.round(w / 2.4)), Math.max(1, Math.round(h / 4.5)));
-    const side = new THREE.MeshLambertMaterial({ color, emissive: 0xffd590, emissiveMap: tex, emissiveIntensity: 0 });
+    const side = new THREE.MeshLambertMaterial({ color: this.tint(color), emissive: this.style.palette === "neon" ? 0xff7ad9 : 0xffd590, emissiveMap: tex, emissiveIntensity: 0 });
     side.userData.active = active;
     this.windowMats.push(side);
     const top = this.mat(color);
@@ -358,12 +382,12 @@ export class EmpireEngine {
         for (const [x, z] of [[-3.2, -3.2], [3.2, -3.2], [-3.2, 3.2], [3.2, 3.2]]) {
           const t = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, h + 2.5, 10), this.mat(0xcfc6b4));
           t.position.set(x, (h + 2.5) / 2, z); t.castShadow = true; g.add(t);
-          const cone = new THREE.Mesh(new THREE.ConeGeometry(1.4, 2.4, 10), this.mat(0x2f5d9e));
+          const cone = new THREE.Mesh(new THREE.ConeGeometry(1.4, 2.4, 10), new THREE.MeshLambertMaterial({ color: PALETTES[this.style.palette].accent }));
           cone.position.set(x, h + 3.7, z); cone.castShadow = true; g.add(cone);
         }
         const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 5), this.mat(PALETTE.dark));
         flagPole.position.y = h + 1.5; g.add(flagPole);
-        const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshLambertMaterial({ color: 0x14b8a6, side: THREE.DoubleSide }));
+        const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshLambertMaterial({ color: new THREE.Color(this.style.flag), side: THREE.DoubleSide }));
         flag.position.set(0.8, h + 2.4, 0); g.add(flag); this.spinners.push({ obj: flag, speed: 0, axis: "y" });
         top = h + 5.5;
         break;
@@ -506,6 +530,7 @@ export class EmpireEngine {
 
   /** Lay out (or relayout) the city from live data. Cheap to call; rebuilds meshes only if the set changes. */
   setBuildings(list: Building[]) {
+    this.lastList = list;
     const key = list.map((b) => `${b.id}:${b.level}:${b.active ? 1 : 0}:${b.working ? 1 : 0}`).join("|");
     if (key === this.buildingsGroup.userData.key) return;
     this.buildingsGroup.userData.key = key;
@@ -851,7 +876,7 @@ export class EmpireEngine {
     if (m === this.mood) return;
     this.mood = m;
     this.controls.autoRotateSpeed = m === "disco" ? 1.2 : m === "hibernate" ? 0.12 : 0.35;
-    if (m === "normal") for (const w of this.windowMats) w.emissive.setHex(0xffd590);
+    if (m === "normal") for (const w of this.windowMats) w.emissive.setHex(this.style.palette === "neon" ? 0xff7ad9 : 0xffd590);
   }
 
   /** Prayer time: the mosque glows. */

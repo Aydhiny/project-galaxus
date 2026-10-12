@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, Circle, Clock, Cloud, CloudRain, DoorOpen, Gauge, Globe2, HardHat, LocateFixed, MonitorPlay, Moon, RefreshCw, Sun, Video, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowRight, Box, Circle, LayoutGrid, Paintbrush, Clock, Cloud, CloudRain, Gauge, Globe2, HardHat, LocateFixed, MonitorPlay, Moon, RefreshCw, Sun, Video, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { BrandIcon, type Brand } from "@/components/brand-icon";
 import { useMusicStore } from "@/lib/store/music";
@@ -18,10 +18,13 @@ import { addOpportunityTaskC } from "@/lib/client/opportunities";
 import { EmpireAudio } from "@/lib/empire-audio";
 import { nextVakat } from "@/lib/vaktija";
 import { cn } from "@/lib/utils";
-import { getEmpireC, type Building, type EmpireState, type GoalSite } from "@/lib/client/empire";
+import { getEmpireC, type EmpireState, type GoalSite } from "@/lib/client/empire";
 import { play as sfxPlay, setSfxSettings, sfxSettings, type Sfx } from "@/lib/sfx";
 import { tauriInvoke } from "@/components/desktop-bridge";
 import { InteriorView } from "./interior";
+import { BuildingCard } from "./building-card";
+import { CustomizePanel } from "./customize";
+import { SimpleView } from "./simple-view";
 import type { EmpireEngine } from "./engine";
 
 const hud = "font-hud uppercase tracking-wide";
@@ -120,15 +123,18 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       e.setPrayer(!!usePrayerStore.getState().current);
       setLite(e.getQuality() === "low");
       e.setActive(true);
-      if (state) { e.setBuildings(state.buildings); applyWorld(e, state); }
+      if (state) { e.setStyle(state.style); e.setBuildings(state.buildings); applyWorld(e, state); }
     });
     return () => { disposed = true; engine.current?.dispose(); engine.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [interior, setInterior] = useState<string | null>(null);
+  const [customizing, setCustomizing] = useState(false);
+  const [simple, setSimple] = useState(() => { try { return localStorage.getItem("empire-simple") === "1"; } catch { return false; } });
+  const toggleSimple = () => { const next = !simple; setSimple(next); try { localStorage.setItem("empire-simple", next ? "1" : "0"); } catch { /* private mode */ } play("toggle"); };
   const [recording, setRecording] = useState(false);
-  useEffect(() => { engine.current?.setActive(active && !interior); if (active && !interior) play("whoosh"); }, [active, interior]);
+  useEffect(() => { engine.current?.setActive(active && !interior && !simple); if (active && !interior && !simple) play("whoosh"); }, [active, interior, simple]);
   useEffect(() => { if (!chrome) engine.current?.setMaxFps(30); }, [chrome, state]);
 
   /** 15-second flyover of today's city, saved as MP4 (or WebM where MP4 recording isn't supported). */
@@ -197,7 +203,7 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       if (fresh) play("notify");
       setState(s);
       setAgo(0);
-      if (engine.current) { engine.current.setBuildings(s.buildings); applyWorld(engine.current, s); }
+      if (engine.current) { engine.current.setStyle(s.style); engine.current.setBuildings(s.buildings); applyWorld(engine.current, s); }
     } catch { /* keep the last state */ }
   }, []);
 
@@ -246,9 +252,11 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
     <div className="relative w-full h-full overflow-hidden bg-[#bfdcf0]">
       <div ref={mount} className="absolute inset-0" />
 
+      {simple && chrome && <SimpleView state={state} buildings={buildings} onOpen={(id) => { play("pop"); setSelected(id); }} />}
+
       {/* Labels + message bubbles, positioned every frame by the engine */}
       {/* isolate: label z-indexes stay inside this layer, under the panel and HUD */}
-      <div className="absolute inset-0 pointer-events-none z-10 isolate">
+      <div className={cn("absolute inset-0 pointer-events-none z-10 isolate", simple && "hidden")}>
         {goals.map((g) => (
           <div key={`goal:${g.id}`} ref={(el) => engine.current?.bindLabel(`goal:${g.id}`, el)} className="absolute left-0 top-0 will-change-transform transition-opacity duration-200">
             <button onClick={() => { play("pop"); setSelected(`goal:${g.id}`); engine.current?.focus(`goal:${g.id}`); }}
@@ -307,7 +315,13 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       <div className={cn("absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex flex-col sm:flex-row items-end gap-1.5 sm:gap-2 pointer-events-auto", hasSel && "hidden")} data-no-sfx>
         <Link href="/empire/world" title="Visit other empires · monthly contest" onClick={() => play("whoosh")}
           className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><Globe2 className="w-4 h-4" /></Link>
-        <button onClick={() => void record()} disabled={recording} title="Record a 15-second flyover (MP4)"
+        <button onClick={toggleSimple} title={simple ? "Back to the 3D city" : "Simple view (cards, no 3D)"}
+          className={cn("w-10 h-10 rounded-xl backdrop-blur-md flex items-center justify-center", simple ? "bg-white text-black" : "bg-black/55 text-white")}>{simple ? <Box className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}</button>
+        {!simple && (
+          <button onClick={() => { setSelected(null); setCustomizing(true); play("open"); }} title="Customize your city"
+            className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><Paintbrush className="w-4 h-4" /></button>
+        )}
+        <button onClick={() => void record()} disabled={recording || simple} title="Record a 15-second flyover (MP4)"
           className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center disabled:opacity-50"><Video className="w-4 h-4" /></button>
         {tauriInvoke() && (
           <button onClick={() => void toggleWallpaper()} title="Make your empire the desktop wallpaper"
@@ -334,7 +348,7 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       </div>
 
       {/* Bottom: building dock */}
-      <div className={cn("absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] overflow-x-auto overscroll-x-contain rounded-2xl pointer-events-auto [scrollbar-width:none]", hasSel && "hidden sm:block")}
+      <div className={cn("absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] overflow-x-auto overscroll-x-contain rounded-2xl pointer-events-auto [scrollbar-width:none]", hasSel && "hidden sm:block", simple && "hidden sm:hidden")}
         style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
         <div className="flex gap-1 sm:gap-1.5 w-max rounded-2xl bg-black/55 backdrop-blur-md p-1 sm:p-1.5">
           {buildings.map((b) => (
@@ -348,7 +362,11 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       </div>
 
       {/* Building panel */}
-      {sel && <BuildingPanel b={sel} onClose={close} onOpen={() => { play("whoosh"); router.push(sel.route); }} onEnter={() => { play("whoosh"); setInterior(sel.id); }} />}
+      {sel && <BuildingCard b={sel} onClose={close} onNavigate={(href) => { play("whoosh"); router.push(href); }} onEnter={() => { play("whoosh"); setInterior(sel.id); }} />}
+      {customizing && state && (
+        <CustomizePanel value={state.style} onPreview={(st) => engine.current?.setStyle(st)}
+          onClose={(saved) => { setCustomizing(false); if (saved) setState((s) => (s ? { ...s, style: saved } : s)); }} />
+      )}
       {selGoal && <GoalPanel g={selGoal} onClose={close} onOpen={() => { play("whoosh"); router.push("/tasks"); }} />}
       </>)}
       {recording && (
@@ -415,45 +433,3 @@ function GoalPanel({ g, onClose, onOpen }: { g: GoalSite; onClose: () => void; o
   );
 }
 
-function BuildingPanel({ b, onClose, onOpen, onEnter }: { b: Building; onClose: () => void; onOpen: () => void; onEnter: () => void }) {
-  return (
-    <aside className="absolute z-30 inset-x-0 bottom-0 max-h-[62%] rounded-t-3xl sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-24 sm:max-h-none sm:w-[min(22rem,calc(100%-2rem))] sm:rounded-3xl bg-card border border-border shadow-2xl p-4 sm:p-5 flex flex-col overflow-y-auto overscroll-contain pointer-events-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-right-4 fade-in-0"
-      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-      <span className="sm:hidden mx-auto -mt-1 mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
-      <div className="flex items-start gap-3">
-        <span className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-muted flex items-center justify-center text-2xl"><Mark id={b.id} emoji={b.emoji} className="w-6 h-6" /></span>
-        <div className="flex-1 min-w-0">
-          <p className={cn("text-xl sm:text-2xl leading-none truncate", hud)}>{b.label}</p>
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
-            <span className={cn("w-1.5 h-1.5 rounded-full", b.active ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40")} />
-            {b.active ? "Working" : "Idle"} · building LV {b.level}
-          </p>
-        </div>
-        <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center" aria-label="Close"><X className="w-4 h-4" /></button>
-      </div>
-      <p className="mt-4 text-sm">{b.status}</p>
-      {b.bubbles.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {b.bubbles.map((x) => <span key={x.text} className={cn("rounded-full border px-2.5 py-0.5 text-xs font-medium", TONE[x.tone].replace("animate-bounce", ""))}>{x.text}</span>)}
-        </div>
-      )}
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-2">
-        {b.stats.map((s) => (
-          <div key={s.label} className="rounded-xl bg-muted/50 p-3">
-            <p className={cn("text-lg leading-none tabular-nums", hud)}>{s.value}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">{s.label}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-auto pt-4 grid gap-2">
-        <button onClick={onEnter} className="w-full h-11 rounded-xl border border-border font-medium inline-flex items-center justify-center gap-2 hover:bg-muted" data-no-sfx>
-          <DoorOpen className="w-4 h-4" /> Step inside
-        </button>
-        <Link href={b.route} onClick={(e) => { e.preventDefault(); onOpen(); }}
-          className="w-full h-11 rounded-xl bg-foreground text-background font-medium inline-flex items-center justify-center gap-2" data-no-sfx>
-          Open {b.label} <ArrowRight className="w-4 h-4" />
-        </Link>
-      </div>
-    </aside>
-  );
-}

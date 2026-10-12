@@ -360,6 +360,7 @@ export const userSettings = pgTable("user_settings", {
   diaryPinHash: text("diary_pin_hash"), // scrypt hash of your diary PIN (diary locks without it)
   empirePublic: boolean("empire_public").default(false), // others may visit your city (aggregates only)
   cityName: varchar("city_name", { length: 40 }),
+  empireStyle: jsonb("empire_style").$type<{ palette: string; ground: string; flag: string }>(), // palette, ground, flag colour
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

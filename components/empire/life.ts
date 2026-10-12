@@ -9,7 +9,7 @@
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import type { Airship, GoalSite, Weather } from "@/lib/empire-world";
+import { GROUNDS, type Airship, type GoalSite, type GroundKey, type Weather } from "@/lib/empire-world";
 
 export const RING_INNER = 13;
 export const RING_OUTER = 31;
@@ -108,11 +108,12 @@ export class CityLife {
   // ─── Nature: a grass gradient with patches, tufts and flowers ──────────────
 
   /** Vertex-coloured ground: light, trimmed grass in town, deeper meadow outside, soft patches. */
-  static groundGeometry() {
+  static groundGeometry(preset: GroundKey = "grass") {
     const geo = new THREE.RingGeometry(0.01, 160, 96, 48);
     const pos = geo.attributes.position as THREE.BufferAttribute;
     const colors = new Float32Array(pos.count * 3);
-    const inner = new THREE.Color(0xa9cf98), outer = new THREE.Color(0x6f9e5f), dry = new THREE.Color(0xc2c98a), lush = new THREE.Color(0x5e9a58);
+    const g = GROUNDS[preset];
+    const inner = new THREE.Color(g.inner), outer = new THREE.Color(g.outer), dry = new THREE.Color(g.dry), lush = new THREE.Color(g.lush);
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i);

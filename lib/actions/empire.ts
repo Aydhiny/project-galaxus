@@ -4,7 +4,11 @@ import { requireUserId } from "@/lib/auth-session";
 import { toResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
 import { empireFor } from "@/lib/services/empire";
-import { empireSharingFor, publicEmpireFor, saveEmpireSharingFor, worldListFor } from "@/lib/services/empire-social";
+import { empireSharingFor, publicEmpireFor, saveEmpireSharingFor, saveEmpireStyleFor, worldListFor } from "@/lib/services/empire-social";
+
+export async function saveEmpireStyle(style: { palette: string; ground: string; flag: string }) {
+  return toResult(async () => saveEmpireStyleFor(await requireUserId(), style));
+}
 import { interiorFor } from "@/lib/services/empire-extras";
 
 export async function getInterior(buildingId: string) {

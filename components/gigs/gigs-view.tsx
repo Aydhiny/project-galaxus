@@ -60,7 +60,8 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
     setRated((r) => ({ ...r, [g.id]: rating }));
     if (rating === -1) setHidden((h) => new Set(h).add(g.id));
     reviewGigC(g.id, rating, reasons)
-      .then((r) => { if (r.ready && r.accuracy != null) toast.success(`Learned ✓ — accuracy on your reviews: ${r.accuracy}%`, { id: "learned" }); })
+      // Every review retrains the model right away — say so every time.
+      .then((r) => toast.success(r.accuracy != null ? `Learned ✓ — ${r.samples} examples · ${r.accuracy}% accurate on reviews it hasn't seen` : `Learned ✓ — the radar now knows ${r.samples} of your preferences`, { id: "learned" }))
       .catch((e) => toast.error((e as Error).message));
   }
   const counts = { new: 0, saved: 0, applied: 0 };
@@ -467,15 +468,15 @@ function LearningPanel({ learning: l, teach, onTeach }: { learning: RadarState["
       <div className="flex flex-wrap items-center gap-3">
         <span className="w-9 h-9 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center"><Brain className="w-4 h-4" /></span>
         <div className="flex-1 min-w-48">
-          <p className="text-sm font-semibold">Your taste model</p>
+          <p className="text-sm font-semibold flex items-center gap-2">Your taste model <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Always learning</span></p>
           <p className="text-xs text-muted-foreground">
-            {l.reviewed === 0 && !l.ready ? "Rate gigs 👍 / 👎 — every review re-ranks the radar immediately."
-              : `Learning from ${l.reviewed} review${l.reviewed === 1 ? "" : "s"} + ${Math.max(0, l.samples - l.reviewed)} things you applied to, saved or dismissed.${l.reviewed < 8 ? " Its influence grows with every review." : ""}`}
+            {l.reviewed === 0 && !l.ready ? "Every 👍 / 👎 you give retrains the radar instantly and re-ranks your list."
+              : `Trained on ${l.reviewed} review${l.reviewed === 1 ? "" : "s"} + ${Math.max(0, l.samples - l.reviewed)} gigs you applied to, saved or dismissed. Every new review retrains it instantly.`}
           </p>
         </div>
         <button onClick={onTeach}
           className={cn("inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium border transition-colors", teach ? "bg-violet-600 text-white border-violet-600" : "border-border hover:bg-violet-500/10")}>
-          <GraduationCap className="w-3.5 h-3.5" /> {teach ? "Done teaching" : "Teach it (quick reviews)"}
+          <GraduationCap className="w-3.5 h-3.5" /> {teach ? "Back to best first" : "Sort: unsure first"}
         </button>
       </div>
       {l.ready && (
@@ -497,7 +498,7 @@ function LearningPanel({ learning: l, teach, onTeach }: { learning: RadarState["
             disabled={busy} className="mt-3 text-[11px] text-muted-foreground hover:text-foreground">Reset learning</button>
         </div>
       )}
-      {teach && <p className="mt-3 text-xs text-violet-700 dark:text-violet-300">Showing the gigs it&apos;s least sure about first — each 👍/👎 here teaches it the most.</p>}
+      {teach && <p className="mt-3 text-xs text-violet-700 dark:text-violet-300">Sorted by what it&apos;s least sure about. Reviews here aren&apos;t special, they just teach it the most per tap.</p>}
     </section>
   );
 }

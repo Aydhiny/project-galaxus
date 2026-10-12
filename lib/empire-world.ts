@@ -94,3 +94,35 @@ export const contestScore = (xpGained: number, streak: number) => Math.max(0, xp
 export function jobTarget(kind: string) {
   return ({ devlog: "studio", playtest: "studio", hooks: "youtube", comment_replies: "youtube", outreach: "outreach", news: "news" } as Record<string, string>)[kind] ?? "hq";
 }
+
+// ─── Customization: how your city looks (visitors see it too) ───────────────
+export type EmpireStyle = { palette: PaletteKey; ground: GroundKey; flag: string };
+export const PALETTES = {
+  classic: { label: "Classic", tint: 0xffffff, amount: 0, accent: 0x2f5d9e },
+  desert: { label: "Desert", tint: 0xd9b382, amount: 0.38, accent: 0xc2410c },
+  nordic: { label: "Nordic", tint: 0xdbe7f3, amount: 0.4, accent: 0x1e3a8a },
+  neon: { label: "Neon", tint: 0x2a1b4a, amount: 0.55, accent: 0xff2d95 },
+  sakura: { label: "Sakura", tint: 0xf6c6d6, amount: 0.32, accent: 0xdb2777 },
+  forest: { label: "Forest", tint: 0x5f7f52, amount: 0.28, accent: 0x14532d },
+  ottoman: { label: "Ottoman", tint: 0xe9dcc2, amount: 0.3, accent: 0x0f766e },
+} as const;
+export type PaletteKey = keyof typeof PALETTES;
+export const GROUNDS = {
+  grass: { label: "Meadow", inner: 0xa9cf98, outer: 0x6f9e5f, dry: 0xc2c98a, lush: 0x5e9a58 },
+  sand: { label: "Desert sand", inner: 0xe6d3a3, outer: 0xd2b77c, dry: 0xf0e2bb, lush: 0xc9a86a },
+  snow: { label: "Snowfield", inner: 0xf1f5f9, outer: 0xdde6ee, dry: 0xffffff, lush: 0xcbd5e1 },
+  stone: { label: "Stone plaza", inner: 0xb8b2a7, outer: 0x8f8a80, dry: 0xc9c3b8, lush: 0x7d786f },
+} as const;
+export type GroundKey = keyof typeof GROUNDS;
+export const FLAG_COLORS = ["#14b8a6", "#e11d48", "#f59e0b", "#2563eb", "#7c3aed", "#16a34a", "#0f172a", "#ffffff"];
+export const DEFAULT_STYLE: EmpireStyle = { palette: "classic", ground: "grass", flag: "#14b8a6" };
+
+/** Anything stored or sent in → a valid style (unknown values fall back to the defaults). */
+export function cleanStyle(raw: unknown): EmpireStyle {
+  const r = (raw ?? {}) as Partial<EmpireStyle>;
+  return {
+    palette: r.palette && r.palette in PALETTES ? r.palette : DEFAULT_STYLE.palette,
+    ground: r.ground && r.ground in GROUNDS ? r.ground : DEFAULT_STYLE.ground,
+    flag: typeof r.flag === "string" && /^#[0-9a-f]{6}$/i.test(r.flag) ? r.flag : DEFAULT_STYLE.flag,
+  };
+}

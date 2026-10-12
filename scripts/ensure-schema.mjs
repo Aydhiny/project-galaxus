@@ -546,6 +546,7 @@ const STATEMENTS = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_activity_user_minute_cat" ON "activity_minutes" ("user_id", "minute", "category")`,
   `CREATE INDEX IF NOT EXISTS "idx_activity_user_minute" ON "activity_minutes" ("user_id", "minute")`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "city_name" varchar(40)`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "empire_style" jsonb`,
   `CREATE TABLE IF NOT EXISTS "empire_snapshots" (
     "id" serial PRIMARY KEY NOT NULL,
     "user_id" integer NOT NULL,

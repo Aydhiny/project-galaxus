@@ -8,7 +8,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { empireSnapshots, userSettings, users } from "@/lib/db/schema";
-import { contestScore } from "@/lib/empire-world";
+import { cleanStyle, contestScore } from "@/lib/empire-world";
 import { empireFor, type Building } from "@/lib/services/empire";
 import { hudFor } from "@/lib/services/hud";
 
@@ -18,6 +18,12 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0]?.slice(0, 20) ||
 export async function empireSharingFor(userId: number) {
   const [s] = await db.select({ pub: userSettings.empirePublic, city: userSettings.cityName }).from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
   return { isPublic: !!s?.pub, cityName: s?.city ?? null };
+}
+
+export async function saveEmpireStyleFor(userId: number, style: unknown) {
+  const clean = cleanStyle(style);
+  await db.insert(userSettings).values({ userId, empireStyle: clean }).onConflictDoUpdate({ target: userSettings.userId, set: { empireStyle: clean, updatedAt: new Date() } });
+  return clean;
 }
 
 export async function saveEmpireSharingFor(userId: number, input: { isPublic: boolean; cityName: string | null }) {
@@ -65,7 +71,7 @@ export async function publicEmpireFor(viewerId: number, userId: number) {
   const w = e.world;
   return {
     name: s.city || `${firstName(s.name)}'s city`,
-    level: e.level, rank: e.rank, buildings,
+    level: e.level, rank: e.rank, buildings, style: e.style,
     world: {
       ...w,
       goals: w.goals.map((g, i) => ({ ...g, title: `Project ${i + 1}`, emoji: null })),

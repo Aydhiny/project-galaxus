@@ -14,6 +14,8 @@ import { claudeHealthy } from "@/lib/services/claude-jobs";
 import { holdStatsFor } from "@/lib/services/wellbeing";
 import { worldFor } from "@/lib/services/empire-world";
 import { activityStatusFor } from "@/lib/services/activity";
+import { cleanStyle } from "@/lib/empire-world";
+import { userSettings } from "@/lib/db/schema";
 
 const count = sql<number>`count(*)::int`;
 const n = (v: unknown) => Number(v ?? 0) || 0;
@@ -151,6 +153,7 @@ export async function empireFor(userId: number) {
     b.neglected = true;
     b.bubbles = [{ text: "Falling apart — open me", tone: "warn" }, ...b.bubbles];
   }
-  return { buildings, world, level: hud.level, rank: hud.rank, xp: hud.xp, progress: hud.progress, monthKm: hud.monthKm, updatedAt: new Date().toISOString() };
+  const [st] = await db.select({ style: userSettings.empireStyle, city: userSettings.cityName }).from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
+  return { buildings, world, style: cleanStyle(st?.style), cityName: st?.city ?? null, level: hud.level, rank: hud.rank, xp: hud.xp, progress: hud.progress, monthKm: hud.monthKm, updatedAt: new Date().toISOString() };
 }
 export type EmpireState = Awaited<ReturnType<typeof empireFor>>;
