@@ -62,11 +62,11 @@ export function DealsView({ deals }: { deals: Deal[] }) {
       )}
 
       <div className="mt-8 flex flex-wrap gap-1.5">
-        <button onClick={() => setStage("open")} className={cn("h-8 px-3 rounded-full text-sm border", stage === "open" ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground")}>
+        <button onClick={() => setStage("open")} data-room-spot="screen" className={cn("h-8 px-3 rounded-full text-sm border", stage === "open" ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground")}>
           In progress <span className="text-xs opacity-60 tabular-nums">{open.length - ready.length}</span>
         </button>
         {DEAL_STAGES.filter((s) => s.key !== "ready").map((s) => (
-          <button key={s.key} onClick={() => setStage(s.key)} className={cn("h-8 px-3 rounded-full text-sm border", stage === s.key ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground")}>
+          <button key={s.key} onClick={() => setStage(s.key)} data-room-spot={s.key === "negotiating" ? "board" : s.key === "lost" ? "pile" : "prop"} className={cn("h-8 px-3 rounded-full text-sm border", stage === s.key ? "border-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground")}>
             {s.emoji} {s.label} <span className="text-xs opacity-60 tabular-nums">{count(s.key)}</span>
           </button>
         ))}

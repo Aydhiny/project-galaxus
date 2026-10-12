@@ -175,7 +175,7 @@ export function GigsView({ state, autopilot }: { state: RadarState; autopilot: A
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
           {(["new", "saved", "applied"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
+            <button key={t} onClick={() => setTab(t)} data-room-spot={t === "new" ? "screen" : t === "saved" ? "board" : "pile"}
               className={cn("px-3 h-7 rounded-md text-sm capitalize transition-colors", tab === t ? "bg-background shadow-xs" : "text-muted-foreground")}>
               {t} {counts[t] > 0 && <span className="opacity-60 tabular-nums">{counts[t]}</span>}
             </button>
@@ -463,7 +463,7 @@ function LearningPanel({ learning: l, teach, onTeach }: { learning: RadarState["
   const target = 95;
   const acc = l.accuracy;
   return (
-    <section className="mt-6 rounded-2xl border border-border bg-card p-4 animate-in fade-in-0">
+    <section data-room-spot="prop" className="mt-6 rounded-2xl border border-border bg-card p-4 animate-in fade-in-0">
       <div className="flex flex-wrap items-center gap-3">
         <span className="w-9 h-9 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center"><Brain className="w-4 h-4" /></span>
         <div className="flex-1 min-w-48">

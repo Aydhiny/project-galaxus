@@ -54,7 +54,7 @@ function DevlogCard({ state }: { state: GameState }) {
   const [busy, start] = useTransition();
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5">
+    <section data-room-spot="screen" className="rounded-2xl border border-border bg-card p-5">
       <div className="flex items-start gap-3">
         <span className="w-10 h-10 rounded-xl border border-border flex items-center justify-center shrink-0"><BrandIcon name="github" className="w-5 h-5" /></span>
         <div className="flex-1">
@@ -134,7 +134,7 @@ function PlaytestCard({ state }: { state: GameState }) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5">
+    <section data-room-spot="board" className="rounded-2xl border border-border bg-card p-5">
       <div className="flex items-start gap-3">
         <span className="w-10 h-10 rounded-xl bg-sky-500/12 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0"><Users className="w-5 h-5" /></span>
         <div className="flex-1">

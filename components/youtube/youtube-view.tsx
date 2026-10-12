@@ -67,7 +67,7 @@ export function YoutubeView({ state }: { state: StudioState }) {
         </div>
         <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
           {(["channel", "work", "comments", "setup"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
+            <button key={t} onClick={() => setTab(t)} data-room-spot={t === "channel" ? "screen" : t === "work" ? "board" : t === "comments" ? "shelf" : "prop"}
               className={cn("px-3 h-7 rounded-md text-sm capitalize transition-colors", tab === t ? "bg-background shadow-xs text-foreground" : "text-muted-foreground hover:text-foreground")}>
               {t === "comments" && state.comments.filter((c) => c.status !== "replied").length > 0 ? `comments · ${state.comments.length}` : t}
             </button>

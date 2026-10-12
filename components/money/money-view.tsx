@@ -27,7 +27,7 @@ export function MoneyView({ state }: { state: MoneyState }) {
         <p className="text-sm text-muted-foreground mt-1">Every income stream in one place — clients, retainers, beats, gigs and Stripe — in KM.</p>
       </header>
 
-      <section className="grid sm:grid-cols-3 gap-3">
+      <section data-room-spot="pile" className="grid sm:grid-cols-3 gap-3">
         <div className="rounded-2xl border border-border bg-card p-4 sm:col-span-2">
           <p className="text-xs text-muted-foreground">{format(new Date(), "MMMM")} so far</p>
           <p className="text-3xl font-bold tabular-nums mt-1">{formatKm(sum.totalCents)}</p>
@@ -45,7 +45,7 @@ export function MoneyView({ state }: { state: MoneyState }) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border bg-card p-4">
+      <section data-room-spot="shelf" className="rounded-2xl border border-border bg-card p-4">
         <h2 className="text-sm font-semibold mb-3">Last 6 months</h2>
         {sourcesInChart.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Add your first payment below — the chart fills in from there.</p>
@@ -65,7 +65,7 @@ export function MoneyView({ state }: { state: MoneyState }) {
 
       <AddIncome />
 
-      <section>
+      <section data-room-spot="screen">
         <h2 className="text-sm font-semibold mb-3">Recent income</h2>
         {state.entries.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing yet.</p>
@@ -114,7 +114,7 @@ function AddIncome() {
   });
   const [busy, start] = useTransition();
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
+    <section data-room-spot="prop" className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-sm font-semibold mb-3">Add a payment</h2>
       <div className="grid grid-cols-2 sm:grid-cols-[1fr_auto_auto_1.5fr_auto_auto] gap-2">
         <input inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="Amount" className="input-base" />

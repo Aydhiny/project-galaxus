@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
+import { roomFor } from "@/lib/page-rooms";
 import { Sidebar } from "@/components/sidebar";
 import { MusicPlayer } from "@/components/music-player";
 import { AmbientOverlay } from "@/components/ambient-overlay";
@@ -37,10 +39,12 @@ const ComebackPrompt = dynamic(() => import("@/components/tasks/comeback-prompt"
 const EmpireHost = dynamic(() => import("@/components/empire/empire-host").then((m) => m.EmpireHost), { ssr: false });
 const AzanPlayer = dynamic(() => import("@/components/azan-player").then((m) => m.AzanPlayer), { ssr: false });
 const SoundLayer = dynamic(() => import("@/components/sound-layer").then((m) => m.SoundLayer), { ssr: false });
+const PageRoom = dynamic(() => import("@/components/page-room").then((m) => m.PageRoom), { ssr: false });
 const DesktopBridge = dynamic(() => import("@/components/desktop-bridge").then((m) => m.DesktopBridge), { ssr: false });
 const Guardian = dynamic(() => import("@/components/guardian").then((m) => m.Guardian), { ssr: false });
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const hasRoom = !!roomFor(usePathname());
   const [mobileOpen, setMobileOpen] = useState(false);
   const { sidebarCollapsed, sidebarHidden, toggleHidden } = useUIStore();
   const { theme, decorations } = useRoomStore();
@@ -156,6 +160,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <TopBar />
 
         <div className="relative flex-1 min-h-0 flex flex-col">
+        {/* The page's own 3D room, faded behind it (Gig radar → radar room, Money → vault, …) */}
+        <PageRoom />
         {/* 3D empire overview — stays mounted (paused) once opened */}
         <EmpireHost />
         <ErrorBoundary label="Page error">
@@ -167,7 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               viewport-sized element that's one of the most expensive things
               you can do in CSS, regardless of GPU strength. The 2px blur was
               barely visible; bg-background/88 alone gives the same tint. */}
-          <div className={cn("flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]", theme === "minimal" ? "bg-background" : "bg-background/88")}>
+          <div className={cn("relative z-[1] flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]", hasRoom ? "bg-background/60" : theme === "minimal" ? "bg-background" : "bg-background/88")}>
             {children}
           </div>
         </ErrorBoundary>
