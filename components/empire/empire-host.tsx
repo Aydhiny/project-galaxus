@@ -87,6 +87,8 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
   const [ago, setAgo] = useState(0);
   const prevBubbles = useRef<Map<string, string>>(new Map());
   const audioRef = useRef<EmpireAudio | null>(null);
+  const [ship, setShip] = useState<number | null>(null);
+  const [shipBusy, setShipBusy] = useState(false);
   const musicTrack = useMusicStore((s) => s.activeId);
   const spotify = useSpotifyStore((s) => s.now);
   const vaktija = usePrayerStore((s) => s.vaktija);
@@ -125,8 +127,6 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
   }, []);
 
   const [interior, setInterior] = useState<string | null>(null);
-  const [ship, setShip] = useState<number | null>(null);
-  const [shipBusy, setShipBusy] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const [simple, setSimple] = useState(() => { try { return localStorage.getItem("empire-simple") === "1"; } catch { return false; } });
   const toggleSimple = () => { const next = !simple; setSimple(next); try { localStorage.setItem("empire-simple", next ? "1" : "0"); } catch { /* private mode */ } play("toggle"); };
@@ -159,6 +159,20 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
     play("success");
     toast.success(`Saved your flyover (${ext.toUpperCase()}).`);
+  }
+
+  /** Airship card: you decide. Accept → task + it lands on HQ. Not for me → hidden + it flies away. */
+  async function acceptShip(id: number) {
+    setShipBusy(true);
+    try { await addOpportunityTaskC(id); engine.current?.landAirship(id); play("success"); setShip(null); toast.success("Added to your tasks with its deadline."); }
+    catch (e) { toast.error((e as Error).message); }
+    setShipBusy(false);
+  }
+  async function dismissShip(id: number) {
+    setShipBusy(true);
+    try { await setOpportunityStatusC(id, "hidden"); engine.current?.dismissAirship(id); play("whoosh"); setShip(null); toast.success("Okay — it won't come back."); }
+    catch (e) { toast.error((e as Error).message); }
+    setShipBusy(false);
   }
 
   async function toggleWallpaper() {
@@ -231,6 +245,7 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
     };
   });
   const sel = buildings.find((b) => b.id === selected) ?? null;
+  const selShip = ship != null ? state?.world.airships.find((x) => x.id === ship) ?? null : null;
   const goals = state?.world.goals ?? [];
   const selGoal = selected?.startsWith("goal:") ? goals.find((g) => `goal:${g.id}` === selected) ?? null : null;
   const weather = state?.world.weather;
@@ -360,16 +375,10 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
 
       {/* Building panel */}
       {sel && <BuildingCard b={sel} onClose={close} onNavigate={(href) => { play("whoosh"); router.push(href); }} onEnter={() => { play("whoosh"); setInterior(sel.id); }} />}
-      {ship != null && state && (() => {
-        const a = state.world.airships.find((x) => x.id === ship);
-        if (!a) return null;
-        const done = (msg: string) => { setShipBusy(false); setShip(null); toast.success(msg); };
-        return (
-          <AirshipCard a={a} busy={shipBusy} onClose={() => { play("close"); setShip(null); }}
-            onAccept={() => { setShipBusy(true); addOpportunityTaskC(a.id).then(() => { engine.current?.landAirship(a.id); play("success"); done("Added to your tasks with its deadline."); }).catch((err) => { setShipBusy(false); toast.error((err as Error).message); }); }}
-            onDismiss={() => { setShipBusy(true); setOpportunityStatusC(a.id, "hidden").then(() => { engine.current?.dismissAirship(a.id); play("whoosh"); done("Okay — it won't come back."); }).catch((err) => { setShipBusy(false); toast.error((err as Error).message); }); }} />
-        );
-      })()}
+      {selShip && (
+        <AirshipCard a={selShip} busy={shipBusy} onClose={() => { play("close"); setShip(null); }}
+          onAccept={() => void acceptShip(selShip.id)} onDismiss={() => void dismissShip(selShip.id)} />
+      )}
       {customizing && state && (
         <CustomizePanel value={state.style} onPreview={(st) => engine.current?.setStyle(st)}
           onClose={(saved) => { setCustomizing(false); if (saved) setState((s) => (s ? { ...s, style: saved } : s)); }} />

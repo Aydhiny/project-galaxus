@@ -3,6 +3,7 @@
 // Tapping an opportunity airship opens this — you decide. Add it (the deadline
 // becomes a task and the airship lands on HQ) or wave it off (it flies away).
 
+import { useState } from "react";
 import { CalendarPlus, Clock, ExternalLink, MapPin, Plane, ThumbsDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Airship } from "@/lib/client/empire";
@@ -11,7 +12,8 @@ const KIND = { hackathon: { label: "Hackathon", color: "#3a86ff" }, jam: { label
 
 export function AirshipCard({ a, busy, onAccept, onDismiss, onClose }: { a: Airship; busy: boolean; onAccept: () => void; onDismiss: () => void; onClose: () => void }) {
   const k = KIND[a.kind] ?? KIND.hackathon;
-  const days = a.deadline ? Math.ceil((new Date(a.deadline).getTime() - Date.now()) / 86_400_000) : null;
+  const [now] = useState(() => Date.now());
+  const days = a.deadline ? Math.ceil((new Date(a.deadline).getTime() - now) / 86_400_000) : null;
   return (
     <aside className="absolute z-30 inset-x-0 bottom-0 max-h-[70%] rounded-t-3xl sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-auto sm:w-[min(24rem,calc(100%-2rem))] sm:rounded-3xl bg-card border border-border shadow-2xl overflow-y-auto pointer-events-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-right-4 fade-in-0"
       style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
