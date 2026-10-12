@@ -12,6 +12,7 @@ import { hudFor } from "@/lib/services/hud";
 import { dealsFor } from "@/lib/services/deals";
 import { claudeHealthy } from "@/lib/services/claude-jobs";
 import { holdStatsFor } from "@/lib/services/wellbeing";
+import { worldFor } from "@/lib/services/empire-world";
 
 const count = sql<number>`count(*)::int`;
 const n = (v: unknown) => Number(v ?? 0) || 0;
@@ -26,6 +27,7 @@ export type Building = {
   level: number; // drives the building's height
   active: boolean; // switched on → lit windows / smoke / spinning parts
   working?: boolean; // an automation is running right now → workers walk in and out
+  neglected?: boolean; // untouched for 14+ days → cracks and weeds until you use it again
   status: string;
   bubbles: Bubble[];
   stats: { label: string; value: string }[];
@@ -128,6 +130,11 @@ export async function empireFor(userId: number) {
       status: `${hold.wonThisMonth}/${hold.daysSoFar} days won this month`, bubbles: [],
       stats: [{ label: "Days won", value: `${hold.wonThisMonth}/${hold.daysSoFar}` }, { label: "Good nights", value: String(hud.goodNights) }] }),
   ];
-  return { buildings, level: hud.level, rank: hud.rank, xp: hud.xp, progress: hud.progress, monthKm: hud.monthKm, updatedAt: new Date().toISOString() };
+  const world = await worldFor(userId, { streak: hud.streak, monthKm: hud.monthKm, goalKm: hud.goalKm });
+  for (const b of buildings) if (world.neglected.includes(b.id)) {
+    b.neglected = true;
+    b.bubbles = [{ text: "Falling apart — open me", tone: "warn" }, ...b.bubbles];
+  }
+  return { buildings, world, level: hud.level, rank: hud.rank, xp: hud.xp, progress: hud.progress, monthKm: hud.monthKm, updatedAt: new Date().toISOString() };
 }
 export type EmpireState = Awaited<ReturnType<typeof empireFor>>;

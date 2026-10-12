@@ -83,6 +83,12 @@ function noise(ac: AudioContext, at: number, dur: number, opts: { from: number; 
 
 const MIN_GAP: Partial<Record<Sfx, number>> = { tick: 40, hover: 60, toggle: 60, notify: 400 };
 
+/** The shared context + master output (the empire's spatial audio plays through it). */
+export function sfxContext(): { ac: AudioContext; out: AudioNode } | null {
+  const ac = audio();
+  return ac && master ? { ac, out: master } : null;
+}
+
 export function play(name: Sfx) {
   if (typeof window === "undefined" || !sfxSettings().on) return;
   const nowMs = performance.now();

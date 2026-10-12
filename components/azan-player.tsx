@@ -33,6 +33,8 @@ export function playAzan(hasOwnFile = usePrayerStore.getState().settings?.hasFil
   return audio.play();
 }
 export function stopAzan() { audio?.pause(); audio = null; }
+/** The empire makes the azan louder near the mosque (null = normal volume). */
+export function setAzanVolume(v: number | null) { if (audio) audio.volume = v == null ? 1 : Math.max(0.2, Math.min(1, v)); }
 
 export function AzanPlayer() {
   const setStore = usePrayerStore((s) => s.set);

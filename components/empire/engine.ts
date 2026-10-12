@@ -13,7 +13,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import type { Building } from "@/lib/client/empire";
+import type { Building, World, WorldEvent } from "@/lib/client/empire";
+import { CityLife } from "./life";
 import { siClaude, siDiscord, siGmail, siReddit, siRss, siStripe, siUnity, siWhatsapp, siYoutube } from "simple-icons";
 
 /** Real brand logos above the buildings that use those services. */
@@ -23,6 +24,10 @@ const LOGOS: Record<string, { path: string; hex: string }> = {
 };
 
 export type Mood = "normal" | "disco" | "hibernate";
+export type SoundMix = { key: "construction" | "factory" | "vault" | "mosque"; gain: number; pan: number }[];
+
+/** Which building a payment drives out of, by income source. */
+const MONEY_FROM: Record<string, string> = { client: "outreach", retainer: "outreach", gig: "radar", beat: "studio", stripe: "hq", other: "hq" };
 
 /** A round logo badge drawn from the brand's official SVG path (simple-icons, CC0). */
 function logoTexture(path: string, hex: string) {
@@ -84,7 +89,12 @@ export class EmpireEngine {
   private quality: Quality;
   private sun = new THREE.DirectionalLight(0xffffff, 2.2);
   private hemi = new THREE.HemisphereLight(0xdfefff, 0x6a7d5c, 1.1);
-  private groundMat = new THREE.MeshLambertMaterial({ color: PALETTE.ground });
+  private groundMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+  private life!: CityLife;
+  private trees: { trunks: THREE.InstancedMesh; crowns: THREE.InstancedMesh; spots: THREE.Vector3[] } | null = null;
+  private radarSpin: { obj: THREE.Object3D; speed: number; axis: "y" | "z" } | null = null;
+  private workingIds = new Set<string>();
+  private lastSound = 0;
   private buildingsGroup = new THREE.Group();
   private anchors: Anchor[] = [];
   private pickables: THREE.Object3D[] = [];
@@ -123,6 +133,8 @@ export class EmpireEngine {
   private tmp = new THREE.Object3D();
   private v = new THREE.Vector3();
   onPick: (id: string) => void = () => {};
+  onPickAirship: (id: number) => void = () => {};
+  onSound: ((mix: SoundMix) => void) | null = null;
   onHover: (id: string | null) => void = () => {};
 
   constructor(private host: HTMLElement) {
@@ -164,6 +176,18 @@ export class EmpireEngine {
     this.scene.add(this.sun);
 
     this.buildWorld();
+    this.life = new CityLife({
+      scene: this.scene, quality: this.quality,
+      posOf: (id) => { const a = this.anchors.find((x) => x.id === id); return a ? a.obj.getWorldPosition(new THREE.Vector3()) : null; },
+      topOf: (id) => this.anchors.find((x) => x.id === id)?.top ?? 6,
+      setAnchor: (id, obj, top) => {
+        this.anchors = this.anchors.filter((x) => x.id !== id);
+        if (obj) this.anchors.push({ id, obj, top });
+        if (obj && !this.pickables.includes(obj)) this.pickables.push(obj);
+      },
+      clearTreesNear: (pts, r) => this.clearTreesNear(pts, r),
+    });
+    this.life.buildMeadow();
     this.scene.add(this.buildingsGroup);
     this.resize();
 
@@ -181,7 +205,7 @@ export class EmpireEngine {
   // ─── World ──────────────────────────────────────────────────────────────────
 
   private buildWorld() {
-    const ground = new THREE.Mesh(new THREE.CircleGeometry(160, 64), this.groundMat);
+    const ground = new THREE.Mesh(CityLife.groundGeometry(), this.groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
@@ -235,18 +259,21 @@ export class EmpireEngine {
     const crowns = new THREE.InstancedMesh(new THREE.ConeGeometry(1.1, 2.6, 7), new THREE.MeshLambertMaterial({ color: PALETTE.green }), treeCount);
     crowns.castShadow = this.quality === "high";
     const col = new THREE.Color();
+    const treeSpots: THREE.Vector3[] = [];
     for (let i = 0; i < treeCount; i++) {
       const outer = i % 3 !== 0;
       const r = outer ? RING_OUTER + 5 + Math.random() * 40 : PLOT_RADIUS + (Math.random() < 0.5 ? -5.5 : 5.5) + (Math.random() - 0.5) * 1.5;
       const a = Math.random() * Math.PI * 2;
       const s = 0.7 + Math.random() * 0.8;
       this.tmp.position.set(Math.cos(a) * r, 0.6 * s, Math.sin(a) * r); this.tmp.scale.setScalar(s); this.tmp.rotation.set(0, 0, 0); this.tmp.updateMatrix();
+      treeSpots.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
       trunks.setMatrixAt(i, this.tmp.matrix);
       this.tmp.position.y = 2.2 * s; this.tmp.updateMatrix();
       crowns.setMatrixAt(i, this.tmp.matrix);
       crowns.setColorAt(i, col.setHSL(0.28 + Math.random() * 0.08, 0.45, 0.32 + Math.random() * 0.12));
     }
     this.scene.add(trunks, crowns);
+    this.trees = { trunks, crowns, spots: treeSpots };
 
     // Street lamps around both rings (bulbs glow at night).
     const lampSpots: THREE.Vector3[] = [];
@@ -356,7 +383,9 @@ export class EmpireEngine {
         const bowl = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 8, 0, Math.PI * 2, 0, Math.PI / 3), new THREE.MeshLambertMaterial({ color: PALETTE.white, side: THREE.DoubleSide }));
         bowl.rotation.x = Math.PI / 2.4; dish.add(bowl);
         dish.position.y = h + 2.6; g.add(dish);
-        this.spinners.push({ obj: dish, speed: b.active ? 1.2 : 0.15, axis: "y" });
+        const spin = { obj: dish, speed: b.active ? 1.2 : 0.15, axis: "y" as const };
+        this.spinners.push(spin);
+        if (b.id === "radar") this.radarSpin = spin;
         beacon(h + 3.6);
         top = h + 4.5;
         break;
@@ -472,6 +501,7 @@ export class EmpireEngine {
         break;
       }
     }
+    if (b.neglected) this.ruin(g, seed);
     // A plot underneath so every building sits on its own lot.
     const lot = new THREE.Mesh(new THREE.CircleGeometry(4.6, 24), new THREE.MeshLambertMaterial({ color: 0xc9c3b4 }));
     lot.rotation.x = -Math.PI / 2; lot.position.y = 0.025; lot.receiveShadow = true;
@@ -519,6 +549,8 @@ export class EmpireEngine {
         this.prayerGlow = glow;
       }
     });
+    this.workingIds = new Set(list.filter((b) => b.working).map((b) => b.id));
+    this.life.relayout();
     // Workers only turn up while an automation is running: a few per busy building, shuttling to HQ.
     const busy = this.plots.map((p, i) => (p.working ? i : -1)).filter((i) => i > 0);
     this.crew = busy.length ? [0, ...busy] : [];
@@ -536,6 +568,98 @@ export class EmpireEngine {
   /** HTML labels / bubbles that follow buildings on screen. */
   bindLabel(id: string, el: HTMLElement | null) {
     if (el) this.labelEls.set(id, el); else this.labelEls.delete(id);
+  }
+
+  /** Untouched for 14+ days: faded, dark windows, a slight lean, weeds and rubble. */
+  private ruin(g: THREE.Group, seed: number) {
+    const dust = new THREE.Color(0x6b5d4f);
+    g.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
+        const lm = mat as THREE.MeshLambertMaterial;
+        if (!lm.color) continue;
+        lm.color.multiplyScalar(0.7).lerp(dust, 0.3);
+        lm.userData.ruined = true;
+      }
+    });
+    g.rotation.z = 0.035;
+    let r = seed;
+    const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+    const weeds = new THREE.InstancedMesh(new THREE.ConeGeometry(0.25, 0.9, 4), new THREE.MeshLambertMaterial({ color: 0x5f7a3a }), 22);
+    const rubble = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.35, 0.45), new THREE.MeshLambertMaterial({ color: 0x8b8680 }), 8);
+    for (let i = 0; i < 22; i++) {
+      const a = rnd() * Math.PI * 2, d = 2.6 + rnd() * 1.8;
+      this.tmp.position.set(Math.cos(a) * d, 0.4, Math.sin(a) * d); this.tmp.rotation.set(0, rnd() * 3, (rnd() - 0.5) * 0.4); this.tmp.scale.setScalar(0.6 + rnd() * 0.9); this.tmp.updateMatrix();
+      weeds.setMatrixAt(i, this.tmp.matrix);
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = rnd() * Math.PI * 2, d = 3 + rnd() * 1.3;
+      this.tmp.position.set(Math.cos(a) * d, 0.18, Math.sin(a) * d); this.tmp.rotation.set(rnd(), rnd() * 3, rnd()); this.tmp.scale.setScalar(0.6 + rnd()); this.tmp.updateMatrix();
+      rubble.setMatrixAt(i, this.tmp.matrix);
+    }
+    g.add(weeds, rubble);
+  }
+
+  private clearTreesNear(points: THREE.Vector3[], r: number) {
+    if (!this.trees) return;
+    const { trunks, crowns, spots } = this.trees;
+    const m = new THREE.Matrix4();
+    spots.forEach((p, i) => {
+      if (!points.some((q) => q.distanceTo(p) < r)) return;
+      m.makeScale(0.0001, 0.0001, 0.0001).setPosition(p.x, -10, p.z);
+      trunks.setMatrixAt(i, m); crowns.setMatrixAt(i, m);
+    });
+    trunks.instanceMatrix.needsUpdate = true; crowns.instanceMatrix.needsUpdate = true;
+  }
+
+  // ─── Living city (driven by real data) ─────────────────────────────────────
+
+  private worldStreak: number | null = null;
+  /** Weather, streak lights, vault gold, goal sites, airships, runner glow, radar sweep. Returns goals that just completed. */
+  setWorld(w: World, previousStreak: number | null): number[] {
+    this.life.setWeather(w.weather.kind);
+    if (this.worldStreak !== w.streak) { this.life.setStreak(w.streak, this.worldStreak ?? previousStreak); this.worldStreak = w.streak; }
+    this.life.setGold(w.gold);
+    this.life.setAirships(w.airships);
+    this.life.setRunnerWorking(this.workingIds.has("runner"));
+    this.life.setRadarScanning(w.radarScanning);
+    if (this.radarSpin) this.radarSpin.speed = w.radarScanning ? 3.2 : this.plots.length ? 1.2 : 0.15;
+    return this.life.setGoals(w.goals);
+  }
+
+  /** A real event happened → animate it once. */
+  event(e: WorldEvent, onArrive?: () => void) {
+    if (e.type === "mail") this.life.mailOut();
+    else if (e.type === "reply") this.life.replyIn();
+    else if (e.type === "money") this.life.moneyIn(MONEY_FROM[e.source ?? ""] ?? "hq", e.amount ?? 0, onArrive);
+    else if (e.type === "hotgig") this.life.ping();
+    else if (e.type === "job") this.life.beam(e.target ?? "hq");
+  }
+
+  landAirship(id: number) { this.life.landAirship(id); }
+  fireworksAtGoal(goalId: number) { const p = this.life.sitePosition(goalId); if (p) this.life.fireworks(p); }
+  isRaining() { return this.life.isRaining(); }
+  nightLevel() { return this.night; }
+
+  /** Per-district loudness and stereo position from where the camera is. */
+  private soundMix(): SoundMix {
+    const out: SoundMix = [];
+    const at = (key: SoundMix[number]["key"], p: THREE.Vector3 | null) => {
+      if (!p) return;
+      const d = this.camera.position.distanceTo(p);
+      const gain = Math.pow(THREE.MathUtils.clamp((this.homeDist + 20 - d) / (this.homeDist - 5), 0, 1), 1.6);
+      const v = p.clone().setY(3).project(this.camera);
+      out.push({ key, gain, pan: THREE.MathUtils.clamp(v.x, -1, 1) });
+    };
+    const pos = (id: string) => { const a = this.anchors.find((x) => x.id === id); return a ? a.obj.getWorldPosition(new THREE.Vector3()) : null; };
+    const sites = this.life.activeSites();
+    if (sites.length) at("construction", sites.reduce((best, p) => (p.distanceTo(this.camera.position) < best.distanceTo(this.camera.position) ? p : best)));
+    const factories = ["autopilot", "runner"].filter((id) => this.workingIds.has(id)).map(pos).filter((p): p is THREE.Vector3 => !!p);
+    if (factories.length) at("factory", factories.reduce((best, p) => (p.distanceTo(this.camera.position) < best.distanceTo(this.camera.position) ? p : best)));
+    at("vault", pos("vault"));
+    at("mosque", pos("mosque"));
+    return out;
   }
 
   // ─── Loop ───────────────────────────────────────────────────────────────────
@@ -587,6 +711,8 @@ export class EmpireEngine {
     const pace = this.mood === "disco" ? 2.2 : this.mood === "hibernate" ? 0.25 : 1;
     for (const s of this.spinners) s.obj.rotation[s.axis] += s.speed * dt * pace + (s.speed === 0 ? Math.sin(t * 3) * 0.004 : 0);
     this.tickWorkers(dt * pace, t);
+    this.life.tick(dt, t, this.night);
+    if (this.onSound && t - this.lastSound > 0.12) { this.lastSound = t; this.onSound(this.soundMix()); }
     this.tickMood(t);
     if (this.prayerGlow) {
       const m = this.prayerGlow.material as THREE.MeshBasicMaterial;
@@ -624,15 +750,16 @@ export class EmpireEngine {
     const target = this.mood === "hibernate" ? Math.max(real, 0.75) : this.mood === "disco" ? Math.max(real, 0.85) : real;
     this.night += (target - this.night) * 0.05;
     const n = this.night;
-    const sky = new THREE.Color(0xbfdcf0).lerp(new THREE.Color(0x0d1426), n);
+    const oc = this.life?.overcast ?? 0;
+    const sky = new THREE.Color(0xbfdcf0).lerp(new THREE.Color(0x9aa6b2), oc * 0.75).lerp(new THREE.Color(0x0d1426), n);
     this.scene.background = sky;
     (this.scene.fog as THREE.Fog).color.copy(sky);
-    this.sun.intensity = 2.2 * (1 - n) + 0.35 * n; // moonlight keeps the city readable
+    this.sun.intensity = (2.2 * (1 - n) + 0.35 * n) * (1 - oc * 0.45); // moonlight keeps the city readable; clouds dim it
     this.sun.color.setHex(n > 0.5 ? 0xaabbee : 0xffffff);
     this.hemi.intensity = 1.1 * (1 - n * 0.6);
     (this.stars.material as THREE.PointsMaterial).opacity = Math.max(0, n - 0.3) * 1.2;
-    this.groundMat.color.set(PALETTE.ground).lerp(new THREE.Color(PALETTE.groundNight), n);
-    for (const m of this.windowMats) m.emissiveIntensity = (m.userData.active ? 0.35 : 0.1) + n * 1.4;
+    this.groundMat.color.set(0xffffff).lerp(new THREE.Color(0x8e9a92), oc * 0.35).lerp(new THREE.Color(0x34443c), n); // rain darkens the grass
+    for (const m of this.windowMats) m.emissiveIntensity = m.userData.ruined ? 0 : (m.userData.active ? 0.35 : 0.1) + n * 1.4;
     (this.lamps.material as THREE.MeshBasicMaterial).color.setHex(n > 0.35 ? 0xffe9a8 : 0xbdb6a0);
   }
 
@@ -761,7 +888,10 @@ export class EmpireEngine {
     const r = this.renderer.domElement.getBoundingClientRect();
     this.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     this.ray.setFromCamera(this.ndc, this.camera);
+    const ship = this.ray.intersectObjects(this.life.pickables, true)[0];
+    if (ship?.object.userData.airshipId != null) return `airship:${ship.object.userData.airshipId}`;
     const hit = this.ray.intersectObjects(this.pickables, true)[0];
+    if (hit?.object.userData.goalId != null) return `goal:${hit.object.userData.goalId}`;
     return (hit?.object.userData.buildingId as string | undefined) ?? null;
   }
 
@@ -770,7 +900,8 @@ export class EmpireEngine {
     const moved = Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y);
     if (moved > (e.pointerType === "touch" ? 12 : 6) || performance.now() - this.down.t > 500) return; // that was a drag
     const id = this.pick(e);
-    if (id) this.onPick(id);
+    if (id?.startsWith("airship:")) this.onPickAirship(Number(id.slice(8)));
+    else if (id) this.onPick(id);
   };
   private lastMove = 0;
   private onMove = (e: PointerEvent) => {
@@ -783,7 +914,7 @@ export class EmpireEngine {
     if (this.hovered) this.hovered.scale.setScalar(1);
     this.hovered = obj;
     if (obj) obj.scale.setScalar(1.05);
-    this.renderer.domElement.style.cursor = obj ? "pointer" : "grab";
+    this.renderer.domElement.style.cursor = obj || id?.startsWith("airship:") ? "pointer" : "grab";
     this.onHover(id);
   };
 

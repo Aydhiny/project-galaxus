@@ -358,6 +358,8 @@ export const userSettings = pgTable("user_settings", {
   azanFajr: boolean("azan_fajr").default(false), // the sabah azan is loud at 5 am — opt in
   holdQuote: varchar("hold_quote", { length: 200 }), // your own line on the Hold-the-line screen
   diaryPinHash: text("diary_pin_hash"), // scrypt hash of your diary PIN (diary locks without it)
+  empirePublic: boolean("empire_public").default(false), // others may visit your city (aggregates only)
+  cityName: varchar("city_name", { length: 40 }),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -1112,6 +1114,19 @@ export const communities = pgTable(
   (t) => [uniqueIndex("uq_communities_user_guild").on(t.userId, t.guildId)]
 );
 export type Community = typeof communities.$inferSelect;
+
+// Monthly city contest: your XP when the month started, so "XP gained" is honest.
+export const empireSnapshots = pgTable(
+  "empire_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    month: varchar("month", { length: 7 }).notNull(),
+    xpStart: integer("xp_start").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_empire_snapshots_user_month").on(t.userId, t.month)]
+);
 
 // Opportunity watcher: hackathons, game jams and grants found by the daily scan.
 export const opportunities = pgTable(

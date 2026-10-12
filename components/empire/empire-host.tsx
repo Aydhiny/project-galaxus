@@ -8,18 +8,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, Clock, Gauge, LocateFixed, Moon, RefreshCw, Sun, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowRight, Clock, Cloud, CloudRain, Gauge, Globe2, HardHat, LocateFixed, Moon, RefreshCw, Sun, Volume2, VolumeX, X } from "lucide-react";
+import { toast } from "sonner";
 import { BrandIcon, type Brand } from "@/components/brand-icon";
 import { useMusicStore } from "@/lib/store/music";
 import { useSpotifyStore } from "@/lib/client/spotify";
-import { usePrayerStore } from "@/components/azan-player";
+import { setAzanVolume, usePrayerStore } from "@/components/azan-player";
+import { addOpportunityTaskC } from "@/lib/client/opportunities";
+import { EmpireAudio } from "@/lib/empire-audio";
 import { nextVakat } from "@/lib/vaktija";
 import { cn } from "@/lib/utils";
-import { getEmpireC, type Building, type EmpireState } from "@/lib/client/empire";
+import { getEmpireC, type Building, type EmpireState, type GoalSite } from "@/lib/client/empire";
 import { play, setSfxSettings, sfxSettings } from "@/lib/sfx";
 import type { EmpireEngine } from "./engine";
 
 const hud = "font-hud uppercase tracking-wide";
+
+// Small per-browser memory so each real event animates once and the streak
+// lights know what they showed last time. Losing it is harmless.
+const store = {
+  get<T>(k: string, fallback: T): T { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; } },
+  set(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
+};
+const FRESH_MS = 20 * 60_000; // events newer than this play when you open the empire
+const WEATHER_ICON = { sun: Sun, clouds: Cloud, rain: CloudRain } as const;
 
 /** Real logos for buildings that run on a known service (emoji for the rest). */
 const BRAND: Partial<Record<string, Brand>> = {
@@ -62,6 +74,7 @@ function EmpireScene({ active }: { active: boolean }) {
   const [time, setTime] = useState<"live" | "day" | "night">("live");
   const [ago, setAgo] = useState(0);
   const prevBubbles = useRef<Map<string, string>>(new Map());
+  const audioRef = useRef<EmpireAudio | null>(null);
   const musicTrack = useMusicStore((s) => s.activeId);
   const spotify = useSpotifyStore((s) => s.now);
   const vaktija = usePrayerStore((s) => s.vaktija);
@@ -80,18 +93,41 @@ function EmpireScene({ active }: { active: boolean }) {
       const e = new EmpireEngine(mount.current);
       e.onPick = (id) => { play("pop"); setSelected(id); e.focus(id); };
       e.onHover = (id) => { setHovered(id); if (id) play("hover"); };
+      e.onPickAirship = (id) => {
+        play("pop");
+        addOpportunityTaskC(id).then(() => {
+          e.landAirship(id);
+          play("success");
+          toast.success("Added to your tasks with its deadline.");
+        }).catch((err) => toast.error((err as Error).message));
+      };
+      e.onSound = (mix) => {
+        const a = audioRef.current;
+        if (!a) return;
+        a.update(mix, { night: e.nightLevel(), raining: e.isRaining() });
+        setAzanVolume(a.mosqueLevel());
+      };
       engine.current = e;
       e.setMood(useSpotifyStore.getState().now?.isPlaying ? "disco" : useMusicStore.getState().activeId ? "hibernate" : "normal");
       e.setPrayer(!!usePrayerStore.getState().current);
       setLite(e.getQuality() === "low");
       e.setActive(true);
-      if (state) e.setBuildings(state.buildings);
+      if (state) { e.setBuildings(state.buildings); applyWorld(e, state); }
     });
     return () => { disposed = true; engine.current?.dispose(); engine.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { engine.current?.setActive(active); if (active) play("whoosh"); }, [active]);
+
+  // District sounds only while you're looking at the empire with sound on.
+  useEffect(() => {
+    if (!active || !sound) return;
+    const a = new EmpireAudio();
+    a.start();
+    audioRef.current = a;
+    return () => { a.stop(); audioRef.current = null; setAzanVolume(null); };
+  }, [active, sound]);
 
   const load = useCallback(async () => {
     try {
@@ -107,7 +143,7 @@ function EmpireScene({ active }: { active: boolean }) {
       if (fresh) play("notify");
       setState(s);
       setAgo(0);
-      engine.current?.setBuildings(s.buildings);
+      if (engine.current) { engine.current.setBuildings(s.buildings); applyWorld(engine.current, s); }
     } catch { /* keep the last state */ }
   }, []);
 
@@ -131,8 +167,12 @@ function EmpireScene({ active }: { active: boolean }) {
     };
   });
   const sel = buildings.find((b) => b.id === selected) ?? null;
+  const goals = state?.world.goals ?? [];
+  const selGoal = selected?.startsWith("goal:") ? goals.find((g) => `goal:${g.id}` === selected) ?? null : null;
+  const weather = state?.world.weather;
+  const WeatherIcon = weather ? WEATHER_ICON[weather.kind] : Sun;
   // Phones: the panel is a bottom sheet over ~60% of the screen, so lift the city above it.
-  const hasSel = !!sel;
+  const hasSel = !!sel || !!selGoal;
   useEffect(() => {
     const apply = () => engine.current?.setBottomInset(hasSel && window.innerWidth < 640 ? 0.6 : 0);
     apply();
@@ -148,6 +188,17 @@ function EmpireScene({ active }: { active: boolean }) {
       {/* Labels + message bubbles, positioned every frame by the engine */}
       {/* isolate: label z-indexes stay inside this layer, under the panel and HUD */}
       <div className="absolute inset-0 pointer-events-none z-10 isolate">
+        {goals.map((g) => (
+          <div key={`goal:${g.id}`} ref={(el) => engine.current?.bindLabel(`goal:${g.id}`, el)} className="absolute left-0 top-0 will-change-transform transition-opacity duration-200">
+            <button onClick={() => { play("pop"); setSelected(`goal:${g.id}`); engine.current?.focus(`goal:${g.id}`); }}
+              className={cn("pointer-events-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium shadow-lg backdrop-blur-sm",
+                g.done ? "bg-emerald-500 text-white" : "bg-amber-400 text-amber-950")}>
+              {g.done ? <span>{g.emoji ?? "🏁"}</span> : <HardHat className="w-3 h-3" />}
+              <span className={cn(selected === `goal:${g.id}` ? "inline" : "hidden md:inline", "max-w-36 truncate")}>{g.title}</span>
+              <span className="tabular-nums opacity-80">{g.done ? "done" : `${Math.round(g.progress * 100)}%`}</span>
+            </button>
+          </div>
+        ))}
         {buildings.map((b) => (
           <div key={b.id} ref={(el) => engine.current?.bindLabel(b.id, el)} className="absolute left-0 top-0 will-change-transform transition-opacity duration-200">
             <div className="flex flex-col items-center gap-1">
@@ -185,12 +236,15 @@ function EmpireScene({ active }: { active: boolean }) {
         <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-white/60 flex flex-wrap items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · updated {ago < 10 ? "just now" : `${ago}s ago`}
           {mood !== "normal" && <span className="ml-1 rounded-full bg-white/15 px-1.5">{mood === "disco" ? "🪩 disco" : "💤 hibernate"}</span>}
+          {weather && <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5" title={weather.why}><WeatherIcon className="w-3 h-3" />{weather.kind === "sun" ? "sunny week" : weather.kind === "clouds" ? "cloudy week" : "rainy week"}</span>}
           <button onClick={() => { play("tick"); void load(); }} className="ml-1 hover:text-white" aria-label="Refresh"><RefreshCw className="w-3 h-3" /></button>
         </p>
       </div>
 
       {/* Top-right: sound + quality */}
-      <div className={cn("absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex flex-col sm:flex-row items-end gap-1.5 sm:gap-2 pointer-events-auto", sel && "hidden")} data-no-sfx>
+      <div className={cn("absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex flex-col sm:flex-row items-end gap-1.5 sm:gap-2 pointer-events-auto", hasSel && "hidden")} data-no-sfx>
+        <Link href="/empire/world" title="Visit other empires · monthly contest" onClick={() => play("whoosh")}
+          className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><Globe2 className="w-4 h-4" /></Link>
         <button onClick={() => { engine.current?.resetView(); play("whoosh"); }} title="Reset view"
           className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><LocateFixed className="w-4 h-4" /></button>
         <div className="flex flex-col sm:flex-row rounded-xl bg-black/55 backdrop-blur-md p-0.5">
@@ -212,7 +266,7 @@ function EmpireScene({ active }: { active: boolean }) {
       </div>
 
       {/* Bottom: building dock */}
-      <div className={cn("absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] overflow-x-auto overscroll-x-contain rounded-2xl pointer-events-auto [scrollbar-width:none]", sel && "hidden sm:block")}
+      <div className={cn("absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] overflow-x-auto overscroll-x-contain rounded-2xl pointer-events-auto [scrollbar-width:none]", hasSel && "hidden sm:block")}
         style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
         <div className="flex gap-1 sm:gap-1.5 w-max rounded-2xl bg-black/55 backdrop-blur-md p-1 sm:p-1.5">
           {buildings.map((b) => (
@@ -227,7 +281,62 @@ function EmpireScene({ active }: { active: boolean }) {
 
       {/* Building panel */}
       {sel && <BuildingPanel b={sel} onClose={close} onOpen={() => { play("whoosh"); router.push(sel.route); }} />}
+      {selGoal && <GoalPanel g={selGoal} onClose={close} onOpen={() => { play("whoosh"); router.push("/tasks"); }} />}
     </div>
+  );
+}
+
+/** Push the living-city data into the engine and play each new real event once. */
+function applyWorld(e: EmpireEngine, s: EmpireState) {
+  const w = s.world;
+  const prevStreak = store.get<number | null>("empire-streak", null);
+  const completed = e.setWorld(w, prevStreak);
+  store.set("empire-streak", w.streak);
+  if (prevStreak != null && w.streak < prevStreak) play("error");
+
+  // Fireworks: once per goal, ever (per browser).
+  const celebrated = new Set(store.get<number[]>("empire-celebrated", []));
+  const toCelebrate = [...new Set([...completed, ...w.goals.filter((g) => g.done).map((g) => g.id)])].filter((id) => !celebrated.has(id));
+  toCelebrate.forEach((id, i) => setTimeout(() => { e.fireworksAtGoal(id); play("levelup"); }, 800 + i * 1500));
+  store.set("empire-celebrated", [...celebrated, ...toCelebrate].slice(-100));
+
+  // Trucks, pings and beams for events you haven't seen yet.
+  const seen = new Set(store.get<string[]>("empire-seen", []));
+  const now = Date.now();
+  const fresh = w.events.filter((ev) => !seen.has(ev.id) && now - new Date(ev.at).getTime() < FRESH_MS);
+  fresh.forEach((ev, i) => setTimeout(() => {
+    e.event(ev, () => play("coin"));
+    play(ev.type === "reply" ? "notify" : ev.type === "money" ? "whoosh" : ev.type === "hotgig" ? "pop" : "tick");
+  }, 600 + i * 1400));
+  for (const ev of w.events) seen.add(ev.id);
+  store.set("empire-seen", [...seen].slice(-300));
+}
+
+function GoalPanel({ g, onClose, onOpen }: { g: GoalSite; onClose: () => void; onOpen: () => void }) {
+  const pct = Math.round(g.progress * 100);
+  return (
+    <aside className="absolute z-30 inset-x-0 bottom-0 max-h-[62%] rounded-t-3xl sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-auto sm:max-h-none sm:w-[min(22rem,calc(100%-2rem))] sm:rounded-3xl bg-card border border-border shadow-2xl p-4 sm:p-5 flex flex-col overflow-y-auto pointer-events-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-right-4 fade-in-0"
+      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+      <span className="sm:hidden mx-auto -mt-1 mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
+      <div className="flex items-start gap-3">
+        <span className={cn("w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center text-2xl", g.done ? "bg-emerald-500/15" : "bg-amber-400/20")}>
+          {g.done ? g.emoji ?? "🏁" : <HardHat className="w-5 h-5 text-amber-600" />}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className={cn("text-xl leading-tight", hud)}>{g.title}</p>
+          <p className="text-xs text-muted-foreground mt-1">{g.done ? "Built — goal complete" : "Under construction · this month's goal"}</p>
+        </div>
+        <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center" aria-label="Close"><X className="w-4 h-4" /></button>
+      </div>
+      <div className="mt-4">
+        <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Tasks done</span><span className="font-semibold tabular-nums">{pct}%</span></div>
+        <div className="h-2 rounded-full bg-muted overflow-hidden"><div className={cn("h-full rounded-full transition-all", g.done ? "bg-emerald-500" : "bg-amber-400")} style={{ width: `${pct}%` }} /></div>
+        <p className="mt-2 text-xs text-muted-foreground">Every task you finish for this goal raises the building. All done → it opens with fireworks.</p>
+      </div>
+      <button onClick={onOpen} className="mt-4 w-full h-11 rounded-xl bg-foreground text-background font-medium inline-flex items-center justify-center gap-2" data-no-sfx>
+        Open tasks <ArrowRight className="w-4 h-4" />
+      </button>
+    </aside>
   );
 }
 

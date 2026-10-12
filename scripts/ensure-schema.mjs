@@ -534,6 +534,17 @@ const STATEMENTS = [
     CONSTRAINT "opportunities_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_opportunities_user_source_ext" ON "opportunities" ("user_id", "source", "ext_id")`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "empire_public" boolean DEFAULT false`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "city_name" varchar(40)`,
+  `CREATE TABLE IF NOT EXISTS "empire_snapshots" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "month" varchar(7) NOT NULL,
+    "xp_start" integer NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "empire_snapshots_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_empire_snapshots_user_month" ON "empire_snapshots" ("user_id", "month")`,
   `ALTER TABLE "reddit_settings" ALTER COLUMN "game_name" SET DEFAULT 'My game'`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "hold_quote" varchar(200)`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "diary_pin_hash" text`,
