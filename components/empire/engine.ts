@@ -711,7 +711,10 @@ export class EmpireEngine {
     const loop = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
-      if (this.maxFps && now - this.lastFrame < 1000 / this.maxFps - 1) return;
+      // Power saving: full speed only right after you interact; 30 fps when idle; 15 fps in an unfocused window.
+      const busy = this.interacting || !!this.fly || now - this.lastInteraction < 8000 || this.controls.target.distanceTo(this.focusGoal) > 0.05;
+      const cap = this.maxFps || (busy ? 60 : document.hasFocus() ? 30 : 15);
+      if (now - this.lastFrame < 1000 / cap - 1) return;
       this.lastFrame = now;
       this.tick();
     };

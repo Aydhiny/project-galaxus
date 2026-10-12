@@ -4,7 +4,8 @@
 // Money → the vault, …). What you click moves the camera: pages call
 // setRoomSpot() on tab changes, and any element with data-room-spot="screen"
 // (or board / shelf / pile / prop) does it on click. Scrolling walks you a
-// little deeper into the room. 24 fps, no shadows, paused when the tab hides.
+// little deeper into the room. 15 fps, no shadows, frozen after 15 s without
+// clicks or scrolling, paused when the tab hides — it's a backdrop, not a game.
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -42,7 +43,7 @@ export function PageRoom() {
       engine.current.setSpot(useRoomSpot.getState().spot);
       if (!document.hidden) engine.current.run();
     });
-    const onVis = () => { if (document.hidden) engine.current?.pause(); else engine.current?.run(); };
+    const onVis = () => { if (document.hidden) engine.current?.pause(); else { engine.current?.run(); engine.current?.wake(); } };
     document.addEventListener("visibilitychange", onVis);
     return () => { disposed = true; document.removeEventListener("visibilitychange", onVis); engine.current?.dispose(); engine.current = null; };
   }, [data, building]);

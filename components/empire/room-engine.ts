@@ -64,6 +64,7 @@ export class RoomEngine {
   private depth = 0; // background mode: scrolling walks you further into the room
   private ro: ResizeObserver;
   private spot: Spot = "overview";
+  private lastActivity = performance.now(); // background rooms freeze after a while with nothing happening
 
   constructor(private host: HTMLElement, private data: Interior, private mode: "full" | "background" = "full") {
     const bg = mode === "background";
@@ -89,11 +90,15 @@ export class RoomEngine {
 
   setSpot(s: Spot) {
     this.spot = s;
+    this.wake();
     this.camGoal.set(...SPOTS[s].cam);
     this.lookGoal.set(...SPOTS[s].look);
   }
   /** 0–1: how far down the page you've scrolled (background mode, overview spot). */
-  setDepth(d: number) { this.depth = Math.max(0, Math.min(1, d)); }
+  setDepth(d: number) { this.depth = Math.max(0, Math.min(1, d)); this.wake(); }
+  /** Something changed — render again (background rooms sleep after 15 s idle to save power). */
+  wake() { this.lastActivity = performance.now(); if (this.wantRun) this.run(); }
+  private wantRun = false;
 
   private resize() {
     const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
@@ -105,9 +110,10 @@ export class RoomEngine {
   }
 
   run() {
+    this.wantRun = true;
     if (this.running) return;
     this.running = true;
-    const fps = this.mode === "background" ? 24 : 60;
+    const fps = this.mode === "background" ? 15 : 60;
     const loop = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
@@ -115,10 +121,11 @@ export class RoomEngine {
       const dt = Math.min(0.1, (now - (this.last || now)) / 1000);
       this.last = now;
       this.tick(now / 1000, dt);
+      if (this.mode === "background" && now - this.lastActivity > 15_000) { this.running = false; cancelAnimationFrame(this.raf); } // frozen until wake()
     };
     this.raf = requestAnimationFrame(loop);
   }
-  pause() { this.running = false; cancelAnimationFrame(this.raf); }
+  pause() { this.wantRun = false; this.running = false; cancelAnimationFrame(this.raf); }
 
   private tick(t: number, dt: number) {
     const intro = this.mode === "full" ? Math.min(1, (performance.now() - this.start) / 1400) : 1;

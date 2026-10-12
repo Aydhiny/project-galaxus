@@ -135,7 +135,7 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
   const toggleSimple = () => { const next = !simple; setSimple(next); try { localStorage.setItem("empire-simple", next ? "1" : "0"); } catch { /* private mode */ } play("toggle"); };
   const [recording, setRecording] = useState(false);
   useEffect(() => { engine.current?.setActive(active && !interior && !simple); if (active && !interior && !simple) play("whoosh"); }, [active, interior, simple]);
-  useEffect(() => { if (!chrome) engine.current?.setMaxFps(30); }, [chrome, state]);
+  useEffect(() => { if (!chrome) engine.current?.setMaxFps(15); }, [chrome, state]); // wallpaper: runs all day, keep it light
 
   /** 15-second flyover of today's city, saved as MP4 (or WebM where MP4 recording isn't supported). */
   async function record() {
