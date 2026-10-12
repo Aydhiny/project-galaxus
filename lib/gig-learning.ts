@@ -14,7 +14,7 @@ export type GigModel = { w: Record<string, number>; b: number; samples: number; 
 export type Example = { features: string[]; y: 0 | 1; weight: number };
 
 export const EMPTY_MODEL: GigModel = { w: {}, b: 0, samples: 0, positives: 0, accuracy: null };
-/** Enough reviews, of both kinds, before the model's opinion counts. */
+/** Reviews needed before an accuracy number means anything (learning itself starts at the first one). */
 export const MIN_REVIEWS = 8;
 
 export const DOWN_REASONS = [
@@ -118,12 +118,14 @@ export function crossValidate(examples: Example[], reviewedOnly: Example[], k = 
   return Math.round((correct / reviewedOnly.length) * 100);
 }
 
-export const modelReady = (m: GigModel) => m.samples >= MIN_REVIEWS && m.positives > 0 && m.positives < m.samples;
+// Always on: every review shifts the ranking. Influence starts small and grows
+// with evidence, so one 👎 nudges the list instead of flipping it.
+export const modelReady = (m: GigModel) => m.samples >= 1;
 
 /** Final score: your taste (once learned) weighs more than the generic keyword score. */
 export function blendScore(base: number, p: number | null, m: GigModel): number {
   if (p == null || !modelReady(m)) return base;
-  const trust = Math.min(0.75, 0.35 + m.samples / 100); // more reviews → trust the model more
+  const trust = Math.min(0.75, 0.15 + m.samples / 40); // 1 review ≈ 18%, 24+ ≈ 75%
   return Math.round((1 - trust) * base + trust * p * 100);
 }
 

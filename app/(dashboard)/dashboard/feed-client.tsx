@@ -217,7 +217,7 @@ export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone,
           </div>
 
           {prayerStreakAtRisk && (
-            <Link href="/daily" className="mt-3 flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 transition-colors w-fit">
+            <Link href="/spiritual" className="mt-3 flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 transition-colors w-fit">
               <Flame className="w-3.5 h-3.5" />
               <span>Your {streaks.prayers}-day prayer streak is at risk — {5 - prayersDone} prayer{5 - prayersDone === 1 ? "" : "s"} still needed today.</span>
             </Link>
@@ -299,10 +299,10 @@ export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone,
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "Prayers",  val: `${prayersDone}/5`,                     href: "/daily" },
+                  { label: "Prayers",  val: `${prayersDone}/5`,                     href: "/spiritual" },
                   { label: "Training", val: streaks.training > 0 ? "Active" : "—",  href: "/training" },
                   { label: "Reading",  val: `${readingStats.currentlyReading} books`, href: "/reading" },
-                  { label: "Goals",    val: `${completedGoals}/${totalGoals}`,        href: "/goals" },
+                  { label: "Goals",    val: `${completedGoals}/${totalGoals}`,        href: "/tasks" },
                 ].map(s => (
                   <Link key={s.label} href={s.href} className="rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/60 transition-colors hover:border-primary/30">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
@@ -314,7 +314,6 @@ export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone,
 
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "Daily Check-in", href: "/daily",      icon: <CheckCircle2 className="w-4 h-4" />, color: "var(--gold)" },
                 { label: "Home Workout",   href: "/workout",    icon: <Dumbbell className="w-4 h-4" />,     color: "oklch(0.70 0.19 32)" },
                 { label: "Meditate",       href: "/meditation", icon: <Sparkles className="w-4 h-4" />,     color: "oklch(0.65 0.20 290)" },
                 { label: "Spiritual",      href: "/spiritual",  icon: <Moon className="w-4 h-4" />,         color: "var(--emerald)" },

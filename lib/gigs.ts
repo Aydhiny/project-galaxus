@@ -34,7 +34,7 @@ export const DEFAULT_PROFILES = [
     exclude: "for hire, [for hire], offering my services, portfolio review, wedding videographer, on-site, onsite",
     subreddits: "forhire, hiring, HireAnEditor, VideoEditingRequests, NewTubers, editors, freelance_forhire, slavelabour, Jobs4Bitcoins, PartneredYoutube, youtubers",
     sources: ["reddit", "remotive", "remoteok", "wwr"],
-    pitch: "I edit short-form content (YouTube Shorts, TikTok, Reels) at Plansio (plansio.agency): hook in the first second, fast cuts, captions, sound design, retention-focused pacing. I run my own channel too — one of my Shorts reached 11K views. Quick turnaround, revisions included.",
+    pitch: "I edit short-form content (YouTube Shorts, TikTok, Reels): hook in the first second, fast cuts, captions, sound design, retention-focused pacing. Quick turnaround, revisions included. (Edit this — add your portfolio and results.)",
   },
   {
     name: "Web development",
@@ -42,7 +42,7 @@ export const DEFAULT_PROFILES = [
     exclude: "for hire, [for hire], unpaid, equity only, internship",
     subreddits: "forhire, hiring, freelance_forhire, slavelabour, Jobs4Bitcoins, startups",
     sources: ["reddit", "remotive", "remoteok", "wwr", "hn"],
-    pitch: "I run Plansio (plansio.agency), a full-stack studio: websites and production web apps (C# .NET, React, Next.js, TypeScript), design and games. We ship real products end to end — booking systems, dashboards, SaaS, our own game Hunter Mouse 2. Remote, English-speaking, based in Bosnia.",
+    pitch: "I build websites and production web apps end to end — modern stack, fast delivery, easy to maintain. (Edit this — add your stack, portfolio and best projects.)",
   },
 ] as const;
 

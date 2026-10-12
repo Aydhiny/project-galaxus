@@ -41,7 +41,7 @@ export async function getConfigFor(userId: number) {
   const [user] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
   return {
     settings,
-    senderName: settings.senderName?.trim() || user?.name?.split(" ")[0] || "Ajdin",
+    senderName: settings.senderName?.trim() || user?.name?.split(" ")[0] || "",
     googleKey: await getSecret(userId, "google"),
     foursquareKey: await getSecret(userId, "foursquare"),
     anthropicKey: await getSecret(userId, "anthropic"),

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { BookHeart, Eye, EyeOff, Flame, Heart, Loader2, Lock, PenLine, Search, Trash2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MOODS, moodOf, onThisDay, parseImport, wordCount } from "@/lib/diary";
-import { deleteDiaryEntryC, finishDiaryImport, importDiaryChunkC, saveDiaryEntryC, type DiaryEntry } from "@/lib/client/diary";
+import { deleteDiaryEntryC, finishDiaryImport, importDiaryChunkC, lockDiaryNowC, saveDiaryEntryC, type DiaryEntry } from "@/lib/client/diary";
 
 const hud = "font-hud uppercase tracking-wide";
 
@@ -53,6 +53,9 @@ export function DiaryView({ entries }: { entries: DiaryEntry[] }) {
           <p className="text-sm text-muted-foreground mt-1">{entries.length} entries · {words.toLocaleString()} words · encrypted, never sent to AI.</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => { void lockDiaryNowC().then(() => window.location.reload()); }} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border text-sm" title="Lock the diary now">
+            <Lock className="w-4 h-4" /> Lock
+          </button>
           <button onClick={() => setHidden((h) => !h)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border text-sm" title="Privacy blur">
             {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />} {hidden ? "Hidden" : "Visible"}
           </button>
@@ -176,7 +179,7 @@ function Editor({ entry, onDone, kind = "diary", initial = "", initialTitle = ""
         className="mt-3 w-full rounded-xl border border-border bg-transparent p-3 text-[15px] leading-relaxed" />
       {harsh && (
         <p className="mt-2 text-xs rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-200 p-2">
-          Would you say this to Amer if he wrote it? Try writing the next line the way your future self wrote to you in January: &quot;Volim te brate moj.&quot;
+          Would you say this to someone you love if they wrote it? Try writing the next line the way you&apos;d talk to them.
         </p>
       )}
       {!entry && (

@@ -131,6 +131,14 @@ function EmpireScene({ active }: { active: boolean }) {
     };
   });
   const sel = buildings.find((b) => b.id === selected) ?? null;
+  // Phones: the panel is a bottom sheet over ~60% of the screen, so lift the city above it.
+  const hasSel = !!sel;
+  useEffect(() => {
+    const apply = () => engine.current?.setBottomInset(hasSel && window.innerWidth < 640 ? 0.6 : 0);
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, [hasSel]);
   const close = () => { play("close"); setSelected(null); engine.current?.unfocus(); };
 
   return (
@@ -143,17 +151,21 @@ function EmpireScene({ active }: { active: boolean }) {
         {buildings.map((b) => (
           <div key={b.id} ref={(el) => engine.current?.bindLabel(b.id, el)} className="absolute left-0 top-0 will-change-transform transition-opacity duration-200">
             <div className="flex flex-col items-center gap-1">
-              {b.bubbles.map((bb) => (
+              {b.bubbles.map((bb, bi) => (
+                // Phones show only the most important bubble per building.
+                <span key={bb.text} className={cn(bi > 0 && "hidden sm:block")}>
                 <button key={bb.text} onClick={() => { play("pop"); setSelected(b.id); engine.current?.focus(b.id); }}
-                  className={cn("pointer-events-auto relative rounded-xl border px-2.5 py-1 text-[11px] font-semibold shadow-lg whitespace-nowrap", TONE[bb.tone])}>
+                  className={cn("pointer-events-auto relative rounded-xl border px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold shadow-lg whitespace-nowrap", TONE[bb.tone])}>
                   {bb.text}
                   <span className={cn("absolute left-1/2 -bottom-1 w-2 h-2 -translate-x-1/2 rotate-45 border-r border-b", TONE[bb.tone].replace("animate-bounce", ""))} />
                 </button>
+                </span>
               ))}
               <button onClick={() => { play("pop"); setSelected(b.id); engine.current?.focus(b.id); }}
-                className={cn("pointer-events-auto inline-flex items-center gap-1 rounded-full bg-black/55 text-white px-2 py-0.5 text-[11px] backdrop-blur-sm transition-transform",
+                aria-label={b.label}
+                className={cn("pointer-events-auto inline-flex items-center gap-1 rounded-full bg-black/55 text-white px-1.5 sm:px-2 py-0.5 text-[11px] backdrop-blur-sm transition-transform",
                   (hovered === b.id || selected === b.id) && "scale-110 bg-black/75")}>
-                <Mark id={b.id} emoji={b.emoji} className="w-3.5 h-3.5" /><span className="font-medium">{b.label}</span>
+                <Mark id={b.id} emoji={b.emoji} className="w-3.5 h-3.5" /><span className={cn("font-medium", selected === b.id ? "inline" : "hidden md:inline")}>{b.label}</span>
                 {b.active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
               </button>
             </div>
@@ -162,15 +174,15 @@ function EmpireScene({ active }: { active: boolean }) {
       </div>
 
       {/* Top-left: empire title */}
-      <div className="absolute top-4 left-4 z-20 rounded-2xl bg-black/55 text-white backdrop-blur-md px-4 py-3 pointer-events-auto">
+      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-none rounded-2xl bg-black/55 text-white backdrop-blur-md px-3 py-2 sm:px-4 sm:py-3 pointer-events-auto">
         <p className={cn("text-xs text-white/60", hud)}>Your empire</p>
-        <p className={cn("text-2xl leading-none mt-0.5", hud)}>{state ? `LV ${state.level} · ${state.rank}` : "Loading…"}</p>
+        <p className={cn("text-lg sm:text-2xl leading-none mt-0.5 truncate", hud)}>{state ? `LV ${state.level} · ${state.rank}` : "Loading…"}</p>
         {state && (
-          <div className="mt-2 h-1.5 w-44 bg-white/15 overflow-hidden -skew-x-12">
+          <div className="mt-2 h-1.5 w-28 sm:w-44 bg-white/15 overflow-hidden -skew-x-12">
             <div className="h-full bg-teal-400 transition-[width] duration-700" style={{ width: `${state.progress}%` }} />
           </div>
         )}
-        <p className="mt-2 text-[11px] text-white/60 flex items-center gap-1.5">
+        <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-white/60 flex flex-wrap items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · updated {ago < 10 ? "just now" : `${ago}s ago`}
           {mood !== "normal" && <span className="ml-1 rounded-full bg-white/15 px-1.5">{mood === "disco" ? "🪩 disco" : "💤 hibernate"}</span>}
           <button onClick={() => { play("tick"); void load(); }} className="ml-1 hover:text-white" aria-label="Refresh"><RefreshCw className="w-3 h-3" /></button>
@@ -178,10 +190,10 @@ function EmpireScene({ active }: { active: boolean }) {
       </div>
 
       {/* Top-right: sound + quality */}
-      <div className={cn("absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto", sel && "hidden")} data-no-sfx>
+      <div className={cn("absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex flex-col sm:flex-row items-end gap-1.5 sm:gap-2 pointer-events-auto", sel && "hidden")} data-no-sfx>
         <button onClick={() => { engine.current?.resetView(); play("whoosh"); }} title="Reset view"
           className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><LocateFixed className="w-4 h-4" /></button>
-        <div className="flex rounded-xl bg-black/55 backdrop-blur-md p-0.5">
+        <div className="flex flex-col sm:flex-row rounded-xl bg-black/55 backdrop-blur-md p-0.5">
           {([["live", Clock, "Follow your clock"], ["day", Sun, "Daytime"], ["night", Moon, "Night"]] as const).map(([k, Icon, title]) => (
             <button key={k} title={title} onClick={() => { setTime(k); engine.current?.setTimeOfDay(k === "live" ? null : k === "day" ? 12 : 22); play("toggle"); }}
               className={cn("w-9 h-9 rounded-lg flex items-center justify-center", time === k ? "bg-white text-black" : "text-white/80 hover:text-white")}>
@@ -194,17 +206,18 @@ function EmpireScene({ active }: { active: boolean }) {
           {sound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
         <button onClick={() => { const next = !lite; setLite(next); engine.current?.setQuality(next ? "low" : "high"); play("toggle"); }}
-          className={cn("h-10 px-3 rounded-xl backdrop-blur-md flex items-center gap-1.5 text-xs", lite ? "bg-white text-black" : "bg-black/55 text-white")} title="Lite mode for slower PCs">
-          <Gauge className="w-4 h-4" /> {lite ? "Lite" : "High"}
+          className={cn("h-10 w-10 sm:w-auto sm:px-3 rounded-xl backdrop-blur-md flex items-center justify-center gap-1.5 text-xs", lite ? "bg-white text-black" : "bg-black/55 text-white")} title="Lite mode for slower PCs">
+          <Gauge className="w-4 h-4" /> <span className="hidden sm:inline">{lite ? "Lite" : "High"}</span>
         </button>
       </div>
 
       {/* Bottom: building dock */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)] overflow-x-auto pointer-events-auto">
-        <div className="flex gap-1.5 rounded-2xl bg-black/55 backdrop-blur-md p-1.5">
+      <div className={cn("absolute left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] overflow-x-auto overscroll-x-contain rounded-2xl pointer-events-auto [scrollbar-width:none]", sel && "hidden sm:block")}
+        style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <div className="flex gap-1 sm:gap-1.5 w-max rounded-2xl bg-black/55 backdrop-blur-md p-1 sm:p-1.5">
           {buildings.map((b) => (
             <button key={b.id} onClick={() => { play("pop"); setSelected(b.id); engine.current?.focus(b.id); }}
-              className={cn("relative shrink-0 w-11 h-11 rounded-xl text-xl flex items-center justify-center transition-colors", selected === b.id ? "bg-white" : "hover:bg-white/15")} title={b.label}>
+              className={cn("relative shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-xl text-lg sm:text-xl flex items-center justify-center transition-colors", selected === b.id ? "bg-white" : "hover:bg-white/15")} title={b.label}>
               <Mark id={b.id} emoji={b.emoji} className="w-5 h-5" />
               {b.bubbles.some((x) => x.tone === "urgent") && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />}
             </button>
@@ -220,11 +233,13 @@ function EmpireScene({ active }: { active: boolean }) {
 
 function BuildingPanel({ b, onClose, onOpen }: { b: Building; onClose: () => void; onOpen: () => void }) {
   return (
-    <aside className="absolute top-4 right-4 bottom-24 z-30 w-[min(22rem,calc(100%-2rem))] rounded-3xl bg-card border border-border shadow-2xl p-5 flex flex-col pointer-events-auto animate-in slide-in-from-right-4 fade-in-0">
+    <aside className="absolute z-30 inset-x-0 bottom-0 max-h-[62%] rounded-t-3xl sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-24 sm:max-h-none sm:w-[min(22rem,calc(100%-2rem))] sm:rounded-3xl bg-card border border-border shadow-2xl p-4 sm:p-5 flex flex-col overflow-y-auto overscroll-contain pointer-events-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-right-4 fade-in-0"
+      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+      <span className="sm:hidden mx-auto -mt-1 mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
       <div className="flex items-start gap-3">
-        <span className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-2xl"><Mark id={b.id} emoji={b.emoji} className="w-6 h-6" /></span>
+        <span className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-muted flex items-center justify-center text-2xl"><Mark id={b.id} emoji={b.emoji} className="w-6 h-6" /></span>
         <div className="flex-1 min-w-0">
-          <p className={cn("text-2xl leading-none", hud)}>{b.label}</p>
+          <p className={cn("text-xl sm:text-2xl leading-none truncate", hud)}>{b.label}</p>
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
             <span className={cn("w-1.5 h-1.5 rounded-full", b.active ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40")} />
             {b.active ? "Working" : "Idle"} · building LV {b.level}
@@ -238,7 +253,7 @@ function BuildingPanel({ b, onClose, onOpen }: { b: Building; onClose: () => voi
           {b.bubbles.map((x) => <span key={x.text} className={cn("rounded-full border px-2.5 py-0.5 text-xs font-medium", TONE[x.tone].replace("animate-bounce", ""))}>{x.text}</span>)}
         </div>
       )}
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-2">
         {b.stats.map((s) => (
           <div key={s.label} className="rounded-xl bg-muted/50 p-3">
             <p className={cn("text-lg leading-none tabular-nums", hud)}>{s.value}</p>

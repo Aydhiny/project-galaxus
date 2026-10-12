@@ -128,7 +128,7 @@ export function replyPrompt(p: {
   gigTitle: string; myEmail: string; theirReply: string;
 }) {
   return {
-    system: `You run the inbox for a freelancer (${p.senderName}, studio: Plansio — web apps & websites, short-form video editing, design, games${p.portfolioUrl ? `; portfolio ${p.portfolioUrl}` : ""}).
+    system: `You run the inbox for a freelancer (${p.senderName}) who does websites & web apps, short-form video editing and design${p.portfolioUrl ? `; portfolio ${p.portfolioUrl}` : ""}.
 A potential client replied to an application. Classify the reply and draft the answer.
 Categories: interested (wants to proceed / asks for a call or next step), question (asks something you can answer from the facts below), negotiation (talks price below the minimum, asks for discounts, contracts, legal or payment terms), rejection, out_of_office, scam (asks for money, gift cards, crypto, odd payment flows, personal data), other.
 Facts you may use: websites start at ${p.websiteMinKm} KM (about ${Math.round(p.websiteMinKm / 1.95583)} EUR); short-form editing is priced per video after seeing the footage; a free 30-second sample edit is offered; ${p.bookingUrl ? `calls can be booked at ${p.bookingUrl}` : "propose two time slots for a 15-minute call this week"}.
@@ -180,20 +180,20 @@ export function templateApplication(p: {
     ? [
         hi,
         `I saw you are looking for ${editorRole ? `a ${role.toLowerCase().replace(/^(a|an)\s/, "")}` : `help with "${role}"`}${platform ? ` for ${platform}` : ""} — that is exactly what I do.`,
-        "I cut short-form for retention: a hook in the first second, fast pacing, captions and sound design. I run my own channel too, so I edit for watch time, not just looks.",
+        "I cut short-form for retention: a hook in the first second, fast pacing, captions and sound design — edited for watch time, not just looks.",
         `Happy to edit a free 30-second sample from your footage so you can judge the fit before paying anything.${p.portfolioUrl ? ` Work: ${p.portfolioUrl}` : ""}`,
         p.budget ? `Your budget (${p.budget}) works for me — what is the volume per week?` : "How many videos per week are you planning, and what is the budget?",
       ]
     : [
         hi,
         `I saw your post about "${role}"${company ? ` at ${company}` : ""} and would like to help.`,
-        "I run Plansio, a small full-stack studio: we design and ship websites and production web apps (React, Next.js, .NET) end to end — fast, modern and easy to maintain.",
+        "I design and ship websites and production web apps end to end — fast, modern and easy to maintain.",
         p.portfolioUrl ? `Recent work: ${p.portfolioUrl}` : "",
         "Could you share the scope and timeline? I can send a short plan and estimate within a day.",
       ];
   const body = lines.filter(Boolean).join("\n\n");
   const plat = platform ? `${platform[0].toUpperCase()}${platform.slice(1)} ` : "";
-  const subject = (video ? `${plat}editor — free sample for ${company ?? "you"}` : `${role.slice(0, 40)} — Plansio`).slice(0, 80);
+  const subject = (video ? `${plat}editor — free sample for ${company ?? "you"}` : `${role.slice(0, 40)} — ${p.senderName || "application"}`).slice(0, 80);
   return { subject, body };
 }
 

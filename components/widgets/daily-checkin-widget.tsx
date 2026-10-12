@@ -31,7 +31,7 @@ export function DailyCheckinWidget({
           <h3 className="text-sm font-semibold">Today&apos;s Check-in</h3>
         </div>
         <Link
-          href="/daily"
+          href="/spiritual"
           className="text-xs text-[var(--gold)] hover:opacity-80 flex items-center gap-1 transition-opacity"
         >
           Update

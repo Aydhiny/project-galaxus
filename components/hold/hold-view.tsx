@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ImagePlus, Loader2, Moon, Shield, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGuardianStore, SLEEP_SETTINGS_EVENT } from "@/lib/store/guardian";
-import { addMemoryC, deleteMemoryC, logUrgeC, saveSleepSettingsC, updateMemoryC, type HoldState } from "@/lib/client/wellbeing";
+import { addMemoryC, deleteMemoryC, logUrgeC, saveHoldQuoteC, saveSleepSettingsC, updateMemoryC, type HoldState } from "@/lib/client/wellbeing";
 
 const hud = "font-hud uppercase tracking-wide";
 
@@ -64,6 +64,7 @@ export function HoldView({ state }: { state: HoldState }) {
         </div>
       </section>
       <SlipLogger />
+      <QuoteEditor initial={state.holdQuote ?? ""} />
 
       <AlbumManager album={album} />
       <SleepSettings sleep={state.sleep} insights={state.sleepInsights} />
@@ -196,6 +197,24 @@ function SleepSettings({ sleep, insights }: { sleep: HoldState["sleep"]; insight
           className="h-9 px-4 rounded-lg bg-foreground text-background text-sm font-medium disabled:opacity-60">Save</button>
       </div>
       <p className="mt-3 text-[11px] text-muted-foreground">The only way past the sleep screen: hold a button for 5 seconds — once a night, for 10 minutes. For real needs.</p>
+    </section>
+  );
+}
+
+/** The line you want to read in the moment — your own words, shown only to you. */
+function QuoteEditor({ initial }: { initial: string }) {
+  const [q, setQ] = useState(initial);
+  const [pending, start] = useTransition();
+  return (
+    <section className="mt-6 rounded-2xl border border-border bg-card p-4">
+      <p className="text-sm font-medium">Your line on the emergency screen</p>
+      <p className="text-xs text-muted-foreground mt-0.5">Something your past or future self would say to you. Only you ever see it.</p>
+      <div className="mt-3 flex gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} maxLength={200} placeholder="You've already won harder days than this one."
+          className="input-base flex-1" />
+        <button disabled={pending || q === initial} onClick={() => start(async () => { try { await saveHoldQuoteC(q); toast.success("Saved."); } catch (e) { toast.error((e as Error).message); } })}
+          className="h-9 px-4 rounded-lg bg-foreground text-background text-sm font-medium disabled:opacity-50">Save</button>
+      </div>
     </section>
   );
 }

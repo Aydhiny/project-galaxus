@@ -18,7 +18,7 @@ const DEMO: Building[] = ([
   ["news", "news", "Daily Brief", "📰", 2], ["runner", "factory", "AI Runner", "🤖", 3], ["community", "hall", "Community", "🏛️", 2],
   ["studio", "studio", "Game Studio", "🎮", 4], ["youtube", "studio", "YouTube", "🎬", 3], ["mosque", "mosque", "Faith", "🕌", 3],
   ["library", "library", "Library", "📚", 4], ["gym", "gym", "Gym", "💪", 3], ["home", "house", "Home", "🏡", 2],
-] as const).map(([id, kind, label, emoji, level]) => ({ id, kind, label, emoji, level, active: true, route: "/", status: "", bubbles: [], stats: [] }) as Building);
+] as const).map(([id, kind, label, emoji, level]) => ({ id, kind, label, emoji, level, active: true, working: ["radar", "autopilot", "outreach", "runner"].includes(id), route: "/", status: "", bubbles: [], stats: [] }) as Building);
 
 export function MarketingEmpire() {
   const { status } = useSession();
@@ -55,7 +55,7 @@ export function MarketingEmpire() {
           <h2 className="font-heading text-3xl sm:text-5xl font-bold tracking-tight">Watch your life run like a city</h2>
           <p className="mt-4 text-muted-foreground">Every system you build becomes a building. Automations light up the windows, factories smoke while they work, and the whole city grows as you level up. Drag to explore.</p>
         </div>
-        <div className="relative rounded-3xl overflow-hidden border border-border bg-[#bfdcf0] aspect-[16/10] sm:aspect-[16/8]">
+        <div className="relative rounded-3xl overflow-hidden border border-border bg-[#bfdcf0] aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/8]">
           <div ref={host} className="absolute inset-0" />
           <div className="absolute top-3 right-3 flex rounded-xl bg-black/55 backdrop-blur-md p-0.5">
             {([[false, Sun, "Day"], [true, Moon, "Night"]] as const).map(([n, Icon, t]) => (
@@ -66,7 +66,7 @@ export function MarketingEmpire() {
             ))}
           </div>
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-            <Link href={authed ? "/empire" : "/register"} className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-white text-black font-semibold shadow-xl hover:scale-105 transition-transform">
+            <Link href={authed ? "/empire" : "/register"} className="inline-flex items-center gap-2 h-11 px-5 whitespace-nowrap text-sm sm:text-base rounded-full bg-white text-black font-semibold shadow-xl hover:scale-105 transition-transform">
               {authed ? "Open your empire" : "Build your empire — free"} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

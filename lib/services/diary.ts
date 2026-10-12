@@ -93,3 +93,11 @@ export function streakOf(dates: string[]): number {
   while (days.has(key(cur))) { n++; cur.setDate(cur.getDate() - 1); }
   return n;
 }
+
+/** Dates, kinds and moods only — for stats (Weekly Review, Year in Review). Never decrypts text. */
+export async function diaryMetaFor(userId: number) {
+  await migrateJournalFor(userId);
+  const rows = await db.select({ id: diaryEntries.id, kind: diaryEntries.kind, date: diaryEntries.date, mood: diaryEntries.mood })
+    .from(diaryEntries).where(eq(diaryEntries.userId, userId)).orderBy(desc(diaryEntries.date));
+  return rows.map((r) => ({ id: r.id, kind: (r.kind === "gratitude" ? "gratitude" : "diary") as DiaryKind, date: r.date.toISOString(), mood: r.mood }));
+}

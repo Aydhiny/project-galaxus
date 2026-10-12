@@ -6,7 +6,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-session";
-import { deleteDiaryEntryFor, diaryFor, saveDiaryEntryFor, streakOf } from "@/lib/services/diary";
+import { deleteDiaryEntryFor, diaryMetaFor, saveDiaryEntryFor, streakOf } from "@/lib/services/diary";
+import { requireDiaryUnlocked } from "@/lib/services/diary-lock";
 
 type JournalType = "gratitude" | "writing";
 const localDay = (iso: string) => {
@@ -16,9 +17,10 @@ const localDay = (iso: string) => {
 
 export async function getJournalEntries(type?: string) {
   try {
-    const all = (await diaryFor(await requireUserId())).filter((e) => !e.locked);
+    // Stats only need dates and counts — the text stays encrypted (diary PIN).
+    const all = await diaryMetaFor(await requireUserId());
     const mapped = all.map((e) => ({
-      id: e.id, type: (e.kind === "gratitude" ? "gratitude" : "writing") as JournalType, content: e.content,
+      id: e.id, type: (e.kind === "gratitude" ? "gratitude" : "writing") as JournalType, content: "",
       mood: null as number | null, date: localDay(e.date), createdAt: new Date(e.date),
     }));
     return type ? mapped.filter((e) => e.type === type) : mapped;
@@ -28,13 +30,17 @@ export async function getJournalEntries(type?: string) {
 }
 
 export async function addJournalEntry(data: { type: JournalType; content: string; mood?: number }) {
-  await saveDiaryEntryFor(await requireUserId(), null, { content: data.content, kind: data.type === "gratitude" ? "gratitude" : "diary", title: data.type === "gratitude" ? "Gratitude" : "" });
+  const userId = await requireUserId();
+  await requireDiaryUnlocked(userId);
+  await saveDiaryEntryFor(userId, null, { content: data.content, kind: data.type === "gratitude" ? "gratitude" : "diary", title: data.type === "gratitude" ? "Gratitude" : "" });
   revalidatePath("/diary");
   revalidatePath("/");
 }
 
 export async function deleteJournalEntry(id: number) {
-  await deleteDiaryEntryFor(await requireUserId(), id);
+  const userId = await requireUserId();
+  await requireDiaryUnlocked(userId);
+  await deleteDiaryEntryFor(userId, id);
   revalidatePath("/diary");
 }
 

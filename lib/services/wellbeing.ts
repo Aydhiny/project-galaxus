@@ -88,6 +88,16 @@ export async function sleepSettingsFor(userId: number) {
   return { enabled: s?.enabled ?? false, bedTime: s?.bed ?? "23:00", wakeTime: s?.wake ?? "07:00" };
 }
 
+/** Your own line for the Hold-the-line screen (null → a neutral default). */
+export async function holdQuoteFor(userId: number) {
+  const [s] = await db.select({ q: userSettings.holdQuote }).from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
+  return s?.q ?? null;
+}
+export async function saveHoldQuoteFor(userId: number, quote: string) {
+  const q = quote.trim().slice(0, 200) || null;
+  await db.insert(userSettings).values({ userId, holdQuote: q }).onConflictDoUpdate({ target: userSettings.userId, set: { holdQuote: q, updatedAt: new Date() } });
+}
+
 export async function saveSleepSettingsFor(userId: number, input: { enabled: boolean; bedTime: string; wakeTime: string }) {
   if (!HHMM.test(input.bedTime) || !HHMM.test(input.wakeTime)) throw new Error("Use times like 23:00 and 07:00.");
   if (input.bedTime === input.wakeTime) throw new Error("Bedtime and wake time can't be the same.");

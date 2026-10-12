@@ -18,6 +18,7 @@ import { getGuardianStateC, logFocusC, logUrgeC } from "@/lib/client/wellbeing";
 import { getUpcomingMeetings } from "@/lib/client/calendar";
 import type { Meeting } from "@/lib/calendar";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 type Album = { id: number; year: number | null; caption: string | null }[];
 type Sleep = { enabled: boolean; bedTime: string; wakeTime: string; windDownMinutes?: number };
@@ -35,11 +36,12 @@ const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${St
 
 export function Guardian() {
   const [album, setAlbum] = useState<Album>([]);
+  const [quote, setQuote] = useState<string | null>(null);
   const [sleep, setSleep] = useState<Sleep | null>(null);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const load = useCallback(() => {
     // Rough weeks (2+ late-night moments) start the wind-down 30 minutes earlier.
-    getGuardianStateC().then((s) => { setAlbum(s.album); setSleep({ ...s.sleep, windDownMinutes: s.lateNights >= 2 ? 45 : 15 }); }).catch(() => {});
+    getGuardianStateC().then((s) => { setAlbum(s.album); setQuote(s.holdQuote); setSleep({ ...s.sleep, windDownMinutes: s.lateNights >= 2 ? 45 : 15 }); }).catch(() => {});
     getUpcomingMeetings().then((r) => setMeetings(r.connected ? r.meetings : [])).catch(() => {});
   }, []);
   useEffect(() => {
@@ -52,7 +54,7 @@ export function Guardian() {
   const sleeping = useSleepState(sleep, meetings);
   return (
     <>
-      <HoldTheLine album={album} />
+      <HoldTheLine album={album} quote={quote} />
       {sleeping === "sleep" && sleep && <SleepScreen sleep={sleep} />}
       {sleeping === "winddown" && sleep && <WindDownBanner bedTime={sleep.bedTime} early={(sleep.windDownMinutes ?? 15) > 15} />}
       {sleeping === "awake" && <DailyFocus meetings={meetings} />}
@@ -95,6 +97,8 @@ function WindDownBanner({ bedTime, early }: { bedTime: string; early: boolean })
 }
 
 function SleepScreen({ sleep }: { sleep: Sleep }) {
+  const { data: session } = useSession();
+  const first = session?.user?.name?.split(" ")[0];
   const [now, setNow] = useState(() => new Date());
   const [holding, setHolding] = useState(0);
   const hold = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -124,8 +128,8 @@ function SleepScreen({ sleep }: { sleep: Sleep }) {
       <Moon className="w-14 h-14 text-indigo-300/80 animate-pulse" />
       <p className="mt-6 font-hud uppercase tracking-[0.3em] text-sm text-white/50">Sleep time</p>
       <p className="mt-2 font-hud text-7xl tabular-nums" suppressHydrationWarning>{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
-      <p className="mt-4 text-white/60 text-center max-w-sm px-6">Galaxus opens again at <b className="text-white/90">{sleep.wakeTime}</b>.<br />Rest is part of the work. Laku noć, Ajdine.</p>
-      <p className="mt-10 text-white/30 text-xs">Bismillah — &quot;Bismike Allahumme emutu ve ahja&quot;</p>
+      <p className="mt-4 text-white/60 text-center max-w-sm px-6">Galaxus opens again at <b className="text-white/90">{sleep.wakeTime}</b>.<br />Rest is part of the work. Good night{first ? `, ${first}` : ""}.</p>
+
       {!snoozed && (
         <button onPointerDown={startHold} onPointerUp={stopHold} onPointerLeave={stopHold}
           className="absolute bottom-8 text-[11px] text-white/25 hover:text-white/50 px-3 py-2 rounded-lg border border-white/10 overflow-hidden">
@@ -145,14 +149,14 @@ const TRIGGERS = [
 ];
 const ACTIONS = ["20 push-ups, right now", "Step outside for 5 minutes", "Cold water on your face", "Text a friend or your brother", "Make wudu"];
 
-function HoldTheLine({ album }: { album: Album }) {
+function HoldTheLine({ album, quote }: { album: Album; quote: string | null }) {
   const open = useGuardianStore((s) => s.emergency);
   const close = useGuardianStore((s) => s.closeEmergency);
   // Mounted fresh each time it opens, so the timer and album always start over.
-  return open ? <EmergencyScreen album={album} close={close} /> : null;
+  return open ? <EmergencyScreen album={album} close={close} quote={quote} /> : null;
 }
 
-function EmergencyScreen({ album, close }: { album: Album; close: () => void }) {
+function EmergencyScreen({ album, close, quote }: { album: Album; close: () => void; quote: string | null }) {
   const router = useRouter();
   const [i, setI] = useState(0);
   const [left, setLeft] = useState(600);
@@ -211,7 +215,7 @@ function EmergencyScreen({ album, close }: { album: Album; close: () => void }) 
         </div>
         <p className="mt-4 font-hud text-4xl tabular-nums">{mmss(left)}</p>
         <p className="mt-1 text-white/70 max-w-md">The urge peaks and passes in about 10 minutes. You only have to win <i>these</i> ten.</p>
-        <p className="mt-2 text-teal-200/80 text-sm">E&apos;uzu billahi mineš-šejtanir-radžim · &quot;Mali Ajdin bi bio ponosan.&quot;</p>
+        <p className="mt-2 text-teal-200/80 text-sm">{quote ? <>&ldquo;{quote}&rdquo;</> : "You've already won harder days than this one."}</p>
 
         <div className="mt-5 flex flex-wrap justify-center gap-2 max-w-2xl">
           {ACTIONS.map((a, k) => (

@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/auth-session";
 import { toResult } from "@/lib/action-result";
 import {
-  addMemoryFor, deleteMemoryFor, holdStatsFor, lateNightsFor, logFocusFor, logUrgeFor, memoriesFor, saveSleepSettingsFor, sleepInsightsFor, sleepSettingsFor, updateMemoryFor,
+  addMemoryFor, deleteMemoryFor, holdQuoteFor, holdStatsFor, saveHoldQuoteFor, lateNightsFor, logFocusFor, logUrgeFor, memoriesFor, saveSleepSettingsFor, sleepInsightsFor, sleepSettingsFor, updateMemoryFor,
 } from "@/lib/services/wellbeing";
 
 export async function getHoldState() {
   const userId = await requireUserId();
-  const [album, stats, sleep, sleepInsights] = await Promise.all([memoriesFor(userId), holdStatsFor(userId), sleepSettingsFor(userId), sleepInsightsFor(userId)]);
-  return { album, stats, sleep, sleepInsights };
+  const [album, stats, sleep, sleepInsights, holdQuote] = await Promise.all([memoriesFor(userId), holdStatsFor(userId), sleepSettingsFor(userId), sleepInsightsFor(userId), holdQuoteFor(userId)]);
+  return { album, stats, sleep, sleepInsights, holdQuote };
 }
 export type HoldState = Awaited<ReturnType<typeof getHoldState>>;
 
@@ -18,8 +18,8 @@ export type HoldState = Awaited<ReturnType<typeof getHoldState>>;
 export async function getGuardianState() {
   return toResult(async () => {
     const userId = await requireUserId();
-    const [album, sleep, lateNights] = await Promise.all([memoriesFor(userId), sleepSettingsFor(userId), lateNightsFor(userId)]);
-    return { album: album.map((m) => ({ id: m.id, year: m.year, caption: m.caption })), sleep, lateNights };
+    const [album, sleep, lateNights, holdQuote] = await Promise.all([memoriesFor(userId), sleepSettingsFor(userId), lateNightsFor(userId), holdQuoteFor(userId)]);
+    return { album: album.map((m) => ({ id: m.id, year: m.year, caption: m.caption })), sleep, lateNights, holdQuote };
   });
 }
 
@@ -40,4 +40,8 @@ export async function saveSleepSettings(input: { enabled: boolean; bedTime: stri
 }
 export async function logFocus(minutes: number, label: string | null, completed: boolean) {
   return toResult(async () => logFocusFor(await requireUserId(), minutes, label, completed));
+}
+
+export async function saveHoldQuote(quote: string) {
+  return toResult(async () => { await saveHoldQuoteFor(await requireUserId(), quote); revalidatePath("/hold"); });
 }

@@ -48,7 +48,7 @@ export default async function LeaderboardPage() {
         <div className="glass p-12 text-center text-muted-foreground">
           <Trophy className="w-12 h-12 mx-auto opacity-15 mb-4" />
           <p className="font-medium">No records yet.</p>
-          <p className="text-sm mt-1">Head to <a href="/daily" className="text-primary hover:underline">Daily Check-in</a> and log your first day.</p>
+          <p className="text-sm mt-1">Log a prayer on <a href="/spiritual" className="text-primary hover:underline">Spiritual</a> to start your first day.</p>
         </div>
       )}
 

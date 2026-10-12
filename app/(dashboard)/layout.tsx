@@ -38,7 +38,6 @@ const EmpireHost = dynamic(() => import("@/components/empire/empire-host").then(
 const AzanPlayer = dynamic(() => import("@/components/azan-player").then((m) => m.AzanPlayer), { ssr: false });
 const SoundLayer = dynamic(() => import("@/components/sound-layer").then((m) => m.SoundLayer), { ssr: false });
 const Guardian = dynamic(() => import("@/components/guardian").then((m) => m.Guardian), { ssr: false });
-const DailyCheckinReminder = dynamic(() => import("@/components/daily-checkin-reminder").then((m) => m.DailyCheckinReminder), { ssr: false });
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -95,9 +94,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Azan at prayer times (vaktija.ba) */}
       <AzanPlayer />
-
-      {/* Daily check-in nudge toast — checks server prefs + today's status once */}
-      <DailyCheckinReminder />
 
       {/* Desktop sidebar — uses effectiveCollapsed (mounted guard prevents SSR mismatch) */}
       {!effectiveHidden && (

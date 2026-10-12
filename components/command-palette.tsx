@@ -8,8 +8,8 @@ import { useRoomStore, type RoomTheme } from "@/lib/store/room";
 import { cn } from "@/lib/utils";
 import { searchContent, type SearchResult } from "@/lib/actions/search";
 import {
-  Home, CheckSquare, BookOpen, GraduationCap, Dumbbell, Moon, Music2, NotebookPen,
-  Target, HeartPulse, Sparkles, Activity, BarChart3, BookMarked, StickyNote,
+  Home, Trophy, BookOpen, GraduationCap, Dumbbell, Moon, Music2, NotebookPen,
+  HeartPulse, Sparkles, Activity, BarChart3, BookMarked, StickyNote,
   LayoutDashboard, CloudRain, Flame, Wind, Timer, Plus, Sunrise, Search, X,
   Leaf, Mountain,
   Square, ListTodo, FileText, Gauge,
@@ -91,8 +91,7 @@ export function CommandPalette() {
     // Navigate
     { id:"dash",     kind:"navigate", label:"Dashboard",      icon:<Home className="w-4 h-4"/>,           run:()=>nav("/dashboard")  },
     { id:"overview", kind:"navigate", label:"Daily Overview", icon:<Sunrise className="w-4 h-4"/>,        run:()=>nav("/overview"),  keywords:"morning evening ritual" },
-    { id:"daily",    kind:"navigate", label:"Daily Check-in", icon:<CheckSquare className="w-4 h-4"/>,   run:()=>nav("/daily")      },
-    { id:"goals",    kind:"navigate", label:"Goals",          icon:<Target className="w-4 h-4"/>,         run:()=>nav("/goals")      },
+    { id:"opps",     kind:"navigate", label:"Opportunities",  icon:<Trophy className="w-4 h-4"/>,         run:()=>nav("/opportunities"), keywords:"hackathon game jam grant competition eu deadline" },
     { id:"review",   kind:"navigate", label:"Weekly Review",  icon:<BarChart3 className="w-4 h-4"/>,     run:()=>nav("/review")     },
     { id:"training", kind:"navigate", label:"Training",       icon:<Dumbbell className="w-4 h-4"/>,      run:()=>nav("/training")   },
     { id:"workout",  kind:"navigate", label:"Home Workout",   icon:<HeartPulse className="w-4 h-4"/>,   run:()=>nav("/workout")    },
@@ -108,7 +107,7 @@ export function CommandPalette() {
     { id:"spiritual",kind:"navigate", label:"Spiritual",      icon:<Moon className="w-4 h-4"/>,           run:()=>nav("/spiritual"), keywords:"prayers islam" },
     { id:"duas",     kind:"navigate", label:"Duas & Dhikr",   icon:<BookMarked className="w-4 h-4"/>,    run:()=>nav("/duas")       },
     { id:"creative", kind:"navigate", label:"Creative",       icon:<Music2 className="w-4 h-4"/>,        run:()=>nav("/creative"),  keywords:"music beats producer" },
-    { id:"journal",  kind:"navigate", label:"Journal",        icon:<NotebookPen className="w-4 h-4"/>,   run:()=>nav("/journal")    },
+    { id:"diary",    kind:"navigate", label:"Diary",          icon:<NotebookPen className="w-4 h-4"/>,   run:()=>nav("/diary"),     keywords:"journal gratitude private" },
     // Actions
     { id:"capture",  kind:"action",   label:"Quick Capture",  subtitle:"Brain-dump to Notes",
       icon:<Plus className="w-4 h-4"/>, run:()=>{ closePalette(); setTimeout(openCapture, 80); }, keywords:"note idea brain dump" },
@@ -135,9 +134,9 @@ export function CommandPalette() {
     id: `search-${r.id}`,
     kind: "search",
     label: r.snippet,
-    subtitle: r.kind === "journal" ? "Journal entry" : "Daily check-in",
+    subtitle: r.kind === "journal" ? "Diary" : "Check-in note",
     icon: <NotebookPen className="w-4 h-4" />,
-    run: () => nav(r.kind === "journal" ? "/journal" : "/daily"),
+    run: () => nav(r.kind === "journal" ? "/diary" : "/spiritual"),
   }));
 
   const filtered = COMMANDS.filter(c =>

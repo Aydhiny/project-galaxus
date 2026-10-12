@@ -25,14 +25,11 @@ const STALE_MS = 20 * 3_600_000;
 const QUEUED_TIMEOUT_MS = 3 * 3_600_000;
 const DAY_MS = 86_400_000;
 
-const DEFAULT_TAGLINE = "a 3D collectathon adventure, made solo in Unity";
+const DEFAULT_TAGLINE = "my indie game";
 // Facts Claude is allowed to use. Edited in the UI — check these are true before the first post.
-const DEFAULT_ABOUT = `- Hunter Mouse 2 is a 3D collectathon adventure made by one person (me) in Unity.
-- Dozens of worlds (43 at the time of writing), hidden collectibles, enemies and upgrades.
-- I composed the soundtrack myself: 15+ original tracks, after years as a music producer.
-- Inspired by Banjo-Kazooie and Donkey Kong 64 (the minigames), with some Skyrim-style RPG ideas.
-- I threw the first version away and rebuilt it from scratch.
-- It placed in a national game-dev competition in Bosnia.`;
+const DEFAULT_ABOUT = `- (Replace these with true facts about your game: genre, engine, team size.)
+- (What makes it different — a feature, the art, the music.)
+- (Any milestone: a demo, an award, a release date.)`;
 
 // ─── Reddit client ────────────────────────────────────────────────────────────
 

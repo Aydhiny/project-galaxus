@@ -308,7 +308,7 @@ export default function YearlyPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatCard icon={<BookOpen className="w-4 h-4"/>}       label="Books completed"    value={stats.booksRead}         color="var(--gold)" />
                 <StatCard icon={<GraduationCap className="w-4 h-4"/>}  label="Courses completed"  value={stats.coursesCompleted}  color="var(--gold)" />
-                <StatCard icon={<NotebookPen className="w-4 h-4"/>}    label="Journal entries"    value={stats.journalEntries}    color="var(--gold)" />
+                <StatCard icon={<NotebookPen className="w-4 h-4"/>}    label="Diary entries"    value={stats.journalEntries}    color="var(--gold)" />
                 <StatCard icon={<Heart className="w-4 h-4"/>}          label="Total check-ins"    value={stats.totalCheckins}     color="var(--gold)" />
               </div>
             </section>

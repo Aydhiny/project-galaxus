@@ -54,6 +54,7 @@ const CAR_COLORS = [0xe63946, 0xf1c453, 0x2a9d8f, 0x457b9d, 0xf4a261, 0xffffff, 
 const RING_INNER = 13;
 const RING_OUTER = 31;
 const PLOT_RADIUS = 22;
+const HOME_DIR = new THREE.Vector3(46, 40, 52).normalize(); // the default camera angle
 
 /** A canvas "windows" texture — lit windows glow at night / when the building is busy. */
 function windowTexture(lit: number, seed: number) {
@@ -106,6 +107,8 @@ export class EmpireEngine {
   private lastInteraction = 0;
   private focusGoal = new THREE.Vector3(0, 3, 0); // where the camera orbits; eased toward each frame
   private focused = false;
+  private homeDist = 80; // camera distance that fits the whole city in the current aspect ratio
+  private resizeObs: ResizeObserver | null = null;
   private discoLights: THREE.PointLight[] = [];
   private prayerGlow: THREE.Mesh | null = null;
   private prayer = false;
@@ -113,7 +116,9 @@ export class EmpireEngine {
   private workers!: THREE.InstancedMesh;
   private packages!: THREE.InstancedMesh;
   private workerState: { from: number; to: number; t: number; speed: number; carry: boolean }[] = [];
-  private plots: { pos: THREE.Vector3; active: boolean }[] = [];
+  private plots: { pos: THREE.Vector3; active: boolean; working: boolean }[] = [];
+  private crew: number[] = []; // plot indexes workers walk between (HQ + buildings running an automation)
+  private crewSize = 0;
   private labelEls = new Map<string, HTMLElement>();
   private tmp = new THREE.Object3D();
   private v = new THREE.Vector3();
@@ -167,6 +172,9 @@ export class EmpireEngine {
     el.addEventListener("pointerup", this.onUp);
     el.addEventListener("pointermove", this.onMove);
     window.addEventListener("resize", this.resize);
+    // The host also changes size without a window resize (sidebar, phone URL bar, rotation).
+    this.resizeObs = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => this.resize()) : null;
+    this.resizeObs?.observe(host);
     document.addEventListener("visibilitychange", this.onVisibility);
   }
 
@@ -474,7 +482,7 @@ export class EmpireEngine {
 
   /** Lay out (or relayout) the city from live data. Cheap to call; rebuilds meshes only if the set changes. */
   setBuildings(list: Building[]) {
-    const key = list.map((b) => `${b.id}:${b.level}:${b.active ? 1 : 0}`).join("|");
+    const key = list.map((b) => `${b.id}:${b.level}:${b.active ? 1 : 0}:${b.working ? 1 : 0}`).join("|");
     if (key === this.buildingsGroup.userData.key) return;
     this.buildingsGroup.userData.key = key;
     this.disposeGroup(this.buildingsGroup);
@@ -494,7 +502,7 @@ export class EmpireEngine {
       this.buildingsGroup.add(group);
       this.anchors.push({ id: b.id, obj: group, top });
       this.pickables.push(group);
-      this.plots.push({ pos: group.position.clone(), active: b.active });
+      this.plots.push({ pos: group.position.clone(), active: b.active, working: !!b.working });
       const logo = LOGOS[b.id];
       if (logo) {
         const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: logoTexture(logo.path, logo.hex), depthWrite: false }));
@@ -511,8 +519,17 @@ export class EmpireEngine {
         this.prayerGlow = glow;
       }
     });
-    // Workers start at random buildings.
-    for (const w of this.workerState) this.pickTrip(w);
+    // Workers only turn up while an automation is running: a few per busy building, shuttling to HQ.
+    const busy = this.plots.map((p, i) => (p.working ? i : -1)).filter((i) => i > 0);
+    this.crew = busy.length ? [0, ...busy] : [];
+    this.crewSize = Math.min(this.workerState.length, busy.length * (this.quality === "high" ? 6 : 3));
+    for (const w of this.workerState) { w.to = -1; this.pickTrip(w); w.t = Math.random(); }
+    if (this.workers) {
+      this.tmp.position.set(0, -50, 0); this.tmp.scale.setScalar(0.0001); this.tmp.updateMatrix();
+      for (let i = 0; i < this.workerState.length; i++) { this.workers.setMatrixAt(i, this.tmp.matrix); this.packages?.setMatrixAt(i, this.tmp.matrix); }
+      this.workers.instanceMatrix.needsUpdate = true;
+      if (this.packages) this.packages.instanceMatrix.needsUpdate = true;
+    }
     this.applyShadows();
   }
 
@@ -674,23 +691,24 @@ export class EmpireEngine {
   setPrayer(on: boolean) { this.prayer = on; }
 
   private pickTrip(w: { from: number; to: number; t: number; speed: number; carry: boolean }) {
-    if (this.plots.length < 2) return;
-    w.from = w.to < this.plots.length ? w.to : Math.floor(Math.random() * this.plots.length);
-    // Busy buildings attract more trips.
-    let to = w.from;
-    for (let tries = 0; tries < 6 && to === w.from; tries++) {
-      const cand = Math.floor(Math.random() * this.plots.length);
-      if (cand !== w.from && (this.plots[cand].active || Math.random() < 0.4)) to = cand;
+    const crew = this.crew;
+    if (crew.length < 2) return;
+    w.from = crew.includes(w.to) ? w.to : crew[Math.floor(Math.random() * crew.length)];
+    // Busy building ⇄ HQ, mostly; sometimes between two busy buildings.
+    let to = w.from === 0 ? crew[1 + Math.floor(Math.random() * (crew.length - 1))] : 0;
+    if (w.from !== 0 && crew.length > 2 && Math.random() < 0.25) {
+      const others = crew.filter((c) => c !== 0 && c !== w.from);
+      to = others[Math.floor(Math.random() * others.length)];
     }
-    if (to === w.from) to = (w.from + 1) % this.plots.length;
     w.to = to;
     w.t = 0;
-    w.carry = this.plots[w.from].active && Math.random() < 0.7; // carrying work out of a busy building
+    w.carry = w.from !== 0 && Math.random() < 0.75; // carrying finished work back to HQ
   }
 
   private tickWorkers(dt: number, t: number) {
-    if (!this.workers || this.plots.length < 2) return;
+    if (!this.workers || !this.packages || this.crew.length < 2) return;
     this.workerState.forEach((w, i) => {
+      if (i >= this.crewSize) return; // off duty — parked out of sight
       const a = this.plots[w.from]?.pos, b = this.plots[w.to]?.pos;
       if (!a || !b) return;
       w.t += dt * w.speed * (w.carry ? 1.25 : 1);
@@ -750,7 +768,7 @@ export class EmpireEngine {
   private onDown = (e: PointerEvent) => { this.down = { x: e.clientX, y: e.clientY, t: performance.now() }; };
   private onUp = (e: PointerEvent) => {
     const moved = Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y);
-    if (moved > 6 || performance.now() - this.down.t > 500) return; // that was a drag
+    if (moved > (e.pointerType === "touch" ? 12 : 6) || performance.now() - this.down.t > 500) return; // that was a drag
     const id = this.pick(e);
     if (id) this.onPick(id);
   };
@@ -786,11 +804,35 @@ export class EmpireEngine {
     this.lastInteraction = performance.now();
   }
 
+  /** A bottom sheet covers part of the screen (phones): lift the picture so the focused building stays visible. */
+  private bottomInset = 0;
+  setBottomInset(fraction: number) {
+    this.bottomInset = Math.max(0, Math.min(0.8, fraction));
+    this.applyViewOffset();
+  }
+  private applyViewOffset() {
+    const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
+    if (this.bottomInset > 0) this.camera.setViewOffset(w, h, 0, (h * this.bottomInset) / 2, w, h);
+    else this.camera.clearViewOffset();
+  }
+
   /** Reset the camera to the default view. */
   resetView() {
     this.unfocus();
-    this.camera.position.set(46, 40, 52);
+    this.camera.position.copy(HOME_DIR).multiplyScalar(this.homeDist).add(this.focusGoal);
+    this.controls.target.copy(this.focusGoal);
     this.lastInteraction = 0;
+  }
+
+  /**
+   * How far back the camera must sit so the whole city fits across the screen.
+   * A wide desktop needs ~80 units; a portrait phone (narrow horizontal FOV)
+   * needs about twice that, or the outer buildings fall off the sides.
+   */
+  private fitDistance(aspect: number) {
+    const halfV = THREE.MathUtils.degToRad(this.camera.fov / 2);
+    const halfH = Math.atan(Math.tan(halfV) * aspect);
+    return Math.max(80, Math.min(190, (PLOT_RADIUS + 6) / Math.tan(halfH)));
   }
 
   private resize = () => {
@@ -800,6 +842,20 @@ export class EmpireEngine {
     this.renderer.domElement.style.height = "100%";
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.applyViewOffset();
+    // Re-frame only when the fit changes noticeably (not on every phone URL-bar wiggle),
+    // and never while you're zoomed into a building.
+    const fit = this.fitDistance(w / h);
+    const changed = Math.abs(fit - this.homeDist) / this.homeDist > 0.06;
+    this.homeDist = fit;
+    this.controls.maxDistance = Math.max(120, fit * 1.3);
+    this.controls.minDistance = w < 640 ? 16 : 22;
+    const fog = this.scene.fog as THREE.Fog | null;
+    if (fog) { fog.near = fit + 10; fog.far = fit + 150; }
+    if (changed && !this.focused) {
+      const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+      this.camera.position.copy(this.controls.target).addScaledVector(dir, fit);
+    }
   };
 
   private onVisibility = () => { if (document.hidden) this.stop(); else if (this.wantRunning) this.start(); };
@@ -826,6 +882,7 @@ export class EmpireEngine {
     el.removeEventListener("pointerup", this.onUp);
     el.removeEventListener("pointermove", this.onMove);
     window.removeEventListener("resize", this.resize);
+    this.resizeObs?.disconnect();
     document.removeEventListener("visibilitychange", this.onVisibility);
     this.controls.dispose();
     this.disposeGroup(this.scene);

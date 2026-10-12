@@ -15,6 +15,8 @@ import {
 import { checkRateLimit } from "@/lib/ratelimit";
 import { VOICE_RATE } from "@/lib/voice";
 import { dispatchRunner } from "@/lib/services/voice";
+import { after } from "next/server";
+import { NOT_CONNECTED, claudeModeFor, runJobViaApi } from "@/lib/services/claude-mode";
 import { digestPrompt } from "@/lib/digest";
 import { gigsPrompt, parseGigScores } from "@/lib/gigs";
 import { applyDigestResult } from "@/lib/services/digest";
@@ -38,6 +40,16 @@ export async function enqueueJobFor(userId: number, kind: Exclude<JobKind, "voic
       timezone: "UTC",
     })
     .returning({ id: voiceCommands.id });
+  // Each account runs on its own Claude: its runner, or its own API key.
+  const mode = await claudeModeFor(userId);
+  if (mode === "api") {
+    after(() => runJobViaApi(userId, row.id)); // right after the response, on the user's key
+    return { id: row.id, dispatched: true };
+  }
+  if (mode === "none") {
+    await db.update(voiceCommands).set({ status: "failed", error: NOT_CONNECTED, finishedAt: new Date() }).where(eq(voiceCommands.id, row.id));
+    return { id: row.id, dispatched: false };
+  }
   const dispatched = await dispatchRunner(userId);
   return { id: row.id, dispatched };
 }
@@ -91,7 +103,7 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       return gigsPrompt({
         profile: profile?.name ?? "Freelancer",
         pitch: profile?.pitch ?? "",
-        portfolioUrl: ap?.portfolio ?? "https://plansio.agency",
+        portfolioUrl: ap?.portfolio ?? null,
         gigs: rows.map((g) => ({ id: g.id, title: g.title, body: g.body ?? "", budget: g.budget, source: g.source })),
       });
     }
@@ -175,6 +187,8 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
  * free fallbacks handle the work until the token is fixed.
  */
 export async function claudeHealthy(userId: number): Promise<boolean> {
+  // No Claude of their own → treat as unavailable (free fallbacks take over, nothing piles up).
+  if ((await claudeModeFor(userId)) === "none") return false;
   const [last] = await db
     .select({ status: voiceCommands.status, error: voiceCommands.error })
     .from(voiceCommands)

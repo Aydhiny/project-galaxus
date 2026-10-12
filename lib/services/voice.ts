@@ -37,6 +37,11 @@ export async function createCommandFor(
   if (!checkRateLimit(`voice:${userId}`, VOICE_RATE.max, VOICE_RATE.windowMs).allowed) {
     throw new Error("That's a lot of voice commands for one hour — try again a bit later.");
   }
+  // Voice changes your data through tools, which needs your own runner (Claude Code + MCP).
+  const { claudeModeFor } = await import("@/lib/services/claude-mode");
+  if ((await claudeModeFor(userId)) !== "runner") {
+    throw new Error("Voice needs your own Claude runner — see Connections → Claude subscription runner for the 2-minute setup.");
+  }
   const [row] = await db
     .insert(voiceCommands)
     .values({ userId, transcript, localDate: input.localDate, localTime: input.localTime, timezone: String(input.timezone).slice(0, 50) || "UTC" })

@@ -469,9 +469,8 @@ function LearningPanel({ learning: l, teach, onTeach }: { learning: RadarState["
         <div className="flex-1 min-w-48">
           <p className="text-sm font-semibold">Your taste model</p>
           <p className="text-xs text-muted-foreground">
-            {l.reviewed === 0 ? "Rate gigs 👍 / 👎 — after 8 reviews the radar starts ranking by what you actually like."
-              : !l.ready ? `${l.reviewed} review${l.reviewed === 1 ? "" : "s"} — rate a few more (both 👍 and 👎) to switch learning on.`
-              : `Learned from ${l.reviewed} reviews + ${Math.max(0, l.samples - l.reviewed)} things you applied to, saved or dismissed.`}
+            {l.reviewed === 0 && !l.ready ? "Rate gigs 👍 / 👎 — every review re-ranks the radar immediately."
+              : `Learning from ${l.reviewed} review${l.reviewed === 1 ? "" : "s"} + ${Math.max(0, l.samples - l.reviewed)} things you applied to, saved or dismissed.${l.reviewed < 8 ? " Its influence grows with every review." : ""}`}
           </p>
         </div>
         <button onClick={onTeach}
@@ -483,7 +482,7 @@ function LearningPanel({ learning: l, teach, onTeach }: { learning: RadarState["
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-muted-foreground">Accuracy on reviews it hasn&apos;t seen (cross-validated)</span>
-            <span className="font-semibold tabular-nums">{acc != null ? `${acc}%` : "—"} <span className="text-muted-foreground font-normal">/ {target}% goal</span></span>
+            <span className="font-semibold tabular-nums">{acc != null ? `${acc}%` : "after 8 reviews"} <span className="text-muted-foreground font-normal">/ {target}% goal</span></span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div className={cn("h-full rounded-full transition-all duration-700", (acc ?? 0) >= target ? "bg-emerald-500" : (acc ?? 0) >= 80 ? "bg-violet-500" : "bg-amber-500")} style={{ width: `${Math.min(100, acc ?? 0)}%` }} />

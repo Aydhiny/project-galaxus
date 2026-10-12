@@ -356,6 +356,8 @@ export const userSettings = pgTable("user_settings", {
   vaktijaLocation: integer("vaktija_location").default(77),
   azanEnabled: boolean("azan_enabled").default(false),
   azanFajr: boolean("azan_fajr").default(false), // the sabah azan is loud at 5 am — opt in
+  holdQuote: varchar("hold_quote", { length: 200 }), // your own line on the Hold-the-line screen
+  diaryPinHash: text("diary_pin_hash"), // scrypt hash of your diary PIN (diary locks without it)
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -767,7 +769,7 @@ export const youtubeComments = pgTable(
   (t) => [uniqueIndex("uq_youtube_comments_user_comment").on(t.userId, t.commentId), index("idx_youtube_comments_user_status").on(t.userId, t.status)]
 );
 
-// ─── Game dev (Hunter Mouse 2): devlog source + playtest log ───────────────────
+// ─── Game dev: devlog source + playtest log ───────────────────
 export type PlaytestTheme = { theme: string; count: number; severity: "high" | "medium" | "low"; examples: string[]; task: string };
 export const gameSettings = pgTable("game_settings", {
   userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
@@ -815,7 +817,7 @@ export const redditSettings = pgTable("reddit_settings", {
   userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   enabled: boolean("enabled").notNull().default(true), // the daily scheduler drafts a post
   dailyCap: integer("daily_cap").notNull().default(1),
-  gameName: varchar("game_name", { length: 120 }).notNull().default("Hunter Mouse 2"),
+  gameName: varchar("game_name", { length: 120 }).notNull().default("My game"),
   tagline: text("tagline"),
   about: text("about"), // facts Claude may use; nothing outside this gets claimed
   wishlistUrl: text("wishlist_url"), // Steam page — added to the first comment by code, never written by the model
@@ -1004,7 +1006,7 @@ export const autopilotSettings = pgTable("autopilot_settings", {
   dailyCap: integer("daily_cap").notNull().default(10),
   minScore: integer("min_score").notNull().default(70),
   websiteMinKm: integer("website_min_km").notNull().default(1500),
-  portfolioUrl: text("portfolio_url").default("https://plansio.agency"),
+  portfolioUrl: text("portfolio_url"),
   bookingUrl: text("booking_url"),
   senderName: varchar("sender_name", { length: 100 }),
   followUps: boolean("follow_ups").notNull().default(true),
@@ -1110,6 +1112,32 @@ export const communities = pgTable(
   (t) => [uniqueIndex("uq_communities_user_guild").on(t.userId, t.guildId)]
 );
 export type Community = typeof communities.$inferSelect;
+
+// Opportunity watcher: hackathons, game jams and grants found by the daily scan.
+export const opportunities = pgTable(
+  "opportunities",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    source: varchar("source", { length: 20 }).notNull(), // devpost | itch | eu | bih
+    extId: varchar("ext_id", { length: 200 }).notNull(),
+    kind: varchar("kind", { length: 12 }).notNull(), // hackathon | jam | grant
+    title: varchar("title", { length: 300 }).notNull(),
+    summary: text("summary"),
+    url: text("url").notNull(),
+    image: text("image"),
+    deadline: timestamp("deadline"),
+    prize: varchar("prize", { length: 120 }),
+    location: varchar("location", { length: 120 }),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    score: integer("score").notNull().default(0),
+    status: varchar("status", { length: 10 }).notNull().default("new"), // new | saved | tasked | hidden
+    taskId: integer("task_id"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_opportunities_user_source_ext").on(t.userId, t.source, t.extId)]
+);
+export type Opportunity = typeof opportunities.$inferSelect;
 
 // Diary — title and text encrypted at rest (lib/crypto-box). Imported entries keep their source id.
 export const diaryEntries = pgTable(
