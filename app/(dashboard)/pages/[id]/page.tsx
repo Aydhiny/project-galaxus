@@ -26,7 +26,7 @@ export default async function PageView({ params }: { params: Promise<{ id: strin
     <PageEditor
       // key: remount the editor per page so local state never leaks between pages
       key={page.id}
-      page={{ id: page.id, title: page.title, icon: page.icon, isFavorite: page.isFavorite, blocks: page.blocks }}
+      page={{ id: page.id, title: page.title, icon: page.icon, isFavorite: page.isFavorite, blocks: page.blocks, cover: page.cover }}
       breadcrumbs={breadcrumbs}
       subpages={all.filter((p) => p.parentId === page.id)}
     />

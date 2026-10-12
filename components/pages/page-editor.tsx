@@ -3,15 +3,27 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Star, Trash2, Plus, FileText, Smile, ChevronRight } from "lucide-react";
+import { Star, Trash2, Plus, FileText, Smile, ChevronRight, Download, ImagePlus, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { uploadPageImage } from "@/lib/client/page-images";
 import { cn } from "@/lib/utils";
 import { BlockEditor } from "@/components/editor/block-editor";
 import { savePage, deletePage, toggleFavoritePage, createPage, type PageSummary } from "@/lib/actions/pages";
-import { todoProgress, type Block } from "@/lib/blocks";
+import { blocksToMarkdown, todoProgress, type Block } from "@/lib/blocks";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+// Notion-style covers: a few calm gradients, or your own image.
+const COVERS: Record<string, string> = {
+  dusk: "linear-gradient(120deg,#1e1b4b,#7c3aed 55%,#f472b6)",
+  ocean: "linear-gradient(120deg,#0f172a,#0369a1 50%,#22d3ee)",
+  forest: "linear-gradient(120deg,#052e16,#15803d 55%,#a3e635)",
+  sand: "linear-gradient(120deg,#78350f,#d97706 50%,#fde68a)",
+  ink: "linear-gradient(120deg,#09090b,#3f3f46 60%,#a1a1aa)",
+  rose: "linear-gradient(120deg,#4c0519,#e11d48 55%,#fda4af)",
+};
 
 const EMOJIS = [
   "📄", "📝", "✅", "📌", "🎯", "🚀", "💡", "📚", "🧠", "💪", "🏋️", "🕌",
@@ -22,7 +34,7 @@ const EMOJIS = [
 type SaveState = "saved" | "saving" | "unsaved" | "error";
 
 interface PageEditorProps {
-  page: { id: number; title: string; icon: string | null; isFavorite: boolean; blocks: Block[] };
+  page: { id: number; title: string; icon: string | null; isFavorite: boolean; blocks: Block[]; cover: string | null };
   breadcrumbs: PageSummary[];
   subpages: PageSummary[];
 }
@@ -33,6 +45,11 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
   const [icon, setIcon] = useState(page.icon);
   const [favorite, setFavorite] = useState(page.isFavorite);
   const [progress, setProgress] = useState(() => todoProgress(page.blocks));
+  const [cover, setCover] = useState(page.cover);
+  const [coverMenu, setCoverMenu] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const latestBlocks = useRef<Block[]>(page.blocks);
+  const coverInput = useRef<HTMLInputElement>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -80,6 +97,7 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
   }, [flush]);
 
   const handleBlocks = useCallback((blocks: Block[]) => {
+    latestBlocks.current = blocks;
     setProgress(todoProgress(blocks));
     queue({ blocks });
   }, [queue]);
@@ -96,14 +114,53 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
     el.style.height = el.scrollHeight + "px";
   }, [title]);
 
+  function setPageCover(c: string | null) { setCover(c); setCoverMenu(false); queue({ cover: c }, 0); }
+
+  function exportMarkdown() {
+    const md = blocksToMarkdown(title, latestBlocks.current);
+    const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `${(title || "Untitled").replace(/[^\w\- ]+/g, "").trim() || "page"}.md`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
   function focusFirstBlock() {
     const first = document.querySelector<HTMLTextAreaElement>("[data-page-body] textarea");
     first?.focus();
     first?.setSelectionRange(0, 0);
   }
 
+  const coverStyle = cover?.startsWith("grad:") ? { background: COVERS[cover.slice(5)] ?? COVERS.dusk } : cover ? { backgroundImage: `url(${cover})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined;
+
   return (
-    <div className="max-w-[46rem] mx-auto px-6 md:px-16 pt-10 md:pt-14 pb-24">
+    <>
+    {cover && (
+      <div className="relative h-44 md:h-56 w-full group/cover" style={coverStyle}>
+        <div className="absolute bottom-3 right-4 flex gap-1.5 opacity-0 group-hover/cover:opacity-100 transition-opacity">
+          <button onClick={() => setCoverMenu((v) => !v)} className="h-8 px-3 rounded-md bg-black/55 text-white text-xs backdrop-blur">Change cover</button>
+          <button onClick={() => setPageCover(null)} className="h-8 px-3 rounded-md bg-black/55 text-white text-xs backdrop-blur">Remove</button>
+        </div>
+      </div>
+    )}
+    <input ref={coverInput} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+      const f = e.target.files?.[0]; e.target.value = "";
+      if (!f) return;
+      setCoverBusy(true);
+      try { setPageCover(await uploadPageImage(f)); } catch (err) { toast.error((err as Error).message); }
+      setCoverBusy(false);
+    }} />
+    <div className="max-w-[46rem] mx-auto px-6 md:px-16 pt-10 md:pt-14 pb-24 relative">
+      {coverMenu && (
+        <div className="absolute z-40 right-6 md:right-16 top-2 w-72 rounded-xl border border-border bg-popover p-3 shadow-lg">
+          <p className="text-[11px] font-medium text-muted-foreground mb-2">Gradients</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {Object.entries(COVERS).map(([k, g]) => <button key={k} onClick={() => setPageCover(`grad:${k}`)} className="h-12 rounded-md ring-offset-2 hover:ring-2 ring-foreground/40" style={{ background: g }} aria-label={k} />)}
+          </div>
+          <button onClick={() => coverInput.current?.click()} disabled={coverBusy} className="mt-3 w-full h-9 rounded-md border border-border text-sm inline-flex items-center justify-center gap-1.5 hover:bg-accent disabled:opacity-50">
+            {coverBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />} Upload an image
+          </button>
+        </div>
+      )}
       {/* Top bar: breadcrumbs + status + actions */}
       <div className="flex items-center gap-2 mb-10 text-sm text-muted-foreground min-h-7">
         <nav className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
@@ -127,6 +184,14 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
           title={favorite ? "Remove from favorites" : "Add to favorites"}
         >
           <Star className={cn("w-4 h-4", favorite && "fill-amber-400 text-amber-400")} />
+        </button>
+        {!cover && (
+          <button onClick={() => setCoverMenu((v) => !v)} className="h-7 px-2 flex items-center gap-1 rounded-md hover:bg-accent hover:text-foreground text-xs" title="Add a cover">
+            <ImagePlus className="w-3.5 h-3.5" /> Cover
+          </button>
+        )}
+        <button onClick={exportMarkdown} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-accent hover:text-foreground" aria-label="Export as Markdown" title="Export as Markdown">
+          <Download className="w-4 h-4" />
         </button>
         <button
           onClick={() => setConfirmDelete(true)}
@@ -251,5 +316,6 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }

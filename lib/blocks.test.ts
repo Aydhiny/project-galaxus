@@ -55,3 +55,36 @@ describe("summaries", () => {
     expect(blocksToPlainText(blocks)).toBe("Week plan · Gym · Read");
   });
 });
+
+describe("notion extras", () => {
+  it("parses YouTube links", async () => {
+    const { youtubeId } = await import("./blocks");
+    expect(youtubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(youtubeId("https://youtu.be/dQw4w9WgXcQ?t=3")).toBe("dQw4w9WgXcQ");
+    expect(youtubeId("https://youtube.com/shorts/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(youtubeId("https://example.com")).toBeNull();
+  });
+  it("keeps only safe urls, clamps image width and indent", async () => {
+    const { sanitizeBlocks } = await import("./blocks");
+    const [img, bad, list] = sanitizeBlocks([
+      { id: "a", type: "image", text: "cap", url: "/api/page-files/abcdef1234", width: 500 },
+      { id: "b", type: "bookmark", text: "", url: "javascript:alert(1)" },
+      { id: "c", type: "bullet", text: "x", indent: 9, color: "red" },
+    ]);
+    expect(img.url).toBe("/api/page-files/abcdef1234");
+    expect(img.width).toBe(100);
+    expect(bad.url).toBeUndefined();
+    expect(list.indent).toBe(3);
+    expect(list.color).toBe("red");
+  });
+  it("numbers nested lists per level", async () => {
+    const { listNumber } = await import("./blocks");
+    const bs = [
+      { id: "1", type: "numbered" as const, text: "" },
+      { id: "2", type: "numbered" as const, text: "", indent: 1 },
+      { id: "3", type: "numbered" as const, text: "" },
+    ];
+    expect(listNumber(bs, 2)).toBe(2);
+    expect(listNumber(bs, 1)).toBe(1);
+  });
+});

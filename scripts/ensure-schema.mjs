@@ -535,6 +535,17 @@ const STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_opportunities_user_source_ext" ON "opportunities" ("user_id", "source", "ext_id")`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "empire_public" boolean DEFAULT false`,
+  `ALTER TABLE "workspace_pages" ADD COLUMN IF NOT EXISTS "cover" varchar(300)`,
+  `CREATE TABLE IF NOT EXISTS "page_files" (
+    "id" varchar(40) PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "mime" varchar(60) NOT NULL,
+    "data" text NOT NULL,
+    "bytes" integer NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "page_files_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_page_files_user" ON "page_files" ("user_id")`,
   `CREATE TABLE IF NOT EXISTS "short_jobs" (
     "id" serial PRIMARY KEY NOT NULL,
     "user_id" integer NOT NULL,

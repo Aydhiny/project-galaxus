@@ -377,6 +377,7 @@ export const workspacePages = pgTable(
     title: varchar("title", { length: 255 }).notNull().default(""),
     icon: varchar("icon", { length: 16 }),
     blocks: jsonb("blocks").$type<Block[]>().notNull().default([]),
+    cover: varchar("cover", { length: 300 }), // gradient key or /api/page-files/<id>
     isFavorite: boolean("is_favorite").notNull().default(false),
     orderIndex: integer("order_index").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow(),
@@ -1130,6 +1131,21 @@ export const activityMinutes = pgTable(
     secs: integer("secs").notNull(),
   },
   (t) => [uniqueIndex("uq_activity_user_minute_cat").on(t.userId, t.minute, t.category), index("idx_activity_user_minute").on(t.userId, t.minute)]
+);
+
+// Images in Pages (pasted / dropped / uploaded). Private to the owner, served
+// through /api/page-files/<id>; compressed in the browser before upload.
+export const pageFiles = pgTable(
+  "page_files",
+  {
+    id: varchar("id", { length: 40 }).primaryKey(),
+    userId: userIdCol(),
+    mime: varchar("mime", { length: 60 }).notNull(),
+    data: text("data").notNull(), // base64
+    bytes: integer("bytes").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_page_files_user").on(t.userId)]
 );
 
 // Shorts studio: a voice recording you upload → a worker on your own PC runs
