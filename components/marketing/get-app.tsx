@@ -14,12 +14,12 @@ const BENEFITS = [
 /** Landing-page "Get the app" section — same install panel as /install. */
 export function MarketingGetApp({ downloads }: { downloads: DesktopDownloads }) {
   return (
-    <section id="download" className="relative py-24 sm:py-32 px-4 sm:px-6 scroll-mt-20">
+    <section id="download" className="relative py-24 sm:py-32 px-5 sm:px-6 scroll-mt-20">
       <div className="mx-auto max-w-5xl grid gap-12 lg:grid-cols-[1fr_1.15fr] lg:items-start">
         <div className="lg:sticky lg:top-28">
-          <p className="section-label mb-3">Get the app</p>
-          <h2 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight">On every screen you own.</h2>
-          <p className="mt-4 text-muted-foreground max-w-md">
+          <p className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-white/45"><span className="text-white/80 font-semibold">04</span><span className="h-px w-8 bg-white/20" />Get the app</p>
+          <h2 className="mt-4 mk-display text-3xl sm:text-5xl font-semibold leading-[1.05] text-white">On every screen <span className="mk-serif mk-accent text-[1.12em]">you own.</span></h2>
+          <p className="mt-5 text-white/60 max-w-md">
             Install Galaxus on your phone, Mac or PC. It opens in its own window with its own icon — and because it
             runs the live app, you always have the newest version without updating anything.
           </p>
@@ -27,7 +27,7 @@ export function MarketingGetApp({ downloads }: { downloads: DesktopDownloads }) 
           <ul className="mt-8 space-y-2.5">
             {BENEFITS.map((b) => (
               <li key={b} className="flex items-center gap-2.5 text-sm">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <span className="w-5 h-5 rounded-full border border-white/15 text-white/80 flex items-center justify-center shrink-0">
                   <Check className="w-3 h-3" strokeWidth={3} />
                 </span>
                 {b}

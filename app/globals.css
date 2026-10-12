@@ -742,3 +742,23 @@ html.dark[data-room="mountain"] body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Marketing (landing) — sleek monochrome: near-black, white, one violet accent for italic words ─── */
+.mk { background: #09090b; color: #f4f4f5; }
+.mk-display { font-family: var(--font-display), var(--font-heading), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
+.mk-serif { font-family: var(--font-serif), Georgia, serif; font-style: italic; font-weight: 500; letter-spacing: -0.01em; }
+.mk-accent { color: #b4a5ff; }
+/* A faint technical grid that fades out — texture without colour. */
+.mk-grid {
+  background-image: linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(70% 60% at 50% 30%, #000 20%, transparent 75%);
+}
+.mk-card { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); }
+.mk-tag { font-family: var(--font-geist-mono), ui-monospace, monospace; font-size: 11px; letter-spacing: 0.02em; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); border-radius: 999px; padding: 3px 10px; }
+@keyframes mk-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.mk-marquee { animation: mk-marquee 38s linear infinite; }
+@keyframes mk-float { 0%, 100% { transform: translate3d(0, 0, var(--z, 40px)); } 50% { transform: translate3d(0, -10px, var(--z, 40px)); } }
+.mk-float { animation: mk-float 6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mk-marquee, .mk-float { animation: none; } }

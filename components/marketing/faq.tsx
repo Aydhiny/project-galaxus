@@ -5,7 +5,15 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 const FAQS = [
   {
     q: "Is my data private and separate from other accounts?",
-    a: "Yes. Every account's habits, prayers, goals, journal entries, and creative logs are fully isolated — no one else can see or touch your data, and you can't see theirs.",
+    a: "Yes. Every account is fully isolated, and your diary is encrypted and only opens with your PIN. Sharing your 3D city is opt-in, and visitors only see building levels and numbers, never your tasks, emails, deals or diary.",
+  },
+  {
+    q: "Do I need my own Claude?",
+    a: "For the AI features, yes. Galaxus never shares one person's AI with another. Connect your own Claude subscription (a two-minute GitHub runner setup) or paste your own Anthropic API key. Everything else works without it.",
+  },
+  {
+    q: "Will the automations message people for me?",
+    a: "Email autopilot starts in shadow mode (drafts only) until you switch it on, and only applies to posts that ask for email. Outreach drafts WhatsApp and email messages that you send yourself. Galaxus never bot-DMs anyone on Reddit or Instagram.",
   },
   {
     q: "Is Galaxus tied to a specific religion?",
@@ -13,7 +21,7 @@ const FAQS = [
   },
   {
     q: "Can I use Galaxus for free?",
-    a: "Yes — the Free plan covers daily check-ins, goals, journaling, and spiritual tracking with no time limit. Pro adds deeper insights, unlimited history, and more customization.",
+    a: "Yes. The Free plan includes your empire, tasks, goals, prayer times and the private diary with no time limit. Pro adds deeper insights, unlimited history and more customization.",
   },
   {
     q: "Is there an app for my phone or computer?",
@@ -27,11 +35,11 @@ const FAQS = [
 
 export function MarketingFaq() {
   return (
-    <Accordion defaultValue={[0]} className="max-w-2xl mx-auto">
+    <Accordion defaultValue={[0]} className="max-w-3xl mx-auto">
       {FAQS.map((f, i) => (
-        <AccordionItem key={i} value={i} className="glass rounded-xl px-5 mb-3 border-0">
-          <AccordionTrigger className="font-heading text-base">{f.q}</AccordionTrigger>
-          <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
+        <AccordionItem key={i} value={i} className="mk-card rounded-2xl px-5 sm:px-6 mb-3 border-0">
+          <AccordionTrigger className="mk-display text-[15px] font-medium text-white hover:no-underline">{f.q}</AccordionTrigger>
+          <AccordionContent className="text-white/60 leading-relaxed">{f.a}</AccordionContent>
         </AccordionItem>
       ))}
     </Accordion>

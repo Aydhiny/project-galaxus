@@ -1,13 +1,11 @@
 "use client";
 
-// Landing page: a live, explorable empire city (the same engine as the app,
-// with demo data). three.js loads only when the section scrolls into view,
-// and the render loop stops whenever it's off screen.
+// Landing page hero visual: a live, explorable empire city (the same engine as
+// the app, with demo data). three.js loads only when it scrolls into view, and
+// the render loop stops whenever it's off screen.
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { ArrowRight, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Building, World, WorldEvent } from "@/lib/client/empire";
 import type { EmpireEngine } from "@/components/empire/engine";
@@ -38,15 +36,15 @@ const DEMO_EVENTS: WorldEvent[] = [
   { id: "$", type: "money", at: "", label: "", amount: 450, source: "retainer" },
 ];
 
-export function MarketingEmpire() {
-  const { status } = useSession();
+export function EmpireCanvas({ className }: { className?: string }) {
   const host = useRef<HTMLDivElement>(null);
-  const section = useRef<HTMLElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
   const engine = useRef<EmpireEngine | null>(null);
   const [night, setNight] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const el = section.current;
+    const el = wrap.current;
     if (!el) return;
     let disposed = false;
     let demoTimer: ReturnType<typeof setInterval> | null = null;
@@ -59,41 +57,28 @@ export function MarketingEmpire() {
         e.setWorld(DEMO_WORLD, null);
         e.setTimeOfDay(12);
         engine.current = e;
+        setReady(true);
         let k = 0;
         demoTimer = setInterval(() => { if (!document.hidden) engine.current?.event(DEMO_EVENTS[k++ % DEMO_EVENTS.length]); }, 3500);
       }
       engine.current?.setActive(entry.isIntersecting);
-    }, { threshold: 0.15 });
+    }, { threshold: 0.1 });
     io.observe(el);
     return () => { disposed = true; io.disconnect(); if (demoTimer) clearInterval(demoTimer); engine.current?.dispose(); engine.current = null; };
   }, []);
 
-  const authed = status === "authenticated";
   return (
-    <section ref={section} id="empire" className="relative py-24 sm:py-32 px-4 sm:px-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <p className="section-label mb-3">Your empire</p>
-          <h2 className="font-heading text-3xl sm:text-5xl font-bold tracking-tight">Watch your life run like a city</h2>
-          <p className="mt-4 text-muted-foreground">Every system you build becomes a building. Automations light up the windows, factories smoke while they work, and the whole city grows as you level up. Drag to explore.</p>
-        </div>
-        <div className="relative rounded-3xl overflow-hidden border border-border bg-[#bfdcf0] aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/8]">
-          <div ref={host} className="absolute inset-0" />
-          <div className="absolute top-3 right-3 flex rounded-xl bg-black/55 backdrop-blur-md p-0.5">
-            {([[false, Sun, "Day"], [true, Moon, "Night"]] as const).map(([n, Icon, t]) => (
-              <button key={t} onClick={() => { setNight(n); engine.current?.setTimeOfDay(n ? 22 : 12); }} title={t}
-                className={cn("w-9 h-9 rounded-lg flex items-center justify-center", night === n ? "bg-white text-black" : "text-white/80")}>
-                <Icon className="w-4 h-4" />
-              </button>
-            ))}
-          </div>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-            <Link href={authed ? "/empire" : "/register"} className="inline-flex items-center gap-2 h-11 px-5 whitespace-nowrap text-sm sm:text-base rounded-full bg-white text-black font-semibold shadow-xl hover:scale-105 transition-transform">
-              {authed ? "Open your empire" : "Build your empire — free"} <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
+    <div ref={wrap} className={cn("relative overflow-hidden bg-[#bfdcf0]", className)}>
+      <div ref={host} className="absolute inset-0" />
+      {!ready && <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-[#cfe6f5] to-[#a9cf98]" />}
+      <div className="absolute top-3 right-3 flex rounded-xl bg-black/55 backdrop-blur-md p-0.5">
+        {([false, true] as const).map((n) => (
+          <button key={String(n)} onClick={() => { setNight(n); engine.current?.setTimeOfDay(n ? 22 : 12); }} aria-label={n ? "Night" : "Day"}
+            className={cn("w-8 h-8 rounded-lg flex items-center justify-center", night === n ? "bg-white text-black" : "text-white/80")}>
+            {n ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
+        ))}
       </div>
-    </section>
+    </div>
   );
 }

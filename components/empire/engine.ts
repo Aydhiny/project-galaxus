@@ -15,6 +15,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Building, World, WorldEvent } from "@/lib/client/empire";
 import { CityLife } from "./life";
+import { logoTexture } from "./logo-texture";
 import { siClaude, siDiscord, siGmail, siReddit, siRss, siStripe, siUnity, siWhatsapp, siYoutube } from "simple-icons";
 
 /** Real brand logos above the buildings that use those services. */
@@ -28,24 +29,6 @@ export type SoundMix = { key: "construction" | "factory" | "vault" | "mosque"; g
 
 /** Which building a payment drives out of, by income source. */
 const MONEY_FROM: Record<string, string> = { client: "outreach", retainer: "outreach", gig: "radar", beat: "studio", stripe: "hq", other: "hq" };
-
-/** A round logo badge drawn from the brand's official SVG path (simple-icons, CC0). */
-function logoTexture(path: string, hex: string) {
-  const c = document.createElement("canvas");
-  c.width = c.height = 128;
-  const g = c.getContext("2d")!;
-  g.fillStyle = "#ffffff";
-  g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
-  g.fillStyle = hex.toUpperCase() === "FFFFFF" ? "#222c37" : `#${hex}`; // white marks (Unity) get a dark badge
-  g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.fill();
-  g.translate(64 - 36, 64 - 36);
-  g.scale(3, 3); // simple-icons paths live in a 24×24 box → 72 px
-  g.fillStyle = "#ffffff";
-  g.fill(new Path2D(path));
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
 
 type Quality = "low" | "high";
 type Anchor = { id: string; obj: THREE.Object3D; top: number };

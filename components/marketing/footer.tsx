@@ -1,14 +1,18 @@
 import Link from "next/link";
+import { GalaxusMark, PlansioMark } from "@/components/marketing/ui";
 
 const FOOTER_LINKS = {
   Product: [
+    { href: "#empire", label: "Empire" },
     { href: "#features", label: "Features" },
+    { href: "#connectors", label: "Connectors" },
     { href: "#pricing", label: "Pricing" },
     { href: "#faq", label: "FAQ" },
   ],
   Account: [
     { href: "/login", label: "Sign in" },
     { href: "/register", label: "Create account" },
+    { href: "/install", label: "Install the app" },
   ],
   Legal: [
     { href: "/privacy", label: "Privacy Policy" },
@@ -19,28 +23,25 @@ const FOOTER_LINKS = {
 export function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="relative border-t border-border/60 mt-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+    <footer className="relative border-t border-white/[0.08] mt-12">
+      <div className="mx-auto max-w-6xl px-5 sm:px-6 py-14">
+        <div className="grid grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr] gap-10">
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-lg" style={{ filter: "drop-shadow(0 0 8px rgba(23,62,255,0.8))" }}>✦</span>
-              <span className="font-heading font-bold text-lg tracking-tight">Galaxus</span>
-            </Link>
-            <p className="text-sm text-muted-foreground mt-3 max-w-[22ch]">
-              Your personal universe — habits, goals, and growth, all in one place.
-            </p>
+            <Link href="/" aria-label="Galaxus home"><GalaxusMark /></Link>
+            <p className="text-sm text-white/50 mt-4 max-w-[30ch] leading-relaxed">Your life as a living 3D empire: habits, faith, money and craft in one place.</p>
+            <div className="mt-6 inline-flex items-center gap-3 rounded-2xl mk-card px-4 py-3">
+              <PlansioMark size={30} label={false} />
+              <span className="text-xs text-white/55 leading-tight">Designed &amp; built by<br /><a href="https://plansio.agency" target="_blank" rel="noopener" className="mk-serif text-base text-white hover:mk-accent">Plansio</a></span>
+            </div>
           </div>
 
           {Object.entries(FOOTER_LINKS).map(([section, links]) => (
             <div key={section}>
-              <p className="section-label mb-3">{section}</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/40 mb-4">{section}</p>
               <ul className="flex flex-col gap-2.5">
                 {links.map((l) => (
                   <li key={l.href}>
-                    <Link href={l.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      {l.label}
-                    </Link>
+                    <Link href={l.href} className="text-sm text-white/60 hover:text-white transition-colors">{l.label}</Link>
                   </li>
                 ))}
               </ul>
@@ -48,11 +49,9 @@ export function MarketingFooter() {
           ))}
         </div>
 
-        <div className="lw-divider" />
-
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-          <p>© {year} Galaxus. Built by Plansio.</p>
-          <p className="text-muted-foreground/60">Made for people building a life, not just a to-do list.</p>
+        <div className="mt-12 pt-6 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
+          <p>© {year} Galaxus · a <a href="https://plansio.agency" target="_blank" rel="noopener" className="hover:text-white">Plansio</a> product</p>
+          <p>Made for people building a life, not just a to-do list.</p>
         </div>
       </div>
     </footer>

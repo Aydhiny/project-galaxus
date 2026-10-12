@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { MarketingHero } from "@/components/marketing/hero";
-import { MarketingEmpire } from "@/components/marketing/empire-showcase";
-import { MarketingPillars } from "@/components/marketing/pillars";
-import { MarketingComparison } from "@/components/marketing/comparison";
-import { MarketingProductPreview } from "@/components/marketing/product-preview";
-import { MarketingChangelog } from "@/components/marketing/changelog";
+import { MarketingFeatures } from "@/components/marketing/features";
+import { MarketingConnectors } from "@/components/marketing/connectors";
 import { MarketingPricing } from "@/components/marketing/pricing";
 import { MarketingFaq } from "@/components/marketing/faq";
 import { MarketingGetApp } from "@/components/marketing/get-app";
+import { GhostCta, PlansioMark, PrimaryCta, SectionHead } from "@/components/marketing/ui";
 import { getDesktopDownloads } from "@/lib/desktop-release";
-import { MovingBorderBtn } from "@/components/aceternity/moving-border-btn";
-import { ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Galaxus — Your Personal Growth Universe",
+  title: "Galaxus — Run your life like an empire",
   description:
-    "Habits, prayers, goals, deep work, and creative projects — tracked, streaked, and visualized in one calm, beautiful space. Built by Plansio.",
+    "Tasks, prayers, money, gigs and your craft as a living 3D city, with automations that scout work, send emails and file deadlines for you. By Plansio.",
 };
 
 // Picks up newly published desktop installers within ~10 minutes.
@@ -27,36 +22,34 @@ export default async function MarketingHomePage() {
   return (
     <>
       <MarketingHero />
-      <MarketingEmpire />
-      <MarketingPillars />
-      <MarketingComparison />
-      <MarketingProductPreview />
-      <MarketingChangelog />
+      <MarketingFeatures />
+      <MarketingConnectors />
       <MarketingPricing />
       <MarketingGetApp downloads={downloads} />
 
-      <section id="faq" className="relative py-24 sm:py-32 px-4 sm:px-6">
-        <div className="mx-auto max-w-3xl text-center mb-14">
-          <p className="section-label mb-3">FAQ</p>
-          <h2 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight">Questions, answered</h2>
+      <section id="faq" className="relative py-24 sm:py-32 px-5 sm:px-6 scroll-mt-20">
+        <div className="mb-14">
+          <SectionHead n="05" eyebrow="FAQ" title="Questions," accent="answered." center />
         </div>
         <MarketingFaq />
       </section>
 
-      <section className="relative py-24 sm:py-28 px-4 sm:px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight">
-            Your universe is waiting.
-          </h2>
-          <p className="mt-4 text-muted-foreground max-w-md mx-auto">
-            Start free in under a minute — no credit card, no fifteen other apps.
-          </p>
-          <Link href="/register" className="inline-block mt-8">
-            <MovingBorderBtn className="px-7 py-3 text-[15px]" duration={4}>
-              Start your universe — free
-              <ArrowRight className="w-4 h-4" />
-            </MovingBorderBtn>
-          </Link>
+      <section className="relative px-5 sm:px-6 pb-24">
+        <div className="relative mx-auto max-w-6xl rounded-[32px] border border-white/10 overflow-hidden">
+          <div className="relative bg-white/[0.02] px-6 py-16 sm:px-12 sm:py-24 text-center overflow-hidden">
+            <div className="absolute inset-0 mk-grid" aria-hidden />
+            <div className="relative">
+              <h2 className="mk-display text-4xl sm:text-6xl font-semibold leading-[1.02] text-white">
+                Your empire is <span className="mk-serif mk-accent text-[1.15em]">waiting.</span>
+              </h2>
+              <p className="mt-5 text-white/60 max-w-md mx-auto">Start free in under a minute. No credit card, no fifteen other apps.</p>
+              <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+                <PrimaryCta href="/register">Build your empire, free</PrimaryCta>
+                <GhostCta href="/login">Sign in</GhostCta>
+              </div>
+              <p className="mt-10 inline-flex items-center gap-2 text-xs text-white/40">A product of <PlansioMark size={20} className="text-sm" /></p>
+            </div>
+          </div>
         </div>
       </section>
     </>
