@@ -131,9 +131,9 @@ export class CityLife {
 
   /** Grass tufts and flower dots outside the roads (two instanced meshes). */
   buildMeadow() {
-    const tufts = this.h.quality === "high" ? 700 : 300;
+    const tufts = this.h.quality === "high" ? 220 : 90;
     const tuftMesh = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.7, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), tufts);
-    const flowers = this.h.quality === "high" ? 260 : 110;
+    const flowers = this.h.quality === "high" ? 80 : 30;
     const flowerMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 6, 4), new THREE.MeshLambertMaterial({ color: 0xffffff }), flowers);
     const o = new THREE.Object3D(), c = new THREE.Color();
     const spot = () => {
@@ -164,17 +164,17 @@ export class CityLife {
       const s = new THREE.IcosahedronGeometry(r, 3); s.translate(x, y, z); puffs.push(s);
     }
     const geo = mergeGeometries(puffs); geo.scale(1, 0.62, 0.8);
-    const count = this.h.quality === "high" ? 18 : 10;
+    const count = this.h.quality === "high" ? 9 : 5;
     this.clouds = new THREE.InstancedMesh(geo, this.cloudMat, count);
     for (let i = 0; i < count; i++) this.cloudState.push({ a: Math.random() * Math.PI * 2, r: 45 + Math.random() * 65, y: 22 + Math.random() * 10, s: 1 + Math.random() * 1.4, v: (0.012 + Math.random() * 0.015) * (Math.random() < 0.5 ? 1 : -1) });
     this.h.scene.add(this.clouds);
 
-    const drops = this.h.quality === "high" ? 1800 : 700;
+    const drops = this.h.quality === "high" ? 420 : 160;
     this.rainPos = new Float32Array(drops * 6);
     for (let i = 0; i < drops; i++) this.resetDrop(i, Math.random() * 50);
     const rg = new THREE.BufferGeometry();
     rg.setAttribute("position", new THREE.BufferAttribute(this.rainPos, 3));
-    this.rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xb8cadb, transparent: true, opacity: 0.55 }));
+    this.rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xc9d6e2, transparent: true, opacity: 0.28 }));
     this.rain.frustumCulled = false;
     this.rain.visible = false;
     this.h.scene.add(this.rain);
@@ -188,10 +188,14 @@ export class CityLife {
 
   setWeather(w: Weather) { this.weather = w; }
 
+  /** Lite mode: no rain, a few clouds, small fireworks — for laptops and calm. */
+  lite = false;
+  setLite(on: boolean) { this.lite = on; if (on) this.rain.visible = false; }
+
   private tickWeather(dt: number, night: number) {
-    const target = this.weather === "rain" ? 1 : this.weather === "clouds" ? 0.45 : 0;
+    const target = this.weather === "rain" ? 0.9 : this.weather === "clouds" ? 0.35 : 0;
     this.overcast += (target - this.overcast) * Math.min(1, dt * 0.8);
-    const visible = Math.round(lerp(this.h.quality === "high" ? 7 : 4, this.cloudState.length, Math.min(1, this.overcast * 1.6)));
+    const visible = this.lite ? Math.min(3, this.cloudState.length) : Math.round(lerp(4, this.cloudState.length, Math.min(1, this.overcast * 1.2)));
     this.cloudMat.color.setRGB(1, 1, 1).lerp(new THREE.Color(0x8a939d), this.overcast * 0.8).lerp(new THREE.Color(0x2a3140), night * 0.7);
     const o = new THREE.Object3D();
     this.cloudState.forEach((c, i) => {
@@ -205,7 +209,7 @@ export class CityLife {
     });
     this.clouds.instanceMatrix.needsUpdate = true;
 
-    const raining = this.overcast > 0.75;
+    const raining = this.overcast > 0.85 && !this.lite;
     this.rain.visible = raining;
     if (raining) {
       const fall = 38 * dt;
@@ -447,7 +451,7 @@ export class CityLife {
   }
 
   private burst(at: THREE.Vector3) {
-    const n = this.h.quality === "high" ? 160 : 80;
+    const n = this.lite ? 40 : this.h.quality === "high" ? 90 : 50;
     const pos = new Float32Array(n * 3), vel: THREE.Vector3[] = [], col = new Float32Array(n * 3);
     const hue = Math.random();
     const c = new THREE.Color();

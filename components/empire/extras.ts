@@ -112,7 +112,7 @@ export class CityExtras {
     // Falling particles
     if (this.particles) { this.h.scene.remove(this.particles.mesh); this.particles.mesh.geometry.dispose(); this.particles = null; }
     if (season.kind !== "summer") {
-      const count = this.h.quality === "high" ? (season.kind === "winter" ? 900 : 260) : (season.kind === "winter" ? 400 : 120);
+      const count = this.h.quality === "high" ? (season.kind === "winter" ? 260 : 70) : (season.kind === "winter" ? 110 : 35);
       const geo = season.kind === "winter" ? new THREE.SphereGeometry(0.12, 5, 4) : new THREE.PlaneGeometry(0.42, 0.28);
       const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
       const mesh = new THREE.InstancedMesh(geo, mat, count);
@@ -226,13 +226,17 @@ export class CityExtras {
 
   // ─── Frame ─────────────────────────────────────────────────────────────────
 
+  /** Lite mode hides the falling leaves / snow / petals entirely. */
+  private lite = false;
+  setLite(on: boolean) { this.lite = on; if (this.particles) this.particles.mesh.visible = !on; }
+
   tick(dt: number, t: number, night: number) {
     // Constellations fade in after dusk.
     const vis = Math.max(0, night - 0.35) * 1.6;
     for (const m of this.skyMats) m.opacity = Math.min(1, vis) * (m.userData.base ?? 1);
     this.skyGroup.visible = vis > 0.01;
 
-    if (this.particles) {
+    if (this.particles && !this.lite) {
       const { mesh, state, kind } = this.particles;
       const o = new THREE.Object3D();
       state.forEach((s, i) => {

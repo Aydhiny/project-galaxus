@@ -182,10 +182,12 @@ export class EmpireEngine {
       clearTreesNear: (pts, r) => this.clearTreesNear(pts, r),
     });
     this.life.buildMeadow();
+    this.life.setLite(this.quality === "low");
     this.extras = new CityExtras({
       scene: this.scene, quality: this.quality,
       posOf: (id) => { const a = this.anchors.find((x) => x.id === id); return a ? a.obj.getWorldPosition(new THREE.Vector3()) : null; },
     });
+    this.extras.setLite(this.quality === "low");
     this.scene.add(this.buildingsGroup);
     this.resize();
 
@@ -292,7 +294,7 @@ export class EmpireEngine {
     const body = new THREE.BoxGeometry(1.8, 0.55, 0.9); body.translate(0, 0.45, 0);
     const cabin = new THREE.BoxGeometry(0.95, 0.42, 0.8); cabin.translate(-0.1, 0.92, 0);
     const carGeo = mergeGeometries([body, cabin]);
-    const carCount = this.quality === "high" ? 44 : 22;
+    const carCount = this.quality === "high" ? 26 : 14;
     this.cars = new THREE.InstancedMesh(carGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), carCount);
     this.cars.castShadow = this.quality === "high";
     this.lights = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.14, 0.7), new THREE.MeshBasicMaterial({ color: 0xfff6d0, transparent: true, opacity: 0 }), carCount);
@@ -468,7 +470,7 @@ export class EmpireEngine {
           const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 4.5, 10), this.mat(0x7d4a3a));
           chimney.position.set(x, h + 2.25, -1); chimney.castShadow = true; g.add(chimney);
           // Smoke: a few instanced puffs that rise and fade — only when automation is running.
-          const puffs = this.quality === "high" ? 10 : 6;
+          const puffs = this.quality === "high" ? 6 : 4;
           const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.55, 8, 6), new THREE.MeshLambertMaterial({ color: 0xe8e8e8, transparent: true, opacity: 0.75 }), puffs);
           const t = new Float32Array(puffs).map((_, i) => i / puffs);
           g.add(mesh);
@@ -860,6 +862,9 @@ export class EmpireEngine {
 
   setQuality(q: Quality) {
     this.quality = q;
+    // Lite = calm city: no rain or falling particles, fewer clouds, small fireworks.
+    this.life?.setLite(q === "low");
+    this.extras?.setLite(q === "low");
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, q === "high" ? 1.75 : 1));
     this.renderer.shadowMap.enabled = q === "high";
     this.applyShadows();

@@ -118,6 +118,11 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       engine.current = e;
       e.setMood(useSpotifyStore.getState().now?.isPlaying ? "disco" : useMusicStore.getState().activeId ? "hibernate" : "normal");
       e.setPrayer(!!usePrayerStore.getState().current);
+      // Your Lite choice is remembered per device.
+      let pref: string | null = null;
+      try { pref = localStorage.getItem("empire-lite"); } catch { /* private mode */ }
+      if (pref === "1") e.setQuality("low");
+      else if (pref === "0") e.setQuality("high");
       setLite(e.getQuality() === "low");
       e.setActive(true);
       if (state) { e.setStyle(state.style); e.setBuildings(state.buildings); applyWorld(e, state); }
@@ -353,8 +358,8 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
           className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center" title={sound ? "Mute sounds" : "Sounds on"}>
           {sound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
-        <button onClick={() => { const next = !lite; setLite(next); engine.current?.setQuality(next ? "low" : "high"); play("toggle"); }}
-          className={cn("h-10 w-10 sm:w-auto sm:px-3 rounded-xl backdrop-blur-md flex items-center justify-center gap-1.5 text-xs", lite ? "bg-white text-black" : "bg-black/55 text-white")} title="Lite mode for slower PCs">
+        <button onClick={() => { const next = !lite; setLite(next); engine.current?.setQuality(next ? "low" : "high"); try { localStorage.setItem("empire-lite", next ? "1" : "0"); } catch { /* private mode */ } play("toggle"); }}
+          className={cn("h-10 w-10 sm:w-auto sm:px-3 rounded-xl backdrop-blur-md flex items-center justify-center gap-1.5 text-xs", lite ? "bg-white text-black" : "bg-black/55 text-white")} title="Lite: calm city — no rain or falling particles, lighter graphics">
           <Gauge className="w-4 h-4" /> <span className="hidden sm:inline">{lite ? "Lite" : "High"}</span>
         </button>
       </div>
