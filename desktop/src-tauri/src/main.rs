@@ -14,6 +14,7 @@
 //                      .flp) in one folder you choose, so finished beats can be
 //                      logged automatically.
 //   • focus_window   — bring this window to the front (doomscroll guard).
+//   • toggle_wallpaper — your empire as a live desktop wallpaper (a window behind all others).
 // Closing the window hides it to the tray so tracking keeps running.
 
 use serde::Serialize;
@@ -189,6 +190,30 @@ fn focus_window(window: tauri::WebviewWindow) {
     let _ = window.set_focus();
 }
 
+/// Your empire as a live desktop wallpaper: a borderless, click-through window
+/// that stays behind every other window. Calling it again turns it off.
+/// (async: creating windows from a sync command can deadlock on Windows.)
+#[tauri::command]
+async fn toggle_wallpaper(app: tauri::AppHandle) -> Result<bool, String> {
+    if let Some(w) = app.get_webview_window("wallpaper") {
+        w.close().map_err(|e| e.to_string())?;
+        return Ok(false);
+    }
+    let url: tauri::Url = "https://project-galaxus.vercel.app/wallpaper".parse().map_err(|_| "bad url".to_string())?;
+    let w = tauri::WebviewWindowBuilder::new(&app, "wallpaper", tauri::WebviewUrl::External(url))
+        .title("Galaxus wallpaper")
+        .decorations(false)
+        .always_on_bottom(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .focused(false)
+        .maximized(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let _ = w.set_ignore_cursor_events(true);
+    Ok(true)
+}
+
 fn main() {
     let tracker: Shared = Arc::new(Mutex::new(Tracker::default()));
     let sampler = tracker.clone();
@@ -199,7 +224,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(tracker)
-        .invoke_handler(tauri::generate_handler![activity_poll, list_new_files, focus_window])
+        .invoke_handler(tauri::generate_handler![activity_poll, list_new_files, focus_window, toggle_wallpaper])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Galaxus", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit Galaxus", true, None::<&str>)?;
@@ -223,8 +248,10 @@ fn main() {
         // Closing the window keeps Galaxus in the tray, so tracking continues. Quit from the tray menu.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
+                if window.label() == "main" {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
             }
         })
         .run(tauri::generate_context!())

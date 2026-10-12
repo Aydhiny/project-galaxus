@@ -25,7 +25,45 @@ export type World = {
   airships: Airship[];
   radarScanning: boolean;
   distracted: boolean; // 20+ min of doomscrolling just now (desktop app) → fog
+  citizens: Citizen[];
+  sky: { key: string; label: string; level: number }[]; // one constellation per skill
+  season: Season;
 };
+
+/** A routine, walking the city as a person. */
+export type Citizen = { id: number; name: string; streak: number; doneToday: boolean; sad: boolean };
+export type Season = { kind: "spring" | "summer" | "autumn" | "winter"; ramadan: boolean; eid: boolean };
+
+/** Season from the real date (northern hemisphere), Ramadan / Eid from the Islamic calendar. */
+export function seasonFor(d = new Date()): Season {
+  const m = d.getMonth();
+  const kind = m === 11 || m <= 1 ? "winter" : m <= 4 ? "spring" : m <= 7 ? "summer" : "autumn";
+  let hm = 0, hd = 0;
+  try {
+    const parts = new Intl.DateTimeFormat("en-u-ca-islamic", { month: "numeric", day: "numeric" }).formatToParts(d);
+    hm = Number(parts.find((p) => p.type === "month")?.value);
+    hd = Number(parts.find((p) => p.type === "day")?.value);
+  } catch { /* no Islamic calendar support → no Ramadan mode */ }
+  return { kind, ramadan: hm === 9, eid: (hm === 10 && hd <= 3) || (hm === 12 && hd >= 10 && hd <= 13) };
+}
+
+/** Consecutive scheduled days done, counting back from today (today only counts once it's done). */
+export function routineStreak(days: string, doneDates: Set<string>, today: Date): { streak: number; doneToday: boolean; missedYesterday: boolean } {
+  const key = (d: Date) => d.toISOString().slice(0, 10);
+  const scheduled = (d: Date) => days[(d.getUTCDay() + 6) % 7] === "1";
+  const t = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const doneToday = doneDates.has(key(t));
+  let streak = doneToday ? 1 : 0;
+  let missedYesterday = false;
+  const d = new Date(t);
+  for (let i = 0; i < 120; i++) {
+    d.setUTCDate(d.getUTCDate() - 1);
+    if (!scheduled(d)) continue;
+    if (doneDates.has(key(d))) streak++;
+    else { if (streak === (doneToday ? 1 : 0)) missedYesterday = true; break; }
+  }
+  return { streak, doneToday, missedYesterday };
+}
 
 /**
  * Your week as weather. Only the habits you actually track count (someone who

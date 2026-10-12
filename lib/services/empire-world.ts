@@ -7,12 +7,13 @@ import { db } from "@/lib/db";
 import {
   dailyCheckins, diaryEntries, gameCommits, gigEmails, gigs, income, monthlyGoals, opportunities, taskRuns, tasks, voiceCommands,
 } from "@/lib/db/schema";
-import { isNeglected, jobTarget, weatherFor, type World, type WorldEvent } from "@/lib/empire-world";
+import { isNeglected, jobTarget, seasonFor, weatherFor, type World, type WorldEvent } from "@/lib/empire-world";
+import { citizensFor } from "@/lib/services/empire-extras";
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
-export async function worldFor(userId: number, hud: { streak: number; monthKm: number; goalKm: number | null }): Promise<World> {
+export async function worldFor(userId: number, hud: { streak: number; monthKm: number; goalKm: number | null; skills: { key: string; label: string; level: number }[] }): Promise<World> {
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
   const monthAgo = new Date(now.getTime() - 30 * 86_400_000);
@@ -91,5 +92,8 @@ export async function worldFor(userId: number, hud: { streak: number; monthKm: n
     airships: airships.map((a) => ({ ...a, deadline: a.deadline?.toISOString() ?? null })),
     radarScanning: !!lastScan && now.getTime() - lastScan.getTime() < 12 * 60_000,
     distracted: false, // set by empireFor from live activity
+    citizens: await citizensFor(userId),
+    sky: hud.skills.map((s) => ({ key: s.key, label: s.label, level: s.level })),
+    season: seasonFor(now),
   };
 }

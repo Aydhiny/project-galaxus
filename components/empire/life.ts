@@ -32,7 +32,7 @@ type Site = { data: GoalSite; group: THREE.Group; arm: THREE.Object3D | null; po
 const lerp = THREE.MathUtils.lerp;
 const ease = (k: number) => k * k * (3 - 2 * k);
 
-function textSprite(text: string, sub: string, color: string) {
+export function textSprite(text: string, sub: string, color: string) {
   const c = document.createElement("canvas");
   c.width = 512; c.height = 160;
   const g = c.getContext("2d")!;

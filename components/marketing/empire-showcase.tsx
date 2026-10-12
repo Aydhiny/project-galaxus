@@ -20,6 +20,12 @@ const DEMO: Building[] = ([
 
 const DEMO_WORLD: World = {
   weather: { kind: "sun", score: 82, why: "" }, streak: 21, gold: 0.6, neglected: [], events: [], radarScanning: true, distracted: false,
+  citizens: [
+    { id: 1, name: "Fajr", streak: 32, doneToday: true, sad: false }, { id: 2, name: "Workout", streak: 15, doneToday: true, sad: false },
+    { id: 3, name: "Read 10 pages", streak: 8, doneToday: false, sad: false }, { id: 4, name: "Devlog", streak: 0, doneToday: false, sad: true },
+  ],
+  sky: [{ key: "coding", label: "Coding", level: 12 }, { key: "music", label: "Music", level: 9 }, { key: "faith", label: "Faith", level: 7 }, { key: "fitness", label: "Fitness", level: 5 }, { key: "mind", label: "Mind", level: 6 }, { key: "editing", label: "Editing", level: 4 }, { key: "hustle", label: "Hustle", level: 8 }, { key: "discipline", label: "Discipline", level: 10 }],
+  season: { kind: "autumn", ramadan: false, eid: false },
   goals: [
     { id: 1, title: "Ship the game demo", emoji: "🎮", progress: 0.55, done: false },
     { id: 2, title: "First 1,000 subscribers", emoji: "🎬", progress: 1, done: true },

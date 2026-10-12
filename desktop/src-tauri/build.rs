@@ -3,7 +3,7 @@ fn main() {
     // (allow-activity-poll / allow-list-new-files / allow-focus-window) — nothing else is reachable.
     tauri_build::try_build(
         tauri_build::Attributes::new()
-            .app_manifest(tauri_build::AppManifest::new().commands(&["activity_poll", "list_new_files", "focus_window"])),
+            .app_manifest(tauri_build::AppManifest::new().commands(&["activity_poll", "list_new_files", "focus_window", "toggle_wallpaper"])),
     )
     .expect("failed to run tauri-build");
 }

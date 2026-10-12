@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, Clock, Cloud, CloudRain, Gauge, Globe2, HardHat, LocateFixed, Moon, RefreshCw, Sun, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowRight, Circle, Clock, Cloud, CloudRain, DoorOpen, Gauge, Globe2, HardHat, LocateFixed, MonitorPlay, Moon, RefreshCw, Sun, Video, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { BrandIcon, type Brand } from "@/components/brand-icon";
 import { useMusicStore } from "@/lib/store/music";
@@ -19,7 +19,9 @@ import { EmpireAudio } from "@/lib/empire-audio";
 import { nextVakat } from "@/lib/vaktija";
 import { cn } from "@/lib/utils";
 import { getEmpireC, type Building, type EmpireState, type GoalSite } from "@/lib/client/empire";
-import { play, setSfxSettings, sfxSettings } from "@/lib/sfx";
+import { play as sfxPlay, setSfxSettings, sfxSettings, type Sfx } from "@/lib/sfx";
+import { tauriInvoke } from "@/components/desktop-bridge";
+import { InteriorView } from "./interior";
 import type { EmpireEngine } from "./engine";
 
 const hud = "font-hud uppercase tracking-wide";
@@ -30,6 +32,10 @@ const store = {
   get<T>(k: string, fallback: T): T { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; } },
   set(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
 };
+// The wallpaper window is silent — it plays behind your other apps all day.
+const sfxGate = { quiet: false };
+const play = (n: Sfx) => { if (!sfxGate.quiet) sfxPlay(n); };
+
 const FRESH_MS = 20 * 60_000; // events newer than this play when you open the empire
 const WEATHER_ICON = { sun: Sun, clouds: Cloud, rain: CloudRain } as const;
 
@@ -62,7 +68,9 @@ export function EmpireHost() {
   );
 }
 
-function EmpireScene({ active }: { active: boolean }) {
+/** The live city. `chrome={false}` = wallpaper mode: no HUD, no sound, 30 fps. */
+export function EmpireScene({ active, chrome = true }: { active: boolean; chrome?: boolean }) {
+  useEffect(() => { sfxGate.quiet = !chrome; }, [chrome]);
   const router = useRouter();
   const mount = useRef<HTMLDivElement>(null);
   const engine = useRef<EmpireEngine | null>(null);
@@ -118,7 +126,46 @@ function EmpireScene({ active }: { active: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { engine.current?.setActive(active); if (active) play("whoosh"); }, [active]);
+  const [interior, setInterior] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  useEffect(() => { engine.current?.setActive(active && !interior); if (active && !interior) play("whoosh"); }, [active, interior]);
+  useEffect(() => { if (!chrome) engine.current?.setMaxFps(30); }, [chrome, state]);
+
+  /** 15-second flyover of today's city, saved as MP4 (or WebM where MP4 recording isn't supported). */
+  async function record() {
+    const e = engine.current;
+    if (!e || recording) return;
+    const stream = (e.canvas() as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream }).captureStream?.(30);
+    if (!stream || typeof MediaRecorder === "undefined") { toast.error("This browser can't record the canvas."); return; }
+    const type = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
+    const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 8_000_000 } : undefined);
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (ev) => { if (ev.data.size) chunks.push(ev.data); };
+    const done = new Promise<void>((r) => { rec.onstop = () => r(); });
+    setRecording(true);
+    setSelected(null);
+    rec.start(250);
+    await e.flyover(15);
+    rec.stop();
+    await done;
+    setRecording(false);
+    const ext = type.includes("mp4") ? "mp4" : "webm";
+    const url = URL.createObjectURL(new Blob(chunks, { type: type || "video/webm" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `galaxus-empire-${new Date().toISOString().slice(0, 10)}.${ext}`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    play("success");
+    toast.success(`Saved your flyover (${ext.toUpperCase()}).`);
+  }
+
+  async function toggleWallpaper() {
+    const invoke = tauriInvoke();
+    if (!invoke) return;
+    try {
+      const on = await invoke<boolean>("toggle_wallpaper");
+      toast.success(on ? "Your empire is now your desktop wallpaper." : "Wallpaper off.");
+    } catch (e) { toast.error(String(e)); }
+  }
 
   // Live from the desktop app: fog the moment the doomscroll guard trips (no waiting for the next refresh).
   useEffect(() => {
@@ -129,7 +176,7 @@ function EmpireScene({ active }: { active: boolean }) {
 
   // District sounds only while you're looking at the empire with sound on.
   useEffect(() => {
-    if (!active || !sound) return;
+    if (!active || !sound || !chrome) return;
     const a = new EmpireAudio();
     a.start();
     audioRef.current = a;
@@ -171,6 +218,13 @@ function EmpireScene({ active }: { active: boolean }) {
       status: prayerNow ? `${prayerNow} — vrijeme je za namaz` : `${nv.bs} u ${nv.time}`,
       bubbles: prayerNow ? [{ text: `🕌 ${prayerNow} — azan`, tone: "good" as const }] : nv.minutesLeft <= 30 ? [{ text: `${nv.bs} za ${nv.minutesLeft} min`, tone: "info" as const }] : [],
       stats: [{ label: "Next", value: `${nv.bs} ${nv.time}` }, ...b.stats],
+      ...(state?.world.season?.ramadan ? (() => {
+        const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+        const now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
+        const left = toMin(vaktija.times[4]) - cur;
+        const text = left > 0 ? `🌙 Iftar za ${Math.floor(left / 60)}h ${left % 60}m` : cur < toMin(vaktija.times[5]) ? "🌙 Iftar — prijatno!" : `🌙 Sehur do ${vaktija.times[0]}`;
+        return { bubbles: [{ text, tone: (left > 0 ? "info" : "good") as "info" | "good" }, ...(prayerNow ? [{ text: `🕌 ${prayerNow} — azan`, tone: "good" as const }] : [])] };
+      })() : {}),
     };
   });
   const sel = buildings.find((b) => b.id === selected) ?? null;
@@ -231,6 +285,7 @@ function EmpireScene({ active }: { active: boolean }) {
         ))}
       </div>
 
+      {chrome && (<>
       {/* Top-left: empire title */}
       <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-none rounded-2xl bg-black/55 text-white backdrop-blur-md px-3 py-2 sm:px-4 sm:py-3 pointer-events-auto">
         <p className={cn("text-xs text-white/60", hud)}>Your empire</p>
@@ -252,6 +307,12 @@ function EmpireScene({ active }: { active: boolean }) {
       <div className={cn("absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex flex-col sm:flex-row items-end gap-1.5 sm:gap-2 pointer-events-auto", hasSel && "hidden")} data-no-sfx>
         <Link href="/empire/world" title="Visit other empires · monthly contest" onClick={() => play("whoosh")}
           className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><Globe2 className="w-4 h-4" /></Link>
+        <button onClick={() => void record()} disabled={recording} title="Record a 15-second flyover (MP4)"
+          className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center disabled:opacity-50"><Video className="w-4 h-4" /></button>
+        {tauriInvoke() && (
+          <button onClick={() => void toggleWallpaper()} title="Make your empire the desktop wallpaper"
+            className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><MonitorPlay className="w-4 h-4" /></button>
+        )}
         <button onClick={() => { engine.current?.resetView(); play("whoosh"); }} title="Reset view"
           className="w-10 h-10 rounded-xl bg-black/55 text-white backdrop-blur-md flex items-center justify-center"><LocateFixed className="w-4 h-4" /></button>
         <div className="flex flex-col sm:flex-row rounded-xl bg-black/55 backdrop-blur-md p-0.5">
@@ -287,8 +348,15 @@ function EmpireScene({ active }: { active: boolean }) {
       </div>
 
       {/* Building panel */}
-      {sel && <BuildingPanel b={sel} onClose={close} onOpen={() => { play("whoosh"); router.push(sel.route); }} />}
+      {sel && <BuildingPanel b={sel} onClose={close} onOpen={() => { play("whoosh"); router.push(sel.route); }} onEnter={() => { play("whoosh"); setInterior(sel.id); }} />}
       {selGoal && <GoalPanel g={selGoal} onClose={close} onOpen={() => { play("whoosh"); router.push("/tasks"); }} />}
+      </>)}
+      {recording && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-black/70 text-white px-3 py-1.5 text-xs inline-flex items-center gap-2 backdrop-blur">
+          <Circle className="w-2.5 h-2.5 fill-rose-500 text-rose-500 animate-pulse" /> Recording flyover · 15s
+        </div>
+      )}
+      {interior && <InteriorView buildingId={interior} onClose={() => { play("close"); setInterior(null); }} />}
     </div>
   );
 }
@@ -347,7 +415,7 @@ function GoalPanel({ g, onClose, onOpen }: { g: GoalSite; onClose: () => void; o
   );
 }
 
-function BuildingPanel({ b, onClose, onOpen }: { b: Building; onClose: () => void; onOpen: () => void }) {
+function BuildingPanel({ b, onClose, onOpen, onEnter }: { b: Building; onClose: () => void; onOpen: () => void; onEnter: () => void }) {
   return (
     <aside className="absolute z-30 inset-x-0 bottom-0 max-h-[62%] rounded-t-3xl sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-24 sm:max-h-none sm:w-[min(22rem,calc(100%-2rem))] sm:rounded-3xl bg-card border border-border shadow-2xl p-4 sm:p-5 flex flex-col overflow-y-auto overscroll-contain pointer-events-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-right-4 fade-in-0"
       style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
@@ -377,7 +445,10 @@ function BuildingPanel({ b, onClose, onOpen }: { b: Building; onClose: () => voi
           </div>
         ))}
       </div>
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-4 grid gap-2">
+        <button onClick={onEnter} className="w-full h-11 rounded-xl border border-border font-medium inline-flex items-center justify-center gap-2 hover:bg-muted" data-no-sfx>
+          <DoorOpen className="w-4 h-4" /> Step inside
+        </button>
         <Link href={b.route} onClick={(e) => { e.preventDefault(); onOpen(); }}
           className="w-full h-11 rounded-xl bg-foreground text-background font-medium inline-flex items-center justify-center gap-2" data-no-sfx>
           Open {b.label} <ArrowRight className="w-4 h-4" />

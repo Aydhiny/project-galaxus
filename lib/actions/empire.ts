@@ -5,6 +5,11 @@ import { toResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
 import { empireFor } from "@/lib/services/empire";
 import { empireSharingFor, publicEmpireFor, saveEmpireSharingFor, worldListFor } from "@/lib/services/empire-social";
+import { interiorFor } from "@/lib/services/empire-extras";
+
+export async function getInterior(buildingId: string) {
+  return toResult(async () => interiorFor(await requireUserId(), String(buildingId).slice(0, 20)));
+}
 
 export async function getEmpire() {
   return toResult(async () => empireFor(await requireUserId()));

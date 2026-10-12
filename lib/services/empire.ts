@@ -131,7 +131,7 @@ export async function empireFor(userId: number) {
       status: `${hold.wonThisMonth}/${hold.daysSoFar} days won this month`, bubbles: [],
       stats: [{ label: "Days won", value: `${hold.wonThisMonth}/${hold.daysSoFar}` }, { label: "Good nights", value: String(hud.goodNights) }] }),
   ];
-  const [world, act] = await Promise.all([worldFor(userId, { streak: hud.streak, monthKm: hud.monthKm, goalKm: hud.goalKm }), activityStatusFor(userId)]);
+  const [world, act] = await Promise.all([worldFor(userId, { streak: hud.streak, monthKm: hud.monthKm, goalKm: hud.goalKm, skills: hud.skills }), activityStatusFor(userId)]);
   world.distracted = act.doomscrolling;
   // Deep work tracked by the desktop app makes the matching building work right now.
   const live = (id: string, cats: string[], label: string) => {

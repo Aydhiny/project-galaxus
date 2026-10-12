@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The hosted Galaxus site may call exactly three native helpers: activity tracking, new-project-file listing, and bringing its own window to the front. Nothing else (no shell, no file reads).",
+  "description": "The hosted Galaxus site may call exactly four native helpers: activity tracking, new-project-file listing, bringing its own window to the front, and the empire wallpaper window. Nothing else (no shell, no file reads).",
   "windows": ["main"],
   "remote": { "urls": ["https://project-galaxus.vercel.app/*"] },
-  "permissions": ["allow-activity-poll", "allow-list-new-files", "allow-focus-window"]
+  "permissions": ["allow-activity-poll", "allow-list-new-files", "allow-focus-window", "allow-toggle-wallpaper"]
 }

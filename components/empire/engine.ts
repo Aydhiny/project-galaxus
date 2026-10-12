@@ -15,6 +15,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Building, World, WorldEvent } from "@/lib/client/empire";
 import { CityLife } from "./life";
+import { CityExtras } from "./extras";
 import { logoTexture } from "./logo-texture";
 import { siClaude, siDiscord, siGmail, siReddit, siRss, siStripe, siUnity, siWhatsapp, siYoutube } from "simple-icons";
 
@@ -74,6 +75,12 @@ export class EmpireEngine {
   private hemi = new THREE.HemisphereLight(0xdfefff, 0x6a7d5c, 1.1);
   private groundMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
   private life!: CityLife;
+  private extras!: CityExtras;
+  private eid = false;
+  private lastFireworks = 0;
+  private fly: { t: number; dur: number; start: number; resolve: () => void } | null = null;
+  private maxFps = 0; // 0 = unlimited (wallpaper mode caps it)
+  private lastFrame = 0;
   private trees: { trunks: THREE.InstancedMesh; crowns: THREE.InstancedMesh; spots: THREE.Vector3[] } | null = null;
   private radarSpin: { obj: THREE.Object3D; speed: number; axis: "y" | "z" } | null = null;
   private workingIds = new Set<string>();
@@ -171,6 +178,10 @@ export class EmpireEngine {
       clearTreesNear: (pts, r) => this.clearTreesNear(pts, r),
     });
     this.life.buildMeadow();
+    this.extras = new CityExtras({
+      scene: this.scene, quality: this.quality,
+      posOf: (id) => { const a = this.anchors.find((x) => x.id === id); return a ? a.obj.getWorldPosition(new THREE.Vector3()) : null; },
+    });
     this.scene.add(this.buildingsGroup);
     this.resize();
 
@@ -608,6 +619,10 @@ export class EmpireEngine {
     this.life.setRunnerWorking(this.workingIds.has("runner"));
     this.life.setRadarScanning(w.radarScanning);
     this.setDistracted(w.distracted);
+    this.extras.setSky(w.sky ?? []);
+    if (w.season) this.extras.setSeason(w.season, this.trees?.crowns ?? null, this.groundMat);
+    this.extras.setCitizens(w.citizens ?? []);
+    this.eid = !!w.season?.eid;
     if (this.radarSpin) this.radarSpin.speed = w.radarScanning ? 3.2 : this.plots.length ? 1.2 : 0.15;
     return this.life.setGoals(w.goals);
   }
@@ -622,6 +637,17 @@ export class EmpireEngine {
   }
 
   landAirship(id: number) { this.life.landAirship(id); }
+
+  /** One 360° lap around the city (for recording a time-lapse). Resolves when done. */
+  flyover(seconds = 15): Promise<void> {
+    this.fly?.resolve();
+    this.unfocus();
+    this.controls.enabled = false;
+    return new Promise((resolve) => { this.fly = { t: 0, dur: seconds, start: Math.atan2(this.camera.position.z, this.camera.position.x), resolve }; });
+  }
+  canvas() { return this.renderer.domElement; }
+  /** Cap the frame rate (wallpaper mode: 30 fps is plenty and saves the GPU). */
+  setMaxFps(fps: number) { this.maxFps = Math.max(0, fps); }
 
   /** Doomscrolling → fog rolls in (eased). */
   private distracted = 0;
@@ -657,12 +683,14 @@ export class EmpireEngine {
     if (this.running) return;
     this.running = true;
     this.clock.getDelta();
-    const loop = () => {
+    const loop = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
+      if (this.maxFps && now - this.lastFrame < 1000 / this.maxFps - 1) return;
+      this.lastFrame = now;
       this.tick();
     };
-    loop();
+    this.raf = requestAnimationFrame(loop);
   }
 
   stop() {
@@ -673,10 +701,25 @@ export class EmpireEngine {
   private tick() {
     const dt = Math.min(0.05, this.clock.getDelta());
     const t = this.clock.elapsedTime;
-    // Ease the orbit centre toward its goal (smooth focus / unfocus, no jumps).
-    this.controls.target.lerp(this.focusGoal, 0.08);
-    this.controls.autoRotate = !this.interacting && !this.focused && performance.now() - this.lastInteraction > 6000;
-    this.controls.update();
+    if (this.fly) {
+      // Recording flyover: one smooth lap around the city, dipping closer in the middle.
+      const f = this.fly;
+      f.t += dt;
+      const k = Math.min(1, f.t / f.dur);
+      const a = f.start + k * Math.PI * 2;
+      const r = this.homeDist * (1 - 0.32 * Math.sin(k * Math.PI));
+      this.camera.position.set(Math.cos(a) * r * 0.82, 6 + r * (0.42 + 0.12 * Math.cos(k * Math.PI * 2)), Math.sin(a) * r * 0.82);
+      this.controls.target.set(0, 3, 0);
+      this.camera.lookAt(0, 3, 0);
+      if (k >= 1) { this.fly = null; this.controls.enabled = true; f.resolve(); }
+    } else {
+      // At night the view tilts up a little so your constellations are in frame.
+      if (!this.focused) this.focusGoal.y = 3 + Math.max(0, this.night - 0.45) * 19;
+      // Ease the orbit centre toward its goal (smooth focus / unfocus, no jumps).
+      this.controls.target.lerp(this.focusGoal, 0.08);
+      this.controls.autoRotate = !this.interacting && !this.focused && performance.now() - this.lastInteraction > 6000;
+      this.controls.update();
+    }
     this.updateDayNight();
 
     // Traffic
@@ -701,6 +744,8 @@ export class EmpireEngine {
     for (const s of this.spinners) s.obj.rotation[s.axis] += s.speed * dt * pace + (s.speed === 0 ? Math.sin(t * 3) * 0.004 : 0);
     this.tickWorkers(dt * pace, t);
     this.life.tick(dt, t, this.night);
+    this.extras.tick(dt, t, this.night);
+    if (this.eid && this.night > 0.5 && t - this.lastFireworks > 25) { this.lastFireworks = t; this.life.fireworks(new THREE.Vector3(0, 0, 0)); }
     if (this.onSound && t - this.lastSound > 0.12) { this.lastSound = t; this.onSound(this.soundMix()); }
     this.tickMood(t);
     if (this.prayerGlow) {
@@ -753,6 +798,7 @@ export class EmpireEngine {
     this.hemi.intensity = 1.1 * (1 - n * 0.6);
     (this.stars.material as THREE.PointsMaterial).opacity = Math.max(0, n - 0.3) * 1.2;
     this.groundMat.color.set(0xffffff).lerp(new THREE.Color(0x8e9a92), oc * 0.35).lerp(new THREE.Color(0x34443c), n); // rain darkens the grass
+    if (this.groundMat.userData.season === "winter") this.groundMat.color.lerp(new THREE.Color(0xf4f7fb), 0.55 * (1 - n * 0.5)); // snow cover
     for (const m of this.windowMats) m.emissiveIntensity = m.userData.ruined ? 0 : (m.userData.active ? 0.35 : 0.1) + n * 1.4;
     (this.lamps.material as THREE.MeshBasicMaterial).color.setHex(n > 0.35 ? 0xffe9a8 : 0xbdb6a0);
   }
