@@ -149,7 +149,7 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
       try { setPageCover(await uploadPageImage(f)); } catch (err) { toast.error((err as Error).message); }
       setCoverBusy(false);
     }} />
-    <div className="max-w-[46rem] mx-auto px-6 md:px-16 pt-10 md:pt-14 pb-24 relative">
+    <div className="max-w-[46rem] mx-auto px-4 sm:px-6 md:px-16 pt-6 sm:pt-10 md:pt-14 pb-24 relative">
       {coverMenu && (
         <div className="absolute z-40 right-6 md:right-16 top-2 w-72 rounded-xl border border-border bg-popover p-3 shadow-lg">
           <p className="text-[11px] font-medium text-muted-foreground mb-2">Gradients</p>
@@ -162,7 +162,7 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
         </div>
       )}
       {/* Top bar: breadcrumbs + status + actions */}
-      <div className="flex items-center gap-2 mb-10 text-sm text-muted-foreground min-h-7">
+      <div className="flex items-center gap-1 sm:gap-2 mb-6 sm:mb-10 text-sm text-muted-foreground min-h-7">
         <nav className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
           <Link href="/pages" className="hover:text-foreground shrink-0">Pages</Link>
           {breadcrumbs.map((b) => (
@@ -252,7 +252,7 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); focusFirstBlock(); }
         }}
-        className="block w-full resize-none overflow-hidden bg-transparent p-0 border-0 rounded-none shadow-none outline-none focus:shadow-none focus-visible:outline-none text-[2.5rem] leading-[1.15] font-bold tracking-tight placeholder:text-muted-foreground/40 mb-2"
+        className="block w-full resize-none overflow-hidden bg-transparent p-0 border-0 rounded-none shadow-none outline-none focus:shadow-none focus-visible:outline-none text-[1.9rem] sm:text-[2.5rem] leading-[1.15] font-bold tracking-tight placeholder:text-muted-foreground/40 mb-2"
         style={{ fontFamily: "var(--font-heading)" }}
       />
 
@@ -265,7 +265,7 @@ export function PageEditor({ page, breadcrumbs, subpages }: PageEditorProps) {
         </div>
       )}
 
-      <div className="mt-6 pl-0" data-page-body>
+      <div className="mt-6 pl-6 sm:pl-0" data-page-body>
         <BlockEditor
           initialBlocks={page.blocks}
           onChange={handleBlocks}

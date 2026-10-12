@@ -39,6 +39,8 @@ export interface Block {
   open?: boolean; // toggle expanded
   body?: string; // toggle content
   meta?: { title?: string; description?: string; image?: string; site?: string }; // bookmark preview
+  lang?: string; // code block language (syntax highlighting)
+  emoji?: string; // callout icon
 }
 
 /** Blocks without a text line to type into (keyboard navigation skips them). */
@@ -155,6 +157,8 @@ export function sanitizeBlocks(input: unknown): Block[] {
       if (typeof r.width === "number") block.width = Math.max(20, Math.min(100, Math.round(r.width)));
       if (r.align === "left" || r.align === "center") block.align = r.align;
     }
+    if (type === "code" && typeof r.lang === "string" && /^[a-z#+]{1,12}$/.test(r.lang)) block.lang = r.lang;
+    if (type === "callout" && typeof r.emoji === "string" && r.emoji.length <= 8) block.emoji = r.emoji;
     if (type === "toggle") {
       block.open = r.open === true;
       if (typeof r.body === "string") block.body = r.body.slice(0, MAX_BLOCK_TEXT);

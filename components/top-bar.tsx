@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { format, isToday, isTomorrow } from "date-fns";
-import { CalendarClock, ExternalLink, Mic, RefreshCw, Search, Video } from "lucide-react";
+import { CalendarClock, ExternalLink, Mic, MoreHorizontal, RefreshCw, Search, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { relativeStart, type Meeting } from "@/lib/calendar";
 import { getUpcomingMeetings } from "@/lib/client/calendar";
@@ -34,23 +34,29 @@ export function TopBar() {
   const hud = useHud();
 
   return (
-    <div className="hidden md:flex items-center gap-3 h-14 px-4 border-b border-border/70 bg-background/80 shrink-0">
-      {hud ? <HudLevel hud={hud} /> : <span className="h-7 w-40 rounded bg-muted/50 animate-pulse" aria-hidden />}
-      <p className="hidden xl:block font-hud uppercase tracking-wider text-[13px] text-muted-foreground truncate border-l border-border pl-3">{title}</p>
-      <div className="flex-1" />
-      {hud && <HudStats hud={hud} />}
-      <button onClick={openPalette} className="hidden lg:inline-flex items-center gap-2 h-8 px-2.5 rounded-lg border border-border/80 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 w-44">
-        <Search className="w-3.5 h-3.5" /> Search…
-        <kbd className="ml-auto rounded border border-border bg-muted px-1 font-mono text-[10px]">Ctrl K</kbd>
-      </button>
-      <GuardianButtons />
-      <button onClick={openVoice} title="Talk to Claude (Alt+V)" aria-label="Talk to Claude"
-        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
-        <Mic className="w-4 h-4" />
-      </button>
-      <MeetingsPill compact />
-      {hud && <span className="w-px h-7 bg-border" aria-hidden />}
-      {hud && <HudMoney hud={hud} />}
+    // @container: the bar adapts to ITS width (sidebar open or not), not just the screen.
+    <div className="@container hidden md:block border-b border-border/70 bg-background/80 shrink-0">
+      <div className="flex items-center gap-1.5 @4xl:gap-3 h-14 px-2.5 @4xl:px-4 min-w-0">
+        {hud ? <HudLevel hud={hud} /> : <span className="h-7 w-24 rounded bg-muted/50 animate-pulse" aria-hidden />}
+        <p className="hidden @7xl:block font-hud uppercase tracking-wider text-[13px] text-muted-foreground truncate border-l border-border pl-3">{title}</p>
+        <div className="flex-1 min-w-0" />
+        {hud && <HudStats hud={hud} />}
+        <button onClick={openPalette} className="hidden @6xl:inline-flex items-center gap-2 h-8 px-2.5 rounded-lg border border-border/80 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 w-44">
+          <Search className="w-3.5 h-3.5" /> Search…
+          <kbd className="ml-auto rounded border border-border bg-muted px-1 font-mono text-[10px]">Ctrl K</kbd>
+        </button>
+        <button onClick={openPalette} title="Search (Ctrl K)" aria-label="Search" className="@6xl:hidden inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
+          <Search className="w-4 h-4" />
+        </button>
+        <GuardianButtons />
+        <button onClick={openVoice} title="Talk to Claude (Alt+V)" aria-label="Talk to Claude"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60">
+          <Mic className="w-4 h-4" />
+        </button>
+        <div className="hidden @4xl:block min-w-0 max-w-[12rem] @6xl:max-w-[18rem]"><MeetingsPill compact /></div>
+        {hud && <span className="hidden @2xl:block w-px h-7 bg-border" aria-hidden />}
+        {hud && <span className="hidden @2xl:contents"><HudMoney hud={hud} /></span>}
+      </div>
     </div>
   );
 }
@@ -171,7 +177,7 @@ function GuardianButtons() {
   const openFocus = useGuardianStore((s) => s.openFocusPrompt);
   const openEmergency = useGuardianStore((s) => s.openEmergency);
   const playing = activeId === FOCUS_TRACK_ID;
-  return (
+  const extras = (
     <>
       <button onClick={() => (playing ? stop() : play(FOCUS_TRACK_ID))} title={playing ? "Stop focus music" : "Play my focus music"} aria-pressed={playing}
         className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent/60", playing ? "text-teal-500" : "text-muted-foreground hover:text-foreground")}>
@@ -181,6 +187,18 @@ function GuardianButtons() {
         <Target className="w-4 h-4" />
       </button>
       <SoundToggle />
+    </>
+  );
+  return (
+    <>
+      {/* Roomy bar: the buttons inline. Narrow bar: tucked into a "more" menu. */}
+      <span className="hidden @5xl:contents">{extras}</span>
+      <Popover>
+        <PopoverTrigger className="@5xl:hidden inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/60" aria-label="More">
+          <MoreHorizontal className="w-4 h-4" />
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-auto p-1 flex gap-1">{extras}</PopoverContent>
+      </Popover>
       <button onClick={openEmergency} title="Hold the line" aria-label="Hold the line"
         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:bg-rose-500/10">
         <Shield className="w-4 h-4" />
