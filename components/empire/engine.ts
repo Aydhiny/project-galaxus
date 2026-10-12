@@ -607,6 +607,7 @@ export class EmpireEngine {
     this.life.setAirships(w.airships);
     this.life.setRunnerWorking(this.workingIds.has("runner"));
     this.life.setRadarScanning(w.radarScanning);
+    this.setDistracted(w.distracted);
     if (this.radarSpin) this.radarSpin.speed = w.radarScanning ? 3.2 : this.plots.length ? 1.2 : 0.15;
     return this.life.setGoals(w.goals);
   }
@@ -621,6 +622,11 @@ export class EmpireEngine {
   }
 
   landAirship(id: number) { this.life.landAirship(id); }
+
+  /** Doomscrolling → fog rolls in (eased). */
+  private distracted = 0;
+  private distractTarget = 0;
+  setDistracted(on: boolean) { this.distractTarget = on ? 1 : 0; }
   fireworksAtGoal(goalId: number) { const p = this.life.sitePosition(goalId); if (p) this.life.fireworks(p); }
   isRaining() { return this.life.isRaining(); }
   nightLevel() { return this.night; }
@@ -734,7 +740,12 @@ export class EmpireEngine {
     this.night += (target - this.night) * 0.05;
     const n = this.night;
     const oc = this.life?.overcast ?? 0;
-    const sky = new THREE.Color(0xbfdcf0).lerp(new THREE.Color(0x9aa6b2), oc * 0.75).lerp(new THREE.Color(0x0d1426), n);
+    this.distracted += (this.distractTarget - this.distracted) * 0.02;
+    const fogd = this.distracted;
+    const sky = new THREE.Color(0xbfdcf0).lerp(new THREE.Color(0x9aa6b2), oc * 0.75).lerp(new THREE.Color(0xb7bcc2), fogd * 0.8).lerp(new THREE.Color(0x0d1426), n);
+    const f = this.scene.fog as THREE.Fog;
+    f.near = (this.homeDist + 10) * (1 - 0.8 * fogd);
+    f.far = (this.homeDist + 150) * (1 - 0.6 * fogd);
     this.scene.background = sky;
     (this.scene.fog as THREE.Fog).color.copy(sky);
     this.sun.intensity = (2.2 * (1 - n) + 0.35 * n) * (1 - oc * 0.45); // moonlight keeps the city readable; clouds dim it

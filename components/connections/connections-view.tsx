@@ -1,5 +1,6 @@
 "use client";
 
+import { DesktopCard } from "@/components/connections/desktop-card";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -66,6 +67,8 @@ export function ConnectionsView({ connections: c, reddit }: { connections: Conne
         </div>
         <p className="font-hud uppercase tracking-wide text-2xl tabular-nums">{on}<span className="text-muted-foreground text-base">/{total} connected</span></p>
       </header>
+
+      <section className="mb-8"><DesktopCard /></section>
 
       <Group title="AI">
         <Card brand="claude" name="Claude · subscription runner" what="Your Claude Code subscription runs voice commands, gig scoring, the daily brief and email replies (GitHub Actions)."

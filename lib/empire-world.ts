@@ -24,6 +24,7 @@ export type World = {
   events: WorldEvent[];
   airships: Airship[];
   radarScanning: boolean;
+  distracted: boolean; // 20+ min of doomscrolling just now (desktop app) → fog
 };
 
 /**

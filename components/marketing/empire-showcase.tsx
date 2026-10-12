@@ -19,7 +19,7 @@ const DEMO: Building[] = ([
 ] as const).map(([id, kind, label, emoji, level]) => ({ id, kind, label, emoji, level, active: true, working: ["radar", "autopilot", "outreach", "runner"].includes(id), route: "/", status: "", bubbles: [], stats: [] }) as Building);
 
 const DEMO_WORLD: World = {
-  weather: { kind: "sun", score: 82, why: "" }, streak: 21, gold: 0.6, neglected: [], events: [], radarScanning: true,
+  weather: { kind: "sun", score: 82, why: "" }, streak: 21, gold: 0.6, neglected: [], events: [], radarScanning: true, distracted: false,
   goals: [
     { id: 1, title: "Ship the game demo", emoji: "🎮", progress: 0.55, done: false },
     { id: 2, title: "First 1,000 subscribers", emoji: "🎬", progress: 1, done: true },

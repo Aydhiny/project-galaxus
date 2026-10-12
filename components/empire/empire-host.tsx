@@ -120,6 +120,13 @@ function EmpireScene({ active }: { active: boolean }) {
 
   useEffect(() => { engine.current?.setActive(active); if (active) play("whoosh"); }, [active]);
 
+  // Live from the desktop app: fog the moment the doomscroll guard trips (no waiting for the next refresh).
+  useEffect(() => {
+    const on = (e: Event) => engine.current?.setDistracted(!!(e as CustomEvent<{ doomscrolling?: boolean }>).detail?.doomscrolling);
+    window.addEventListener("galaxus:activity", on);
+    return () => window.removeEventListener("galaxus:activity", on);
+  }, []);
+
   // District sounds only while you're looking at the empire with sound on.
   useEffect(() => {
     if (!active || !sound) return;

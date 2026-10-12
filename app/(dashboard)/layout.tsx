@@ -37,6 +37,7 @@ const ComebackPrompt = dynamic(() => import("@/components/tasks/comeback-prompt"
 const EmpireHost = dynamic(() => import("@/components/empire/empire-host").then((m) => m.EmpireHost), { ssr: false });
 const AzanPlayer = dynamic(() => import("@/components/azan-player").then((m) => m.AzanPlayer), { ssr: false });
 const SoundLayer = dynamic(() => import("@/components/sound-layer").then((m) => m.SoundLayer), { ssr: false });
+const DesktopBridge = dynamic(() => import("@/components/desktop-bridge").then((m) => m.DesktopBridge), { ssr: false });
 const Guardian = dynamic(() => import("@/components/guardian").then((m) => m.Guardian), { ssr: false });
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -91,6 +92,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* UI sound effects (clicks, toggles, toasts) — synthesised, toggle in the top bar */}
       <SoundLayer />
+
+      {/* Automatic tracking: presence (sleep), desktop deep work, beat folder, doomscroll guard */}
+      <DesktopBridge />
 
       {/* Azan at prayer times (vaktija.ba) */}
       <AzanPlayer />

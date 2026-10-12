@@ -51,12 +51,19 @@ export async function countSubscriptionsFor(userId: number) {
   return (await db.select({ id: pushSubscriptions.id }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))).length;
 }
 
+/** `actions` become buttons on Android / desktop notifications (iPhone shows just the notification). */
+export type PushMessage = {
+  title: string; body: string; url: string; tag?: string; image?: string;
+  actions?: { action: string; title: string }[];
+  data?: Record<string, unknown>;
+};
+
 /**
  * Notify every device the user enabled, plus the in-app bell (so nothing is
  * lost if push isn't set up). Dead subscriptions (404/410) are removed.
  */
-export async function notifyUser(userId: number, msg: { title: string; body: string; url: string; tag?: string; image?: string }) {
-  await db.insert(notifications).values({ userId, type: "outreach", title: msg.title, body: msg.body });
+export async function notifyUser(userId: number, msg: PushMessage, opts: { bell?: boolean } = {}) {
+  if (opts.bell !== false) await db.insert(notifications).values({ userId, type: "outreach", title: msg.title, body: msg.body });
 
   const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
   if (subs.length === 0) return { delivered: 0 };

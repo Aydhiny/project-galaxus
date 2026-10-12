@@ -1,7 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "No native APIs are exposed to the remote site — it runs as a normal web page.",
+  "description": "The hosted Galaxus site may call exactly three native helpers: activity tracking, new-project-file listing, and bringing its own window to the front. Nothing else (no shell, no file reads).",
   "windows": ["main"],
-  "permissions": []
+  "remote": { "urls": ["https://project-galaxus.vercel.app/*"] },
+  "permissions": ["allow-activity-poll", "allow-list-new-files", "allow-focus-window"]
 }

@@ -13,6 +13,7 @@ import { dealsFor } from "@/lib/services/deals";
 import { claudeHealthy } from "@/lib/services/claude-jobs";
 import { holdStatsFor } from "@/lib/services/wellbeing";
 import { worldFor } from "@/lib/services/empire-world";
+import { activityStatusFor } from "@/lib/services/activity";
 
 const count = sql<number>`count(*)::int`;
 const n = (v: unknown) => Number(v ?? 0) || 0;
@@ -130,7 +131,22 @@ export async function empireFor(userId: number) {
       status: `${hold.wonThisMonth}/${hold.daysSoFar} days won this month`, bubbles: [],
       stats: [{ label: "Days won", value: `${hold.wonThisMonth}/${hold.daysSoFar}` }, { label: "Good nights", value: String(hud.goodNights) }] }),
   ];
-  const world = await worldFor(userId, { streak: hud.streak, monthKm: hud.monthKm, goalKm: hud.goalKm });
+  const [world, act] = await Promise.all([worldFor(userId, { streak: hud.streak, monthKm: hud.monthKm, goalKm: hud.goalKm }), activityStatusFor(userId)]);
+  world.distracted = act.doomscrolling;
+  // Deep work tracked by the desktop app makes the matching building work right now.
+  const live = (id: string, cats: string[], label: string) => {
+    const b = buildings.find((x) => x.id === id);
+    if (!b) return;
+    const mins = cats.reduce((s, c) => s + (act.deepToday[c as keyof typeof act.deepToday] ?? 0), 0);
+    if (act.activeNow.some((c) => cats.includes(c))) { b.working = true; b.active = true; }
+    if (mins > 0) {
+      b.bubbles = [{ text: `${label} · ${mins} min today`, tone: "good" }, ...b.bubbles];
+      b.stats = [{ label: "Deep work today", value: `${mins} min` }, ...b.stats];
+    }
+  };
+  live("studio", ["code", "gamedev"], "💻 Deep work");
+  live("youtube", ["editing", "design"], "🎬 Editing");
+  live("hq", ["music"], "🎧 Producing");
   for (const b of buildings) if (world.neglected.includes(b.id)) {
     b.neglected = true;
     b.bubbles = [{ text: "Falling apart — open me", tone: "warn" }, ...b.bubbles];

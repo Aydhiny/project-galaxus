@@ -40,6 +40,7 @@ export type SkillCounts = {
   achievements: number;
   outreachSent: number; outreachReplies: number; clients: number; gigsApplied: number; earnedKm: number;
   gameCommits: number; webClients: number;
+  codeMinutes: number; editingMinutes: number; // tracked automatically by the desktop app (deep work)
   videos: number; shorts: number; views: number; youtubeDays: number;
   beatsFinished: number; beatsSold: number; musicMinutes: number;
   trainingDays: number; trainingMinutes: number; records: number;
@@ -56,13 +57,13 @@ export const SKILLS = [
     how: "2 XP per outreach sent · 10 per reply · 15 per gig applied · 250 per client · 1 per 5 KM earned",
     xp: (c: SkillCounts) => c.outreachSent * 2 + c.outreachReplies * 10 + c.gigsApplied * 15 + c.clients * 250 + c.earnedKm * 0.2 },
   { key: "coding", label: "Coding", emoji: "💻", tone: "sky",
-    how: "8 XP per game commit · 150 per website client",
-    xp: (c: SkillCounts) => c.gameCommits * 8 + c.webClients * 150 },
+    how: "8 XP per game commit · 150 per website client · 1 per 10 min coding / game dev (desktop app)",
+    xp: (c: SkillCounts) => c.gameCommits * 8 + c.webClients * 150 + c.codeMinutes / 10 },
   { key: "editing", label: "Editing", emoji: "🎬", tone: "rose",
-    how: "40 XP per video · 20 per Short · 5 per 1,000 views · 10 per YouTube day · 4 per #youtube task · 150 per YouTube goal",
-    xp: (c: SkillCounts) => c.videos * 40 + c.shorts * 20 + (c.views / 1000) * 5 + c.youtubeDays * 10 + (c.areaTasks.youtube ?? 0) * 4 + (c.areaGoals.youtube ?? 0) * 150 },
+    how: "40 XP per video · 20 per Short · 5 per 1,000 views · 10 per YouTube day · 4 per #youtube task · 150 per YouTube goal · 1 per 10 min editing / design (desktop app)",
+    xp: (c: SkillCounts) => c.videos * 40 + c.shorts * 20 + (c.views / 1000) * 5 + c.youtubeDays * 10 + (c.areaTasks.youtube ?? 0) * 4 + (c.areaGoals.youtube ?? 0) * 150 + c.editingMinutes / 10 },
   { key: "music", label: "Music", emoji: "🎧", tone: "violet",
-    how: "30 XP per finished beat · 100 per sale · 1 per 10 minutes producing",
+    how: "30 XP per finished beat · 100 per sale · 1 per 10 minutes producing (logged or tracked in your DAW)",
     xp: (c: SkillCounts) => c.beatsFinished * 30 + c.beatsSold * 100 + c.musicMinutes / 10 },
   { key: "fitness", label: "Fitness", emoji: "💪", tone: "orange",
     how: "10 XP per training day · 1 per 10 minutes · 25 per personal record · 4 per #training task · 150 per training goal",

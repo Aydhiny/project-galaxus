@@ -70,7 +70,7 @@ export async function publicEmpireFor(viewerId: number, userId: number) {
       ...w,
       goals: w.goals.map((g, i) => ({ ...g, title: `Project ${i + 1}`, emoji: null })),
       events: [], airships: [], gold: Math.round(w.gold * 4) / 4, // coarse: no money amounts leak
-      weather: { kind: w.weather.kind, score: 0, why: "" },
+      weather: { kind: w.weather.kind, score: 0, why: "" }, distracted: false,
     },
   };
 }

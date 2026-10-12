@@ -12,6 +12,7 @@ import { isGoodNight } from "@/lib/sleep";
 import { getAchievements } from "@/lib/achievements";
 import { deriveLeaderboardData } from "@/lib/leaderboard-utils";
 import { isArea } from "@/lib/areas";
+import { deepMinutesFor } from "@/lib/services/activity";
 
 const count = sql<number>`count(*)::int`;
 const n = (v: unknown) => Number(v ?? 0) || 0;
@@ -58,6 +59,7 @@ async function skillCountsFor(userId: number, streak: number): Promise<SkillCoun
     db.select().from(dailyCheckins).where(eq(dailyCheckins.userId, userId)),
     db.select({ bed: userSettings.bedTime, on: userSettings.sleepEnabled }).from(userSettings).where(eq(userSettings.userId, userId)).limit(1),
   ]);
+  const deep = await deepMinutesFor(userId);
   const areaTasks: SkillCounts["areaTasks"] = {};
   for (const r of areaT) if (isArea(r.area)) areaTasks[r.area] = n(r.n);
   const areaGoals: SkillCounts["areaGoals"] = {};
@@ -73,8 +75,9 @@ async function skillCountsFor(userId: number, streak: number): Promise<SkillCoun
     outreachSent: n(ld[0]?.sent), outreachReplies: n(ld[0]?.replies), clients: n(ld[0]?.clients), gigsApplied: n(gg[0]?.applied),
     earnedKm: Math.round(n(money[0]?.km) / 100),
     gameCommits: n(commits[0]?.n), webClients: n(ld[0]?.clients) + n(gg[0]?.web),
+    codeMinutes: deep.code + deep.gamedev, editingMinutes: deep.editing + deep.design,
     videos: n(yt[0]?.videos), shorts: n(yt[0]?.shorts), views: n(yt[0]?.views), youtubeDays: n(c?.ytDays),
-    beatsFinished: n(bt[0]?.n), beatsSold: n(sold[0]?.n), musicMinutes: n(c?.musicMin),
+    beatsFinished: n(bt[0]?.n), beatsSold: n(sold[0]?.n), musicMinutes: n(c?.musicMin) + deep.music,
     trainingDays: n(c?.trainDays), trainingMinutes: n(c?.trainMin), records: n(pr[0]?.n),
     prayers: n(c?.prayers), quranPages: n(c?.quran),
     pagesRead: n(rd[0]?.pages), booksDone: n(bk[0]?.n), studyHours: n(st[0]?.h), coursesDone: n(cs[0]?.n),

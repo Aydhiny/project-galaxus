@@ -535,6 +535,16 @@ const STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "uq_opportunities_user_source_ext" ON "opportunities" ("user_id", "source", "ext_id")`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "empire_public" boolean DEFAULT false`,
+  `CREATE TABLE IF NOT EXISTS "activity_minutes" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "minute" timestamp NOT NULL,
+    "category" varchar(12) NOT NULL,
+    "secs" integer NOT NULL,
+    CONSTRAINT "activity_minutes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_activity_user_minute_cat" ON "activity_minutes" ("user_id", "minute", "category")`,
+  `CREATE INDEX IF NOT EXISTS "idx_activity_user_minute" ON "activity_minutes" ("user_id", "minute")`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "city_name" varchar(40)`,
   `CREATE TABLE IF NOT EXISTS "empire_snapshots" (
     "id" serial PRIMARY KEY NOT NULL,

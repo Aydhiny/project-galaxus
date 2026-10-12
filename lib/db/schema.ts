@@ -1115,6 +1115,22 @@ export const communities = pgTable(
 );
 export type Community = typeof communities.$inferSelect;
 
+// Automatic activity, one row per minute per category: deep work from the
+// desktop app (coding / gamedev / music / editing / design), doomscrolling,
+// and "presence" (Galaxus open on any device — used to detect bed/wake time).
+// Only categories and seconds are stored — never app names or window titles.
+export const activityMinutes = pgTable(
+  "activity_minutes",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    minute: timestamp("minute").notNull(),
+    category: varchar("category", { length: 12 }).notNull(),
+    secs: integer("secs").notNull(),
+  },
+  (t) => [uniqueIndex("uq_activity_user_minute_cat").on(t.userId, t.minute, t.category), index("idx_activity_user_minute").on(t.userId, t.minute)]
+);
+
 // Monthly city contest: your XP when the month started, so "XP gained" is honest.
 export const empireSnapshots = pgTable(
   "empire_snapshots",

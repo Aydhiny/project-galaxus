@@ -11,6 +11,7 @@ import { ensureTodayDigestFor } from "@/lib/services/digest";
 import { pruneGigsFor, scanGigsFor } from "@/lib/services/gigs";
 import { scanCommunitiesFor } from "@/lib/services/community";
 import { scanOpportunitiesFor } from "@/lib/services/opportunities";
+import { autoDevlogFor, autoSleepFor, prayerPushFor, pruneActivityFor } from "@/lib/services/activity";
 import { logRetainersFor, syncStripeFor } from "@/lib/services/money";
 import { runAutopilotFollowUpsFor, runAutopilotInboxFor, runAutopilotSendFor } from "@/lib/services/autopilot";
 import { runRedditDailyFor } from "@/lib/services/reddit";
@@ -29,6 +30,11 @@ export const TASKS: Task[] = [
   { id: "gigs_prune", when: { daily: 6 }, run: (u) => pruneGigsFor(u) },
   { id: "community", when: { daily: 11 }, run: (u) => scanCommunitiesFor(u, { maxLookups: 25 }) },
   { id: "opportunities", when: { daily: 7 }, run: (u) => scanOpportunitiesFor(u) },
+  // Automatic tracking (lib/services/activity.ts)
+  { id: "prayer_push", when: { every: 5, from: 5, to: 24 }, run: (u) => prayerPushFor(u) },
+  { id: "sleep_auto", when: { daily: 12 }, run: (u) => autoSleepFor(u) },
+  { id: "devlog_auto", when: { daily: 21 }, run: (u) => autoDevlogFor(u) },
+  { id: "activity_prune", when: { daily: 6 }, run: (u) => pruneActivityFor(u) },
   { id: "reddit_game", when: { daily: 12 }, run: (u) => runRedditDailyFor(u) },
   { id: "stripe", when: { daily: 6 }, run: (u) => syncStripeFor(u) },
   { id: "retainers", when: { daily: 9 }, run: (u) => logRetainersFor(u) },

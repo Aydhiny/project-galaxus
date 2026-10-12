@@ -11,7 +11,7 @@
  *  • Only immutable build assets (/_next/static, hashed) and icons are cached.
  */
 
-const VERSION = "galaxus-v4";
+const VERSION = "galaxus-v5";
 const STATIC_CACHE = `${VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/apple-touch-icon.png"];
@@ -86,7 +86,8 @@ self.addEventListener("push", (event) => {
       tag: msg.tag,
       renotify: !!msg.tag,
       image: msg.image, // big picture on Android / Chrome desktop
-      data: { url: msg.url },
+      actions: Array.isArray(msg.actions) ? msg.actions.slice(0, 2) : undefined, // e.g. "Prayed ✓"
+      data: { url: msg.url, ...(msg.data || {}) },
     })
   );
 });
@@ -94,6 +95,16 @@ self.addEventListener("push", (event) => {
 // Tapping the notification focuses an open Galaxus window (or opens one).
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  // "Prayed ✓" button: log it in the background (session cookie, same origin) — no window opens.
+  if (event.action === "prayed") {
+    const d = event.notification.data || {};
+    event.waitUntil(
+      fetch("/api/prayer/prayed", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prayer: d.prayer, date: d.date }) })
+        .then((r) => self.registration.showNotification(r.ok ? "Prayer logged ✓" : "Couldn't log it — open Galaxus", { body: r.ok ? "May Allah accept it." : "", icon: "/icons/icon-192.png", tag: "prayer-logged" }))
+        .catch(() => {})
+    );
+    return;
+  }
   const url = new URL(event.notification.data?.url || "/outreach", self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {

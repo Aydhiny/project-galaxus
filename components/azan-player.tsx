@@ -8,6 +8,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { toast } from "sonner";
+import { logPrayerC } from "@/lib/client/activity";
 import { currentVakat, type Vaktija } from "@/lib/vaktija";
 import { getPrayerStateC } from "@/lib/client/prayer";
 import { play } from "@/lib/sfx";
@@ -64,12 +65,14 @@ export function AzanPlayer() {
       const key = `azan:${now.toDateString()}:${cur.key}`;
       if (played(key)) return;
       markPlayed(key);
+      // One tap logs the prayer; the toast stays a while so you can tap it after praying.
+      const prayed = { label: "Prayed ✓", onClick: () => { stopAzan(); logPrayerC(cur.key).then(() => toast.success("Prayer logged ✓")).catch((e) => toast.error((e as Error).message)); } };
       playAzan(settings.hasFile).then(() => {
-        toast(`🕌 ${cur.bs} · ${cur.time} — vrijeme je za namaz`, { duration: 20_000, action: { label: "Stop", onClick: stopAzan } });
+        toast(`🕌 ${cur.bs} · ${cur.time} — vrijeme je za namaz`, { duration: 15 * 60_000, action: prayed, cancel: { label: "Stop azan", onClick: stopAzan } });
       }).catch(() => {
         // The browser blocks sound until you've clicked on the page — offer a button instead.
         play("notify");
-        toast(`🕌 ${cur.bs} — vrijeme je za namaz`, { duration: 60_000, action: { label: "Play azan", onClick: () => void playAzan(settings.hasFile) } });
+        toast(`🕌 ${cur.bs} — vrijeme je za namaz`, { duration: 15 * 60_000, action: prayed, cancel: { label: "Play azan", onClick: () => void playAzan(settings.hasFile) } });
       });
     };
     check();

@@ -90,5 +90,6 @@ export async function worldFor(userId: number, hud: { streak: number; monthKm: n
     weather, streak: hud.streak, gold, goals: sites, neglected, events,
     airships: airships.map((a) => ({ ...a, deadline: a.deadline?.toISOString() ?? null })),
     radarScanning: !!lastScan && now.getTime() - lastScan.getTime() < 12 * 60_000,
+    distracted: false, // set by empireFor from live activity
   };
 }
