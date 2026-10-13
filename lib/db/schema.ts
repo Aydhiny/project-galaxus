@@ -345,6 +345,8 @@ export const userSettings = pgTable("user_settings", {
   notifyWeeklyDigest: boolean("notify_weekly_digest").default(true),
   notifyDailyBrief: boolean("notify_daily_brief").default(true),
   notifyGigs: boolean("notify_gigs").default(true),
+  scoutProfile: text("scout_profile"), // who the Scout ranks ideas for; null = lib/scout.ts default
+  scoutSubs: text("scout_subs"), // subreddits to read, space/comma separated; null = default list
   incomeGoalKm: integer("income_goal_km"),
   usdToKm: real("usd_to_km").default(1.8),
   leaderboardOptIn: boolean("leaderboard_opt_in").default(false),
@@ -1210,6 +1212,34 @@ export const opportunities = pgTable(
   (t) => [uniqueIndex("uq_opportunities_user_source_ext").on(t.userId, t.source, t.extId)]
 );
 export type Opportunity = typeof opportunities.$inferSelect;
+
+// Scout: Reddit threads where people talk about earning money, and the claims Claude pulled out of them.
+export const scoutThreads = pgTable(
+  "scout_threads",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    threadId: varchar("thread_id", { length: 20 }).notNull(), // Reddit's id, e.g. "1wzqyww"
+    subreddit: varchar("subreddit", { length: 40 }),
+    title: varchar("title", { length: 300 }).notNull(),
+    url: text("url").notNull(),
+    author: varchar("author", { length: 60 }),
+    body: text("body"),
+    comments: jsonb("comments").$type<import("@/lib/scout").ThreadComment[]>().notNull().default([]),
+    postedAt: timestamp("posted_at"),
+    status: varchar("status", { length: 10 }).notNull().default("new"), // new | ready | queued | analyzed | failed
+    claims: jsonb("claims").$type<import("@/lib/scout").ScoutClaim[]>().notNull().default([]),
+    score: integer("score").notNull().default(0),
+    mark: varchar("mark", { length: 10 }).notNull().default("new"), // new | saved | hidden
+    queuedAt: timestamp("queued_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_scout_threads_user_thread").on(t.userId, t.threadId),
+    index("idx_scout_threads_user_status").on(t.userId, t.status),
+  ]
+);
+export type ScoutThread = typeof scoutThreads.$inferSelect;
 
 // Diary — title and text encrypted at rest (lib/crypto-box). Imported entries keep their source id.
 export const diaryEntries = pgTable(

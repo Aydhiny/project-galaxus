@@ -15,6 +15,7 @@ import { autoDevlogFor, autoSleepFor, prayerPushFor, pruneActivityFor } from "@/
 import { logRetainersFor, syncStripeFor } from "@/lib/services/money";
 import { runAutopilotFollowUpsFor, runAutopilotInboxFor, runAutopilotSendFor } from "@/lib/services/autopilot";
 import { runRedditDailyFor } from "@/lib/services/reddit";
+import { pullNextCommentsFor, scanScoutFor } from "@/lib/services/scout";
 import {
   checkClientSitesFor, checkLeadSitesFor, ensureDemosFor, findNewBusinessesFor, monthlyReportsReadyFor, queueFollowUpsFor,
 } from "@/lib/services/leads-auto";
@@ -36,6 +37,9 @@ export const TASKS: Task[] = [
   { id: "devlog_auto", when: { daily: 21 }, run: (u) => autoDevlogFor(u) },
   { id: "activity_prune", when: { daily: 6 }, run: (u) => pruneActivityFor(u) },
   { id: "reddit_game", when: { daily: 12 }, run: (u) => runRedditDailyFor(u) },
+  // Scout: Reddit allows ~1 keyless request a minute, so one listing per 4 h and one thread's comments per beat.
+  { id: "scout", when: { every: 240, from: 8, to: 22 }, run: (u) => scanScoutFor(u) },
+  { id: "scout_comments", when: { every: 10, from: 8, to: 23 }, run: (u) => pullNextCommentsFor(u) },
   { id: "stripe", when: { daily: 6 }, run: (u) => syncStripeFor(u) },
   { id: "retainers", when: { daily: 9 }, run: (u) => logRetainersFor(u) },
   { id: "new_business", when: { daily: 7 }, needsOutreach: true, run: (u, c) => findNewBusinessesFor(u, c.lastRunAt) },

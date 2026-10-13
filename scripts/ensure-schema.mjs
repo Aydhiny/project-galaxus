@@ -780,6 +780,31 @@ const STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "idx_gig_emails_user_status" ON "gig_emails" ("user_id", "status")`,
   `CREATE INDEX IF NOT EXISTS "idx_gig_emails_to" ON "gig_emails" ("user_id", "to_email")`,
 
+  // ── 2026-10 · Scout (what people say they earn) ─────────────────────────
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "scout_profile" text`,
+  `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "scout_subs" text`,
+  `CREATE TABLE IF NOT EXISTS "scout_threads" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "thread_id" varchar(20) NOT NULL,
+    "subreddit" varchar(40),
+    "title" varchar(300) NOT NULL,
+    "url" text NOT NULL,
+    "author" varchar(60),
+    "body" text,
+    "comments" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "posted_at" timestamp,
+    "status" varchar(10) DEFAULT 'new' NOT NULL,
+    "claims" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "score" integer DEFAULT 0 NOT NULL,
+    "mark" varchar(10) DEFAULT 'new' NOT NULL,
+    "queued_at" timestamp,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "scout_threads_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "uq_scout_threads_user_thread" ON "scout_threads" ("user_id", "thread_id")`,
+  `CREATE INDEX IF NOT EXISTS "idx_scout_threads_user_status" ON "scout_threads" ("user_id", "status")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];
