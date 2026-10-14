@@ -161,6 +161,9 @@ export async function answerFor(userId: number, messageId: number, answerRaw: st
   const [q] = await db.update(opsMessages).set({ answer, answeredAt: new Date(), readAt: new Date() })
     .where(and(eq(opsMessages.id, messageId), eq(opsMessages.userId, userId), eq(opsMessages.toUser, true), eq(opsMessages.kind, "question"), isNull(opsMessages.answeredAt))).returning();
   if (!q) throw new Error("That question is already answered (or gone).");
+  // Reply watch: an answer about a lead's reply draft also acts on the lead (use it, reprice, or not now).
+  const { onReplyAnswer } = await import("@/lib/services/reply-watch");
+  await onReplyAnswer(userId, q.id, answer, q.fromAgentId).catch(() => false);
   if (q.fromAgentId) await db.insert(opsMessages).values({ userId, fromAgentId: null, toAgentId: q.fromAgentId, missionId: q.missionId, body: `Answer to your question "${q.body.slice(0, 200)}": ${answer}` });
   // Every answer is a decision all agents should know about (shared memory).
   const { remember } = await import("@/lib/services/ops-memory");
@@ -193,7 +196,7 @@ export async function inboxFor(userId: number) {
     .orderBy(sql`(${opsMessages.kind} = 'question' and ${opsMessages.answeredAt} is null) desc`, desc(opsMessages.at)).limit(60);
   return rows.map(({ m, agent, provider, cloud }) => ({
     id: m.id, kind: m.kind as "question" | "update", body: m.body, options: m.options ?? [], urgent: m.urgent, missionId: m.missionId,
-    answer: m.answer, answeredAt: m.answeredAt, readAt: m.readAt, at: m.at, agentId: m.fromAgentId, agent: agent ?? "Agent", provider: provider ?? "other", cloud: !!cloud,
+    answer: m.answer, answeredAt: m.answeredAt, readAt: m.readAt, at: m.at, agentId: m.fromAgentId, agent: agent ?? (m.fromAgentId ? "Agent" : "Galaxus"), provider: provider ?? "other", cloud: !!cloud,
   }));
 }
 export type OpsInboxItem = Awaited<ReturnType<typeof inboxFor>>[number];

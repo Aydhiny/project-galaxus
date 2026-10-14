@@ -64,3 +64,6 @@ export const getReplayDayC = unwrapped(getReplayDay);
 export const getDirectionsC = unwrapped(getDirections);
 export const addDirectionC = unwrapped(addDirection);
 export const removeDirectionC = unwrapped(removeDirection);
+// ─── Replies & friends ────────────────────────────────────────────────────────
+import { setLinkLeads } from "@/lib/actions/ops";
+export const setLinkLeadsC = unwrapped(setLinkLeads);

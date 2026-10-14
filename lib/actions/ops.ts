@@ -242,3 +242,11 @@ export async function addDirection(text: string) {
 export async function removeDirection(id: number) {
   return toResult(async () => { await removeDirectionFor(await requireUserId(), id); done(); });
 }
+// ─── Replies & friends: the shared lead pool switch on a linked facility ─────
+export async function setLinkLeads(id: number, share: boolean) {
+  return toResult(async () => {
+    const { setLinkLeadsFor } = await import("@/lib/services/lead-pool");
+    await setLinkLeadsFor(await requireUserId(), id, share);
+    done();
+  });
+}

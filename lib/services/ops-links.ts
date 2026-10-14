@@ -29,6 +29,9 @@ export async function linksFor(userId: number) {
       partner: await labelOf(partnerId),
       youShare: mine ? l.shareFrom : l.shareTo,
       theyShare: mine ? l.shareTo : l.shareFrom,
+      // Shared lead pool (lib/services/lead-pool.ts): on only when both are true.
+      youShareLeads: mine ? l.shareLeadsFrom : l.shareLeadsTo,
+      theyShareLeads: mine ? l.shareLeadsTo : l.shareLeadsFrom,
     };
   }));
 }

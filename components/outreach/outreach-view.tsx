@@ -282,6 +282,7 @@ function SendCard({ lead, canRewrite, onSent, onSkip, onMessage, onRewritten, on
         {lead.tags.includes("follow_up") && lead.followUpCount > 0 && <span className="rounded-md bg-sky-500/12 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 text-[11px] font-semibold">↩ Follow-up</span>}
         {lead.tags.includes("site_broke") && <span className="rounded-md bg-red-500/12 text-red-700 dark:text-red-300 px-1.5 py-0.5 text-[11px] font-semibold">⚠ Site down now</span>}
         {lead.tags.includes("new_business") && <span className="rounded-md bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 text-[11px] font-semibold">🆕 New business</span>}
+        {lead.partnerNote && <span className="rounded-md bg-amber-500/12 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 text-[11px] font-semibold">{lead.partnerNote}</span>}
         <GapChips gaps={lead.gaps} />
         {lead.demoSlug && (
           <a href={`/p/${lead.demoSlug}`} target="_blank" rel="noreferrer" className="ml-auto text-[11px] font-medium underline underline-offset-4 text-muted-foreground hover:text-foreground">View their demo site ↗</a>
@@ -422,7 +423,7 @@ function PipelineTab({ leads, state, pending, onOpen, onFind, onReview }: {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{l.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {[l.gaps.map((g) => GAP_META[g as Gap]?.label ?? g).join(" · ") || l.skipReason?.replace(/_/g, " "), formatPhone(l.phone)].filter(Boolean).join(" — ")}
+                      {[l.partnerNote || l.gaps.map((g) => GAP_META[g as Gap]?.label ?? g).join(" · ") || l.skipReason?.replace(/_/g, " "), formatPhone(l.phone)].filter(Boolean).join(" — ")}
                     </p>
                   </div>
                   <span className="text-xs tabular-nums text-muted-foreground w-8 text-right" title="Priority score">{l.score}</span>

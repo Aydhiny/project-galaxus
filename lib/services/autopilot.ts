@@ -138,6 +138,9 @@ export async function runAutopilotInboxFor(userId: number) {
       replyCount: row.replyCount + 1, lastReplyAt: r.date, lastReplyText: r.text, lastReplyMessageId: r.messageId, needsYou: false, category: null, suggestedReply: null,
     }).where(eq(gigEmails.id, row.id));
     fresh++;
+    // Reply watch: a reply from a lead's own domain means that lead answered.
+    const { onEmailReply } = await import("@/lib/services/reply-watch");
+    await onEmailReply(userId, r.from, r.text);
     await handleReplyWithRules(userId, s, { ...row, lastReplyText: r.text, lastReplyMessageId: r.messageId, replyCount: row.replyCount + 1 }, r.from, enqueueJobFor);
   }
   return { checked: replies.length, fresh };

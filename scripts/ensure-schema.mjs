@@ -1059,6 +1059,31 @@ const STATEMENTS = [
   `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "company_wall" jsonb`,
   // See & steer (replay of the day): each event remembers the status it set, so a replay shows presence exactly.
   `ALTER TABLE "ops_events" ADD COLUMN IF NOT EXISTS "status" varchar(10)`,
+  // Replies & friends: reply watch (the Chief drafts your answer + quote) and the shared lead pool.
+  `CREATE TABLE IF NOT EXISTS "lead_replies" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "lead_id" integer NOT NULL,
+    "message_id" integer,
+    "status" varchar(12) DEFAULT 'drafting' NOT NULL,
+    "lang" varchar(4),
+    "their_text" text,
+    "reply" text,
+    "quote_km" integer,
+    "basis" varchar(200),
+    "engine" varchar(10),
+    "created_at" timestamp DEFAULT now() NOT NULL,
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "lead_replies_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade,
+    CONSTRAINT "lead_replies_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "leads"("id") ON DELETE cascade,
+    CONSTRAINT "lead_replies_message_id_ops_messages_id_fk" FOREIGN KEY ("message_id") REFERENCES "ops_messages"("id") ON DELETE set null
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_lead_replies_user" ON "lead_replies" ("user_id", "created_at")`,
+  `CREATE INDEX IF NOT EXISTS "idx_lead_replies_message" ON "lead_replies" ("message_id")`,
+  `CREATE INDEX IF NOT EXISTS "idx_lead_replies_lead" ON "lead_replies" ("lead_id")`,
+  `ALTER TABLE "ops_links" ADD COLUMN IF NOT EXISTS "share_leads_from" boolean DEFAULT false NOT NULL`,
+  `ALTER TABLE "ops_links" ADD COLUMN IF NOT EXISTS "share_leads_to" boolean DEFAULT false NOT NULL`,
+  `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "partner_note" varchar(160)`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,

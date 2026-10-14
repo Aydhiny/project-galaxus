@@ -232,7 +232,7 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   if (!ok) {
     const { noteJobErrorFor } = await import("@/lib/services/ops-inbox");
     await noteJobErrorFor(userId, error).catch(() => {});
-    if (/^ops_(project_day|project_final|review|standup|debrief)$/.test(String(current.kind))) {
+    if (/^ops_(project_day|project_final|review|standup|debrief|lead_reply)$/.test(String(current.kind))) {
       const { plannerJobFailed } = await import("@/lib/services/ops-free");
       await plannerJobFailed(userId, String(current.kind), (current.payload ?? {}) as Record<string, unknown>, error).catch(() => {});
     }

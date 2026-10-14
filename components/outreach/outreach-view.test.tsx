@@ -30,7 +30,7 @@ function lead(over: Partial<Lead>): Lead {
     gaps: ["no_booking"], score: 52, revenueKm: null, status: "queued", skipReason: null,
     message: "Dobar dan! Ja sam Ajdin…", messageVariant: "template:no-booking", queuedFor: "2026-10-12", batch: 1,
     sentAt: null, repliedAt: null, notes: null, createdAt: new Date(), updatedAt: new Date(),
-    tags: [], demoSlug: null, followUpCount: 0, siteCheckedAt: null, siteDownSince: null, clientSiteUrl: null, retainerKm: null, demoContent: null, companyWall: null,
+    tags: [], demoSlug: null, followUpCount: 0, siteCheckedAt: null, siteDownSince: null, clientSiteUrl: null, retainerKm: null, demoContent: null, companyWall: null, partnerNote: null,
     ...over,
   };
 }
