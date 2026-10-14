@@ -13,12 +13,14 @@ import { Dialog, btnGhost, btnPrimary, field } from "@/components/ops/ops-dialog
 import { addMemoryC, forgetMemoryC, getMemories, pinMemoryC, refreshAboutMemoryC } from "@/lib/client/ops";
 
 type Memory = Awaited<ReturnType<typeof getMemories>>[number];
-const TYPES = ["about", "goal", "decision", "finding", "preference", "note"] as const;
+const TYPES = ["about", "goal", "decision", "finding", "preference", "note", "direction"] as const;
 const TINT: Record<string, string> = {
   about: "bg-sky-400/15 text-sky-100", goal: "bg-emerald-400/15 text-emerald-100", decision: "bg-amber-400/15 text-amber-100",
   finding: "bg-violet-400/15 text-violet-100", preference: "bg-rose-400/15 text-rose-100", note: "bg-white/10 text-white/80",
+  direction: "bg-[#6b8afd]/20 text-[#c7d2ff]",
 };
 const SOURCE = (s: string) => s.startsWith("answer:") ? "your answer" : s.startsWith("deliverable:") ? "accepted result" : s.startsWith("project") ? "project"
+  : s.startsWith("direction:") ? "your direction to the Chief"
   : s.startsWith("galaxus:") ? "from Galaxus" : s.startsWith("you:") ? "you" : s.startsWith("agent:") ? "an agent" : "MCP";
 
 export function MemoryDialog({ onClose }: { onClose: () => void }) {

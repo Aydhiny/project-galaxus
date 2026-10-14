@@ -1052,6 +1052,8 @@ const STATEMENTS = [
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_lat" real`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_lon" real`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_place" varchar(80)`,
+  // See & steer (replay of the day): each event remembers the status it set, so a replay shows presence exactly.
+  `ALTER TABLE "ops_events" ADD COLUMN IF NOT EXISTS "status" varchar(10)`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
