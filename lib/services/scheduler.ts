@@ -54,6 +54,10 @@ export const TASKS: Task[] = [
   { id: "autopilot_followups", when: { daily: 10 }, run: (u) => runAutopilotFollowUpsFor(u) },
   // Ops: recurring missions, the stand-up, the debrief, and cloud agents taking their next mission.
   { id: "ops_cloud", when: { every: 10, from: 0, to: 24 }, run: (u) => opsTickFor(u) },
+  // Outreach bridge (lib/services/outreach-bridge.ts), last so they never starve the tasks above. Capped:
+  // 5 demo copies a beat on free models (template fallback), 5 CompanyWall lookups ≥ 4 s apart.
+  { id: "ops_demo_copy", when: { every: 30, from: 7, to: 23 }, needsOutreach: true, run: async (u) => (await import("@/lib/services/outreach-bridge")).writeDemoCopyFor(u, { limit: 5 }) },
+  { id: "ops_companywall", when: { every: 30, from: 8, to: 22 }, needsOutreach: true, run: async (u) => (await import("@/lib/services/outreach-bridge")).checkCompanyWallFor(u, { limit: 5 }) },
 ];
 
 /** Pure: is this task due now? (tested) */

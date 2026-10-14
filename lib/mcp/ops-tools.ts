@@ -276,4 +276,27 @@ export function registerOpsTools(server: McpServer) {
       } catch (e) { return fail(e); }
     }
   );
+
+  // Outreach bridge: a lead sheet → Outreach leads (nothing is sent; the user presses send in Outreach).
+  server.registerTool(
+    "ops_send_to_outreach",
+    {
+      title: "Add a lead sheet to Outreach",
+      description:
+        "Add the businesses in a mission's result table (or a whole project's merged sheet) to the user's Outreach leads, deduplicated against the ones already there. " +
+        "The table needs a Name column plus Phone, Website or Address (the reach_businesses table works as is). Nothing is sent: Outreach only prepares messages. Returns {added, skipped}.",
+      inputSchema: z.object({
+        mission_id: z.number().int().optional().describe("A mission whose result has the table"),
+        project_id: z.number().int().optional().describe("Or a project: every table its missions delivered"),
+      }),
+    },
+    async (a: { mission_id?: number; project_id?: number }, ctx: Ctx) => {
+      try {
+        if (!a.mission_id && !a.project_id) throw new Error("Pass mission_id or project_id.");
+        const agent = await me(ctx);
+        const { sendToOutreachFor } = await import("@/lib/services/outreach-bridge");
+        return ok(await sendToOutreachFor(agent.userId, a.project_id ? { projectId: a.project_id } : { missionId: a.mission_id }));
+      } catch (e) { return fail(e); }
+    }
+  );
 }

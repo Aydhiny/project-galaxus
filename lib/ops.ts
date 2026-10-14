@@ -77,6 +77,8 @@ export const AGENT_TOOLS = new Set([
   "ops_ask_user", "ops_notify_user", "ops_get_project", "ops_request_partner",
   // Shared memory (claude-mem style) and the internet (Reach).
   "mem_search", "mem_timeline", "mem_get", "mem_remember", "reach_search", "reach_read", "reach_reddit", "reach_youtube", "reach_businesses",
+  // Outreach bridge: a lead sheet → Outreach leads (adds leads only, never sends).
+  "ops_send_to_outreach",
 ]);
 
 export const EVENT_KINDS = ["browse", "search", "read", "edit", "shell", "tool", "think", "status", "message", "delegate", "waiting"] as const;
@@ -625,10 +627,11 @@ export function mdToBlocks(md: string, opts: { inline?: boolean } = {}): MdBlock
       const rows: string[][] = [];
       for (; i < lines.length && /^\|.*\|$/.test(lines[i].trim()); i++) {
         const cells = lines[i].trim().slice(1, -1).split("|").map((c) => c.trim());
-        if (!cells.every((c) => /^:?-{2,}:?$/.test(c))) rows.push(cells.slice(0, 8));
+        // 12 columns / 200 rows: the business finder delivers 9 columns (Source last) and up to 120 rows.
+        if (!cells.every((c) => /^:?-{2,}:?$/.test(c))) rows.push(cells.slice(0, 12));
       }
       i--;
-      out.push({ type: "table", text: "", rows: rows.slice(0, 60) });
+      out.push({ type: "table", text: "", rows: rows.slice(0, 201) });
       continue;
     }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) out.push({ type: "divider", text: "" });

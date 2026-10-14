@@ -59,7 +59,9 @@ export default async function DemoPage({ params }: Props) {
   const d = await demoBySlug((await params).slug);
   if (!d) notFound();
   const kind = kindOf(d.category, d.name);
-  const c = COPY[kind];
+  // Copy written for this business (an agent, grounded in what's known) replaces the generic copy.
+  const own = d.content;
+  const c = own ? { ...COPY[kind], tagline: own.headline, cta: own.cta, services: own.services.map((s) => [s.title, s.text] as [string, string]) } : COPY[kind];
   const tel = d.phone ? `tel:${d.phone}` : null;
   const wa = d.phone && d.channel === "whatsapp" ? `https://wa.me/${d.phone.replace(/\D/g, "")}` : null;
   const days = ["Pon", "Uto", "Sri", "Čet", "Pet"].map((day, i) => ({ day, slots: ["09:00", "10:30", "13:00", "15:30"].filter((_, j) => (i + j) % 3 !== 0) }));
@@ -106,7 +108,7 @@ export default async function DemoPage({ params }: Props) {
       <section id="usluge" className="bg-slate-50 py-16">
         <div className="max-w-5xl mx-auto px-5">
           <h2 className="text-2xl font-bold tracking-tight">Usluge</h2>
-          <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`mt-6 grid sm:grid-cols-2 ${c.services.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-4`}>
             {c.services.map(([title, text]) => (
               <div key={title} className="rounded-2xl bg-white border border-slate-100 p-5">
                 <span className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${c.accent}18`, color: c.accent }}><Sparkles className="w-5 h-5" /></span>
@@ -117,6 +119,13 @@ export default async function DemoPage({ params }: Props) {
           </div>
         </div>
       </section>
+
+      {own?.about && (
+        <section className="max-w-5xl mx-auto px-5 pt-16">
+          <h2 className="text-2xl font-bold tracking-tight">O nama</h2>
+          <p className="mt-3 text-slate-600 leading-relaxed max-w-3xl">{own.about}</p>
+        </section>
+      )}
 
       <section id="termin" className="max-w-5xl mx-auto px-5 py-16">
         <h2 className="text-2xl font-bold tracking-tight">Online zakazivanje</h2>
@@ -137,7 +146,8 @@ export default async function DemoPage({ params }: Props) {
         <div className="max-w-5xl mx-auto px-5 grid sm:grid-cols-3 gap-6 text-sm">
           {d.address && <p className="flex gap-2"><MapPin className="w-5 h-5 shrink-0" /> {d.address}{d.city ? `, ${d.city}` : ""}</p>}
           {d.phone && <p className="flex gap-2"><Phone className="w-5 h-5 shrink-0" /> {formatPhone(d.phone)}</p>}
-          <p className="flex gap-2"><Clock className="w-5 h-5 shrink-0" /> Pon–Pet 08:00–20:00</p>
+          {/* Written copy only shows hours that are actually known; the generic page keeps its example hours. */}
+          {(own ? own.hours : "Pon–Pet 08:00–20:00") && <p className="flex gap-2"><Clock className="w-5 h-5 shrink-0" /> {own ? own.hours : "Pon–Pet 08:00–20:00"}</p>}
           {d.mapsUrl && <a href={d.mapsUrl} target="_blank" rel="noreferrer" className="underline sm:col-span-3">Pogledajte na mapi →</a>}
         </div>
       </section>

@@ -1052,6 +1052,9 @@ const STATEMENTS = [
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_lat" real`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_lon" real`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_place" varchar(80)`,
+  // Outreach bridge: demo-site copy written by an agent, and what CompanyWall shows publicly (both nullable).
+  `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "demo_content" jsonb`,
+  `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "company_wall" jsonb`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,

@@ -11,6 +11,7 @@ import { CalendarRange, FileSpreadsheet, FileText, Loader2, Pause, Play, Plus, T
 import { cn } from "@/lib/utils";
 import { PRESENCE_LOOK, ROLES, formatUsd, presence, roleOf } from "@/lib/ops";
 import { ConfirmDialog, btnPrimary, field } from "@/components/ops/ops-dialog";
+import { ToOutreach } from "@/components/ops/ops-to-outreach";
 import { createProjectC, extendProjectC, setProjectStatusC, type OpsOverview } from "@/lib/client/ops";
 
 type Project = OpsOverview["projects"][number];
@@ -74,6 +75,7 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
         {p.status === "active" && <button disabled={busy} onClick={() => run(() => setProjectStatusC(p.id, "paused"), "Paused.")} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/80 inline-flex items-center gap-1"><Pause className="w-3.5 h-3.5" /> Pause</button>}
         {p.status === "paused" && <button disabled={busy} onClick={() => run(() => setProjectStatusC(p.id, "active"), "Resumed.")} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/80 inline-flex items-center gap-1"><Play className="w-3.5 h-3.5" /> Resume</button>}
         {p.sheetRows > 0 && <a href={`/api/ops/xlsx?project=${p.id}`} className="h-7 px-2.5 rounded-lg border border-emerald-300/40 text-xs text-emerald-100 hover:bg-emerald-400/10 inline-flex items-center gap-1"><FileSpreadsheet className="w-3.5 h-3.5" /> Excel ({p.sheetRows})</a>}
+        {p.sheetRows > 0 && <ToOutreach projectId={p.id} big />}
         {(p.status === "done" || p.phase === "over") && (
           <select disabled={busy} value="" aria-label="Keep going" onChange={(e) => { const n = Number(e.target.value); if (n) run(() => extendProjectC(p.id, n), `Keeps going for ${n} more day${n === 1 ? "" : "s"}: the lead plans today.`); }}
             className="h-7 px-2 rounded-lg border border-[#6b8afd]/50 bg-[#6b8afd]/10 text-xs text-white [&>option]:text-black">

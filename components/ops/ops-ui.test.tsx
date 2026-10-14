@@ -16,6 +16,7 @@ vi.mock("@/lib/client/ops", () => ({
   missionToTasksC: vi.fn(async () => ({ count: 1 })), missionToPageC: vi.fn(), missionToLeadC: vi.fn(), missionToRedditC: vi.fn(), redditSubsC: vi.fn(async () => []),
   removeRecurringC: vi.fn(), standupNowC: vi.fn(), debriefNowC: vi.fn(), setDayC: vi.fn(), applyTemplateC: vi.fn(), repeatLastDayC: vi.fn(),
   removeAgentC: vi.fn(),
+  sendToOutreachC: vi.fn(async () => ({ added: 0, skipped: 0 })),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), message: vi.fn() } }));
 

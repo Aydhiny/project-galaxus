@@ -42,6 +42,7 @@ export async function demoBySlug(slug: string) {
   return {
     name: l.name, category: l.category, city: l.city, address: l.address, phone: l.phone, channel: l.channel,
     rating: l.rating, reviewCount: l.reviewCount, mapsUrl: l.mapsUrl, senderName: cfg.senderName,
+    content: l.demoContent ?? null, // copy written for this business (lib/services/outreach-bridge.ts), else the page's generic copy
   };
 }
 

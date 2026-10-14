@@ -22,6 +22,7 @@ import { UseIt } from "@/components/ops/ops-use";
 import { Markdown } from "@/components/ops/ops-markdown";
 import { Projects } from "@/components/ops/ops-projects";
 import { BudgetMeter } from "@/components/ops/ops-budget";
+import { ToOutreach } from "@/components/ops/ops-to-outreach";
 import {
   acceptMissionC, applyTemplateC, cancelMissionC, createMissionC, debriefNowC, removeRecurringC, reopenMissionC, repeatLastDayC, setDayC, standupNowC,
   type OpsOverview,
@@ -163,6 +164,7 @@ function MissionCard({ m, data, onChanged, onCompare }: { m: Mission; data: OpsO
               <div className="flex items-center gap-2 mb-1.5">
                 <p className="text-[11px] font-semibold text-[#8ea6ff] flex-1 min-w-0 truncate">{m.deliverableTitle || "Result"}</p>
                 {mergeTables([m.deliverable]).length > 1 && <a href={`/api/ops/xlsx?mission=${m.id}`} className="text-[11px] text-emerald-200 hover:text-white inline-flex items-center gap-1"><FileSpreadsheet className="w-3 h-3" /> Excel</a>}
+                {mergeTables([m.deliverable]).length > 1 && <ToOutreach missionId={m.id} />}
                 <button onClick={() => setDialog("read")} className="text-[11px] text-white/55 hover:text-white inline-flex items-center gap-1"><Maximize2 className="w-3 h-3" /> Read</button>
               </div>
               {/* Written by an agent: rendered from markdown into plain React text, never HTML. */}
