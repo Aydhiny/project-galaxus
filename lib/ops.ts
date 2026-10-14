@@ -590,10 +590,11 @@ const plainMd = (s: string) => s
   .replace(/(\*\*|__|`)/g, "")
   .trim();
 
-export type MdBlock = { type: "paragraph" | "h1" | "h2" | "h3" | "todo" | "bullet" | "numbered" | "quote" | "code" | "divider"; text: string; checked?: boolean; indent?: number; lang?: string };
+export type MdBlock = { type: "paragraph" | "h1" | "h2" | "h3" | "todo" | "bullet" | "numbered" | "quote" | "code" | "divider" | "table"; text: string; checked?: boolean; indent?: number; lang?: string; rows?: string[][]; n?: number };
 
 /** Agent markdown → page blocks (headings, lists, todos, quotes, code, dividers). Plain text only: no HTML survives. */
-export function mdToBlocks(md: string): MdBlock[] {
+export function mdToBlocks(md: string, opts: { inline?: boolean } = {}): MdBlock[] {
+  const plain = opts.inline ? (s: string) => s.trim() : plainMd;
   const out: MdBlock[] = [];
   const lines = String(md ?? "").replace(/\r/g, "").split("\n");
   for (let i = 0; i < lines.length && out.length < 300; i++) {
@@ -609,13 +610,24 @@ export function mdToBlocks(md: string): MdBlock[] {
     const line = raw.trim();
     if (!line) continue;
     let m: RegExpMatchArray | null;
+    // A table (| a | b |), kept as rows of cells when rendering; the separator row (|---|) is dropped.
+    if (opts.inline && /^\|.*\|$/.test(line)) {
+      const rows: string[][] = [];
+      for (; i < lines.length && /^\|.*\|$/.test(lines[i].trim()); i++) {
+        const cells = lines[i].trim().slice(1, -1).split("|").map((c) => c.trim());
+        if (!cells.every((c) => /^:?-{2,}:?$/.test(c))) rows.push(cells.slice(0, 8));
+      }
+      i--;
+      out.push({ type: "table", text: "", rows: rows.slice(0, 60) });
+      continue;
+    }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) out.push({ type: "divider", text: "" });
-    else if ((m = line.match(/^(#{1,6})\s+(.*)$/))) out.push({ type: m[1].length === 1 ? "h1" : m[1].length === 2 ? "h2" : "h3", text: plainMd(m[2]) });
-    else if ((m = line.match(/^[-*+]\s+\[( |x|X)\]\s+(.*)$/))) out.push({ type: "todo", text: plainMd(m[2]), checked: m[1] !== " ", indent });
-    else if ((m = line.match(/^[-*+]\s+(.*)$/))) out.push({ type: "bullet", text: plainMd(m[1]), indent });
-    else if ((m = line.match(/^\d+[.)]\s+(.*)$/))) out.push({ type: "numbered", text: plainMd(m[1]), indent });
-    else if ((m = line.match(/^>\s?(.*)$/))) out.push({ type: "quote", text: plainMd(m[1]) });
-    else out.push({ type: "paragraph", text: plainMd(line) });
+    else if ((m = line.match(/^(#{1,6})\s+(.*)$/))) out.push({ type: m[1].length === 1 ? "h1" : m[1].length === 2 ? "h2" : "h3", text: plain(m[2]) });
+    else if ((m = line.match(/^[-*+]\s+\[( |x|X)\]\s+(.*)$/))) out.push({ type: "todo", text: plain(m[2]), checked: m[1] !== " ", indent });
+    else if ((m = line.match(/^[-*+]\s+(.*)$/))) out.push({ type: "bullet", text: plain(m[1]), indent });
+    else if ((m = line.match(/^\d+[.)]\s+(.*)$/))) out.push({ type: "numbered", text: plain(m[1]), indent, ...(opts.inline ? { n: Number(line.match(/^\d+/)![0]) } : {}) });
+    else if ((m = line.match(/^>\s?(.*)$/))) out.push({ type: "quote", text: plain(m[1]) });
+    else out.push({ type: "paragraph", text: plain(line) });
   }
   return out.map((b) => ({ ...b, text: b.type === "code" ? b.text : b.text.slice(0, 2000) }));
 }
@@ -901,4 +913,50 @@ export function cloudRoute(o: { engine: string; effort: string; claudeBlocked: b
   if (o.freeReady && o.freeFirst && o.effort === "quick") return "free";
   if (!o.claudeBlocked) return "claude";
   return o.freeReady && o.freeFallback ? "free" : "none";
+}
+
+// ─── Inline markdown (for showing results): **bold**, *italic*, `code`, links ──
+
+export type MdSpan = { t: "text" | "b" | "i" | "code" | "link"; v: string; href?: string };
+
+/** One line of markdown → spans. Links only if http(s); everything else stays text (rendered as React text, never HTML). */
+export function mdInline(text: string): MdSpan[] {
+  const out: MdSpan[] = [];
+  const re = /(\*\*|__)(.+?)\1|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>\]]+[^\s)<>\].,;:!?'"])|(?<![\w*])\*(?!\s)([^*]+?)\*(?!\w)|(?<![\w_])_(?!\s)([^_]+?)_(?!\w)/g;
+  let last = 0;
+  for (const m of String(text ?? "").matchAll(re)) {
+    if (m.index! > last) out.push({ t: "text", v: text.slice(last, m.index) });
+    if (m[2] != null) out.push({ t: "b", v: m[2] });
+    else if (m[3] != null) out.push({ t: "code", v: m[3] });
+    else if (m[4] != null) out.push({ t: "link", v: m[4], href: m[5] });
+    else if (m[6] != null) out.push({ t: "link", v: m[6], href: m[6] });
+    else out.push({ t: "i", v: m[7] ?? m[8] ?? "" });
+    last = m.index! + m[0].length;
+  }
+  if (last < text.length) out.push({ t: "text", v: text.slice(last) });
+  return out;
+}
+
+// ─── The Chief's review: is this result moving us to the goal? ────────────────
+
+export const MAX_REVIEW_ROUNDS = 3; // after this, you decide (keeps a bad loop from burning budget)
+export type ChiefVerdict = "accept" | "continue" | "redo";
+export type ChiefReview = { verdict: ChiefVerdict; note: string; feedback: string; next: { title: string; brief: string; effort: Effort } | null; progress: number | null };
+
+/** The Chief's JSON reply → a review we can act on, or null if unreadable. "continue" without a next step becomes "redo". */
+export function parseReview(raw: unknown): ChiefReview | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  let verdict = (["accept", "continue", "redo"] as const).find((v) => v === String(r.verdict ?? "").toLowerCase().trim());
+  if (!verdict) return null;
+  const s = (v: unknown, n: number) => String(v ?? "").replace(/\s+$/g, "").trim().slice(0, n);
+  const nx = r.next && typeof r.next === "object" ? (r.next as Record<string, unknown>) : null;
+  const next = nx && s(nx.title, 200).length >= 3
+    ? { title: s(nx.title, 200), brief: s(nx.brief, 3000), effort: (EFFORTS.includes(nx.effort as Effort) ? nx.effort : "normal") as Effort }
+    : null;
+  if (verdict === "continue" && !next) verdict = "redo";
+  const feedback = s(r.feedback, 2000);
+  if (verdict !== "accept" && feedback.length < 5 && !next) return null;
+  const p = Number(r.progress);
+  return { verdict, note: s(r.note, 800) || feedback.slice(0, 800), feedback, next, progress: Number.isFinite(p) ? Math.max(0, Math.min(100, Math.round(p))) : null };
 }

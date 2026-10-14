@@ -1297,6 +1297,8 @@ export const opsMissions = pgTable(
     requestLinkId: integer("request_link_id"), // a work request from / to a linked facility
     requestFromLabel: varchar("request_from_label", { length: 90 }), // "Ajdin" — who asked (on the partner's copy)
     echoMissionId: integer("echo_mission_id"), // the other facility's mission this one mirrors
+    reviewRound: integer("review_round").notNull().default(0), // how many times the Chief has steered this line of work
+    chiefNote: text("chief_note"), // the Chief's review of the result, for you
     budgetCents: integer("budget_cents"),
     spentCents: integer("spent_cents").notNull().default(0), // as REPORTED by the agent; not enforced for external agents
     status: varchar("status", { length: 10 }).notNull().default("open"), // open | claimed | submitted | done | cancelled

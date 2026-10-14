@@ -962,6 +962,9 @@ const STATEMENTS = [
   `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "request_link_id" integer`,
   `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "request_from_label" varchar(90)`,
   `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "echo_mission_id" integer`,
+  // The Chief reviews results against the goal and steers the agent (round 3b).
+  `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "review_round" integer DEFAULT 0 NOT NULL`,
+  `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "chief_note" text`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "to_user" boolean DEFAULT false NOT NULL`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "kind" varchar(10) DEFAULT 'radio' NOT NULL`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "urgent" boolean DEFAULT false NOT NULL`,

@@ -79,7 +79,7 @@ export async function healFreeRuns(userId: number) {
     .where(and(eq(opsMissions.userId, userId), eq(opsMissions.status, "claimed"), eq(opsMissions.jobId, FREE_JOB), sql`${opsMissions.claimedAt} < now() - interval '10 minutes'`));
 }
 
-type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_project_final";
+type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_project_final" | "ops_review";
 
 /**
  * The lead's thinking jobs (stand-up plan, debrief notes, a project's day plan / final solution).
@@ -87,17 +87,18 @@ type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_proj
  * a free model does it right here (same prompt, same parser) if "free fallback" is on.
  * Returns which engine took it, or null if neither could.
  */
-export async function runPlannerJob(userId: number, kind: PlannerKind, label: string, payload: Record<string, unknown>): Promise<"claude" | "free" | null> {
+export async function runPlannerJob(userId: number, kind: PlannerKind, label: string, payload: Record<string, unknown>, opts: { preferFree?: boolean } = {}): Promise<"claude" | "free" | null> {
   const { claudeHealthy, enqueueJobFor, buildJobPrompt, applyJobResult } = await import("@/lib/services/claude-jobs");
   const { budgetFor, opsSettingsFor } = await import("@/lib/services/ops-inbox");
-  const [healthy, budget] = await Promise.all([claudeHealthy(userId), budgetFor(userId)]);
-  if (healthy && !budget.paused && !budget.exhausted) {
-    const ok = await enqueueJobFor(userId, kind, label, payload).then(() => true, () => false);
+  const { freeStatusFor, askFree } = await import("@/lib/services/free-llm");
+  const [healthy, budget, settings, free] = await Promise.all([claudeHealthy(userId), budgetFor(userId), opsSettingsFor(userId), freeStatusFor(userId)]);
+  // Cheap, frequent thinking (reviews) goes to free models first when you've said "free first".
+  const freeFirst = !!opts.preferFree && settings.freeFirst && free.usableCount > 0;
+  if (!freeFirst && healthy && !budget.paused && !budget.exhausted) {
+    const ok = await enqueueJobFor(userId, kind, label, { model: "haiku", capCents: Math.min(15, budget.leftToday), ...payload }).then(() => true, () => false);
     if (ok) return "claude";
   }
-  const { freeStatusFor, askFree } = await import("@/lib/services/free-llm");
-  const [settings, free] = await Promise.all([opsSettingsFor(userId), freeStatusFor(userId)]);
-  if (!settings.freeFallback || free.usableCount === 0) return null;
+  if (!(freeFirst || settings.freeFallback) || free.usableCount === 0) return null;
   const run = async () => {
     try {
       const row = { userId, kind, payload } as Pick<VoiceCommand, "userId" | "kind" | "payload">;

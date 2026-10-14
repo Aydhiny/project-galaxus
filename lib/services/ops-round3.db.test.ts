@@ -257,6 +257,48 @@ describe("Claude's budget and free fallback", () => {
   });
 });
 
+describe("the Chief reviews results against the goal", () => {
+  it("continue: the step is filed and the same agent gets the next one; accept: it comes to you; capped at 3 rounds", async () => {
+    const amir = (await testDb.insert(users).values({ name: "Amir", email: "amir@example.test" }).returning())[0].id;
+    await free.saveFreeKeyFor(amir, { provider: "groq", key: "gsk_amir_1234567890", model: "llama-3.3-70b-versatile" });
+    const { agent: chief } = await ops.createAgentFor(amir, { name: "Chief", role: "chief", provider: "claude", cloud: true, engine: "free" });
+    const { agent: scout } = await ops.createAgentFor(amir, { name: "Testy", role: "scout", provider: "claude", cloud: true, engine: "free" });
+    const reviews: string[] = [];
+    // The free model plays both parts: the scout's work, then the Chief's review (told apart by the system prompt).
+    let verdict: Record<string, unknown> = {};
+    h.reply = () => {
+      const body = JSON.parse(h.calls.at(-1)!.body) as { messages: { content: string }[] };
+      if (body.messages[0].content.startsWith("You are the Chief of staff at Galaxus Ops. An agent")) { reviews.push(body.messages[1].content); return llm(JSON.stringify(verdict)); }
+      return llm("Use Google Maps and look for listings without a globe icon.");
+    };
+    verdict = { verdict: "continue", progress: 20, note: "It explains a method but finds nobody.", feedback: "Do not tell the user how; do it.", next: { title: "List 15 Sarajevo bakeries with no website", brief: "Name, address, phone, maps link", effort: "quick" } };
+    const m = await ops.createMissionFor(amir, { title: "find bosnian businesses that have no websites", kind: "research", agentId: scout.id }) as { id: number };
+    // The step after "continue" is taken and reviewed in the same chain; accept it this time.
+    const firstReview = h.reply;
+    h.reply = (url) => { const r = firstReview(url); if (reviews.length >= 1) verdict = { verdict: "accept", progress: 100, note: "15 real bakeries with phones: ready to pitch.", feedback: "Great." }; return r; };
+    await settle();
+    expect(await mission(m.id)).toMatchObject({ status: "done", chiefNote: "→ It explains a method but finds nobody. (20% of the way)" });
+    expect(reviews[0]).toContain("GOAL (what the user asked for): find bosnian businesses that have no websites");
+    expect(reviews[0]).toContain("Use Google Maps");
+    const [step] = await testDb.select().from(opsMissions).where(and(eq(opsMissions.userId, amir), eq(opsMissions.parentId, m.id)));
+    expect(step).toMatchObject({ title: "List 15 Sarajevo bakeries with no website", agentId: scout.id, reviewRound: 1, createdByAgentId: chief.id, effort: "quick" });
+    expect(step.brief).toContain("Do not tell the user how; do it.");
+    expect(step).toMatchObject({ status: "submitted", chiefNote: "✓ 15 real bakeries with phones: ready to pitch. (100% of the way)" });
+    expect(reviews[1]).toContain('STEPS SO FAR ON THIS LINE OF WORK:\n1. "find bosnian businesses that have no websites"');
+    // The crew hears it on the radio.
+    const radio = await testDb.select().from(opsMessages).where(and(eq(opsMessages.userId, amir), eq(opsMessages.fromAgentId, chief.id)));
+    expect(radio.map((x) => x.body)).toEqual(expect.arrayContaining([expect.stringContaining('Next for you: "List 15 Sarajevo bakeries'), expect.stringContaining("Good work")]));
+
+    // After 3 rounds the Chief stops steering: it's your call.
+    const [last] = await testDb.insert(opsMissions).values({ userId: amir, day: today(), title: "Round 4", kind: "research", agentId: scout.id, reviewRound: 3, status: "claimed", claimedAt: new Date() }).returning();
+    const before = reviews.length;
+    await ops.submitDeliverableForAgent(scout, { missionId: last.id, markdown: "Some more results here." });
+    await settle();
+    expect(reviews.length).toBe(before);
+    expect((await mission(last.id)).chiefNote).toBe("3 rounds on this already — your call now.");
+  });
+});
+
 describe("projects and work requests", () => {
   it("a project with a cloud lead is planned through the runner, and its goal is remembered", async () => {
     await tokens.createApiTokenFor(faruk, "Runner", "voice");

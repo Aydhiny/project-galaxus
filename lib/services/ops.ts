@@ -546,7 +546,11 @@ export async function submitDeliverableForAgent(agent: OpsAgent, input: { missio
     deliverableTitle: (input.title?.trim() || m.title).slice(0, 200), deliverable: markdown.slice(0, 20_000),
     ...(pr ? { prUrl: pr.url } : {}),
   }).where(eq(opsMissions.id, m.id));
-  await notifyOps(agent.userId, "delivered", `${agent.name} delivered`, m.title, `ops-done-${m.id}`);
+  // The Chief reviews it against the goal first (and pushes you when it's ready); with no Chief, it comes straight to you.
+  const { requestReview } = await import("@/lib/services/ops-review");
+  const reviewing = await requestReview(agent.userId, m.id, agent.id);
+  if (reviewing) await db.update(opsMissions).set({ chiefNote: "⋯ The Chief is reviewing this" }).where(and(eq(opsMissions.id, m.id), isNull(opsMissions.chiefNote)));
+  else await notifyOps(agent.userId, "delivered", `${agent.name} delivered`, m.title, `ops-done-${m.id}`);
   const { onProjectMissionSubmitted } = await import("@/lib/services/ops-projects");
   await onProjectMissionSubmitted(agent.userId, { projectId: m.projectId, title: m.title, deliverable: markdown }).catch(() => {});
   // A work request from a linked facility: the result goes back to whoever asked.

@@ -24,6 +24,7 @@ import { Briefing } from "./ops-briefing";
 import { Feed } from "./ops-feed";
 import { RemoveAgentDialog } from "./ops-dialog";
 import { FreeModelsDialog, freeLabel } from "./ops-free";
+import { Markdown } from "./ops-markdown";
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -172,7 +173,8 @@ describe("Plan panel", () => {
     fireEvent.click(screen.getByText("Find grants"));
     fireEvent.click(screen.getByRole("button", { name: /Use it/ }));
     fireEvent.click(screen.getByRole("button", { name: /Make tasks/ }));
-    expect(screen.getByText("Call the bank")).toBeTruthy();
+    // Once in the rendered result, once as a task to tick.
+    expect(screen.getAllByText("Call the bank")).toHaveLength(2);
     expect(screen.getByRole("button", { name: /Add 2 to Tasks/ })).toBeTruthy();
   });
 
@@ -260,5 +262,16 @@ describe("Free models", () => {
     expect(screen.getByText("(reported by provider)")).toBeTruthy();
     expect(screen.getByText(/Resting until .* HTTP 429 — the next provider takes over/)).toBeTruthy();
     expect(screen.getByRole("switch", { name: /When Claude runs out/ }).getAttribute("aria-checked")).toBe("true");
+  });
+});
+
+describe("Markdown results", () => {
+  it("renders headings, bold and links, and never turns agent text into HTML", () => {
+    const { container } = render(<Markdown md={'## Plan\n- **Call** [Pekara](https://example.ba)\n<img src=x onerror="alert(1)">'} />);
+    expect(screen.getByText("Plan").tagName).toBe("H4");
+    expect(screen.getByText("Call").tagName).toBe("STRONG");
+    expect(screen.getByRole("link", { name: "Pekara" }).getAttribute("href")).toBe("https://example.ba");
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByText('<img src=x onerror="alert(1)">')).toBeTruthy();
   });
 });

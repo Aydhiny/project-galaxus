@@ -10,7 +10,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  CalendarClock, Check, ChevronDown, Cloud, CornerDownRight, Copy, FileText, Gift, GitPullRequest, HelpCircle, Link2, Loader2, Megaphone, Plus, Repeat, RotateCcw, Swords, Trash2, X,
+  CalendarClock, Check, ChevronDown, Crown, Maximize2, Cloud, CornerDownRight, Copy, FileText, Gift, GitPullRequest, HelpCircle, Link2, Loader2, Megaphone, Plus, Repeat, RotateCcw, Swords, Trash2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/lib/ops";
 import { ConfirmDialog, Dialog, PromptDialog, btnGhost, btnPrimary, field } from "@/components/ops/ops-dialog";
 import { UseIt } from "@/components/ops/ops-use";
+import { Markdown } from "@/components/ops/ops-markdown";
 import { Projects } from "@/components/ops/ops-projects";
 import { BudgetMeter } from "@/components/ops/ops-budget";
 import {
@@ -104,7 +105,7 @@ function Board({ data, onChanged, onNew }: { data: OpsOverview; onChanged: () =>
 
 function MissionCard({ m, data, onChanged, onCompare }: { m: Mission; data: OpsOverview; onChanged: () => void; onCompare: (duelId: number) => void }) {
   const [open, setOpen] = useState(m.status === "submitted");
-  const [dialog, setDialog] = useState<"sendback" | "cancel" | null>(null);
+  const [dialog, setDialog] = useState<"sendback" | "cancel" | "read" | null>(null);
   const [busy, start] = useTransition();
   const agent = m.agentId != null ? data.agents.find((a) => a.id === m.agentId) : null;
   const who = agent ? agent.name : m.role ? `Any ${ROLES[roleOf(m.role)].label}` : "Anyone";
@@ -151,12 +152,26 @@ function MissionCard({ m, data, onChanged, onCompare }: { m: Mission; data: OpsO
         <div className="px-2.5 pb-2.5 space-y-2">
           {m.brief && <p className="text-xs text-white/60 whitespace-pre-wrap">{m.brief}</p>}
           {m.prUrl && <a href={m.prUrl} target="_blank" rel="noopener noreferrer nofollow" className="text-[11px] text-[#8ea6ff] hover:underline break-all">{pr?.title ?? m.prUrl}</a>}
+          {m.chiefNote && (
+            <div className={cn("rounded-lg border px-2.5 py-2 text-xs flex gap-2", m.chiefNote.startsWith("⋯") ? "border-white/10 bg-white/[0.03] text-white/60" : "border-amber-300/30 bg-amber-300/[0.07] text-amber-50")}>
+              <Crown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-300" />
+              <span><b className="font-semibold">Chief{m.reviewRound ? ` · step ${m.reviewRound + 1}` : ""}:</b> {m.chiefNote}</span>
+            </div>
+          )}
           {m.deliverable && (
             <div className="rounded-lg bg-black/30 border border-white/10 p-2.5">
-              <p className="text-[11px] font-semibold text-[#8ea6ff] mb-1">{m.deliverableTitle || "Result"}</p>
-              {/* Written by an agent: shown as plain text, never as HTML. */}
-              <pre className="text-xs text-white/85 whitespace-pre-wrap break-words font-sans max-h-72 overflow-y-auto">{m.deliverable}</pre>
+              <div className="flex items-center gap-2 mb-1.5">
+                <p className="text-[11px] font-semibold text-[#8ea6ff] flex-1 min-w-0 truncate">{m.deliverableTitle || "Result"}</p>
+                <button onClick={() => setDialog("read")} className="text-[11px] text-white/55 hover:text-white inline-flex items-center gap-1"><Maximize2 className="w-3 h-3" /> Read</button>
+              </div>
+              {/* Written by an agent: rendered from markdown into plain React text, never HTML. */}
+              <div className="max-h-80 overflow-y-auto pr-1"><Markdown md={m.deliverable} /></div>
             </div>
+          )}
+          {dialog === "read" && m.deliverable && (
+            <Dialog wide title={m.deliverableTitle || m.title} sub={`${who}${m.chiefNote && !m.chiefNote.startsWith("⋯") ? ` · Chief: ${m.chiefNote}` : ""}`} onClose={() => setDialog(null)}>
+              <Markdown md={m.deliverable} className="text-sm" />
+            </Dialog>
           )}
           <div className="flex flex-wrap gap-1.5">
             {m.status === "submitted" && rival?.status === "submitted" && (
@@ -207,7 +222,7 @@ function CompareDialog({ duelId, data, onClose, onChanged }: { duelId: number; d
           <div key={m.id} className="rounded-xl border border-white/10 bg-black/25 p-3 flex flex-col">
             <p className="text-sm font-semibold">{name(m.submittedBy ?? m.agentId)}</p>
             <p className="text-[11px] text-white/50 mb-2">{formatUsd(m.spentCents)}{m.costMeasured ? " measured" : ""}{m.claimedAt && m.submittedAt ? ` · ${Math.max(1, Math.round((new Date(m.submittedAt).getTime() - new Date(m.claimedAt).getTime()) / 60000))} min` : ""}</p>
-            <pre className="flex-1 text-xs text-white/85 whitespace-pre-wrap break-words font-sans max-h-[50vh] overflow-y-auto">{m.deliverable ?? "(not delivered yet)"}</pre>
+            <div className="flex-1 max-h-[50vh] overflow-y-auto pr-1">{m.deliverable ? <Markdown md={m.deliverable} /> : <p className="text-xs text-white/50">(not delivered yet)</p>}</div>
             <button disabled={busy || m.status !== "submitted"} className={cn(btnPrimary, "mt-3 h-8 text-xs")}
               onClick={() => start(async () => { try { await acceptMissionC(m.id); toast.success(`${name(m.submittedBy ?? m.agentId)} wins.`); onChanged(); onClose(); } catch (e) { toast.error((e as Error).message); } })}>
               Pick this one

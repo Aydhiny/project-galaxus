@@ -23,7 +23,7 @@ async function deliverable(userId: number, id: number) {
 /** Markdown → page blocks the editor understands. */
 export function blocksFromMarkdown(md: string): Block[] {
   return mdToBlocks(md).map((b) => {
-    const block = createBlock(b.type, b.text);
+    const block = createBlock(b.type === "table" ? "paragraph" : b.type, b.text); // tables only appear with { inline: true }
     if (b.type === "todo") block.checked = !!b.checked;
     if (b.indent) block.indent = b.indent;
     if (b.lang) block.lang = b.lang;

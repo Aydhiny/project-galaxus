@@ -2,7 +2,7 @@
 // quota maths, the Reach parsers, and how deliverables are squeezed into memory.
 
 import { describe, expect, it } from "vitest";
-import { cloudRoute, parseCloudReply } from "@/lib/ops";
+import { MAX_REVIEW_ROUNDS, cloudRoute, mdInline, mdToBlocks, parseCloudReply, parseReview } from "@/lib/ops";
 import { cooldownMs, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday, usable, type FreeKeyState } from "@/lib/free-llm";
 import { htmlToText, parseExa } from "@/lib/services/reach";
 import { compress } from "@/lib/services/ops-memory";
@@ -100,5 +100,37 @@ describe("model trouble: try another model before giving up on a provider", () =
     expect(modelsToTry("groq", "llama-3.3-70b-versatile", ["openai/gpt-oss-20b", "whisper-large-v3"])).toEqual(["llama-3.3-70b-versatile", "openai/gpt-oss-20b"]);
     // A custom provider has no catalog: use what it lists (never audio/embedding models).
     expect(modelsToTry("custom", "x", ["text-embed-1", "chat-a", "chat-b", "chat-c"])).toEqual(["x", "chat-a", "chat-b"]);
+  });
+});
+
+describe("rendering results", () => {
+  it("keeps inline formatting and parses tables when asked", () => {
+    const b = mdToBlocks("## Leads\n| Name | Phone |\n|---|---|\n| **Pekara Ćiro** | 033 123 |\n3. Call them", { inline: true });
+    expect(b[0]).toEqual({ type: "h2", text: "Leads" });
+    expect(b[1]).toEqual({ type: "table", text: "", rows: [["Name", "Phone"], ["**Pekara Ćiro**", "033 123"]] });
+    expect(b[2]).toMatchObject({ type: "numbered", text: "Call them", n: 3 });
+    // Without the option (Pages export), inline marks are stripped as before.
+    expect(mdToBlocks("**bold** text")[0].text).toBe("bold text");
+  });
+  it("splits a line into bold, italic, code and safe links only", () => {
+    expect(mdInline("Use **Google Maps** and `site:ba`, see [guide](https://example.com/g) or https://x.ba/a. _Free model_")).toEqual([
+      { t: "text", v: "Use " }, { t: "b", v: "Google Maps" }, { t: "text", v: " and " }, { t: "code", v: "site:ba" },
+      { t: "text", v: ", see " }, { t: "link", v: "guide", href: "https://example.com/g" }, { t: "text", v: " or " },
+      { t: "link", v: "https://x.ba/a", href: "https://x.ba/a" }, { t: "text", v: ". " }, { t: "i", v: "Free model" },
+    ]);
+    // javascript: links are never links.
+    expect(mdInline("[click](javascript:alert(1))").every((s) => s.t !== "link")).toBe(true);
+  });
+});
+
+describe("the Chief's review", () => {
+  it("reads a verdict and turns 'continue' without a next step into 'redo'", () => {
+    expect(parseReview({ verdict: "continue", progress: 30, note: "Good start.", feedback: "Now do it.", next: { title: "List 20 bakeries without sites", brief: "Name, phone, maps link", effort: "quick" } }))
+      .toEqual({ verdict: "continue", progress: 30, note: "Good start.", feedback: "Now do it.", next: { title: "List 20 bakeries without sites", brief: "Name, phone, maps link", effort: "quick" } });
+    expect(parseReview({ verdict: "continue", feedback: "It only explains how to do it." })?.verdict).toBe("redo");
+    expect(parseReview({ verdict: "ACCEPT", note: "Done." })).toMatchObject({ verdict: "accept", next: null, progress: null });
+    expect(parseReview({ verdict: "maybe" })).toBeNull();
+    expect(parseReview({ verdict: "redo" })).toBeNull(); // no feedback to act on
+    expect(MAX_REVIEW_ROUNDS).toBe(3);
   });
 });

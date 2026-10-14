@@ -131,6 +131,10 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       const { buildProjectFinalPrompt } = await import("@/lib/services/ops-projects");
       return buildProjectFinalPrompt(row.userId, Number(p.projectId));
     }
+    case "ops_review": {
+      const { buildReviewPrompt } = await import("@/lib/services/ops-review");
+      return buildReviewPrompt(row.userId, Number(p.missionId), Number(p.chiefId));
+    }
     case "scout":
       return buildScoutPrompt(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger));
     case "digest": {
@@ -205,6 +209,10 @@ export async function applyJobResult(row: VoiceCommand, text: string, costCents:
     case "ops_project_final": {
       const { applyProjectFinalResult } = await import("@/lib/services/ops-projects");
       return applyProjectFinalResult(row.userId, Number(p.projectId), text);
+    }
+    case "ops_review": {
+      const { applyReviewResult } = await import("@/lib/services/ops-review");
+      return applyReviewResult(row.userId, Number(p.missionId), Number(p.chiefId), text);
     }
     case "scout":
       return applyScoutResult(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger), text);
