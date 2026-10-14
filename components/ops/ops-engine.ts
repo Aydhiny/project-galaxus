@@ -15,11 +15,12 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { logoTexture } from "@/components/empire/logo-texture";
 import { PROVIDER_LOGO } from "@/components/ops/provider-logos";
-import { PROVIDERS, ROLES, TEAMS, type Presence, type ProviderKey, type RoleKey, type TeamKey } from "@/lib/ops";
+import { PRESENCE_LOOK, PROVIDERS, ROLES, TEAMS, type Presence, type ProviderKey, type RoleKey, type TeamKey } from "@/lib/ops";
 
 export type AgentView = {
   id: number; name: string; role: RoleKey; provider: ProviderKey; presence: Presence; cloud?: boolean;
   activity: string | null; activityKind: string | null; activityUrl: string | null;
+  statusNote?: string; // under the state on the tag: "last seen 2h ago", "no signal since 18m ago", what it's doing
   level?: number; // from the scorecard; shown on the name plate
   deskNote?: string | null; // e.g. "PR open · checks ✓ · approved", shown on the monitor
 };
@@ -104,6 +105,7 @@ type Slot = {
   rack: THREE.Mesh[] | null; // a cloud agent's server lights
   mon: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sig: string; mat: THREE.MeshBasicMaterial };
   bubble: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sprite: THREE.Sprite; sig: string };
+  tag: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sprite: THREE.Sprite; sig: string };
   seed: number;
   flash: number;
   nextBlink: number;
@@ -398,6 +400,7 @@ export class OpsEngine {
     const working = s.agent.presence === "working";
     const waiting = s.agent.presence === "waiting";
     const offline = s.agent.presence === "offline";
+    const trouble = s.agent.presence === "stuck" || s.agent.presence === "error";
     const k = s.seed;
     s.root.position.y = s.pos.y + (offline ? -0.02 : Math.sin(t * 1.8 + k) * 0.015);
     s.head.rotation.z = offline ? 0.22 : Math.sin(t * 0.9 + k) * 0.05; // asleep: head tips to the side
@@ -417,9 +420,11 @@ export class OpsEngine {
     for (const e of s.eyes) e.scale.y = offline ? 0.12 : Math.min(1, e.scale.y + dt * 12);
     // Status ring + hover/focus highlight.
     const ringMat = s.ring.material as THREE.MeshBasicMaterial;
-    ringMat.color.set(offline ? 0x475569 : waiting ? 0xf43f5e : working ? 0x34d399 : 0xfbbf24);
+    ringMat.color.set(PRESENCE_LOOK[s.agent.presence].hex);
     const hot = this.hovered === s.agent.id || this.selected === s.agent.id;
-    const pulse = working ? 1 + Math.sin(t * 4) * 0.08 : 1;
+    const pulse = working ? 1 + Math.sin(t * 4) * 0.08 : trouble ? 1 + Math.abs(Math.sin(t * 3)) * 0.14 : 1;
+    // Stuck / error: the tag blinks so you spot it from across the room.
+    s.tag.sprite.material.opacity = trouble ? 0.65 + 0.35 * Math.abs(Math.sin(t * 3)) : 1;
     s.ring.scale.setScalar((hot ? 1.18 : 1) * pulse);
     // Monitor flash when something new arrives.
     if (s.flash > 0) { s.flash = Math.max(0, s.flash - dt * 1.6); }
@@ -434,6 +439,8 @@ export class OpsEngine {
   private updateAgent(s: Slot, a: AgentView) {
     const prev = s.agent;
     s.agent = a;
+    const tagSig = `${a.presence}|${a.statusNote ?? ""}`;
+    if (tagSig !== s.tag.sig) { s.tag.sig = tagSig; this.drawTag(s); }
     const sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}|${a.deskNote ?? ""}`;
     if (sig !== s.mon.sig) {
       const changed = prev.activity !== a.activity && a.activity;
@@ -564,11 +571,11 @@ export class OpsEngine {
     const W = 384, H = 240;
     const hex = `#${PROVIDERS[a.provider].hex}`;
     g.fillStyle = "#1e1f22"; g.fillRect(0, 0, W, H);
-    g.fillStyle = a.presence === "offline" ? "#334155" : a.presence === "waiting" ? "#e11d48" : hex; g.fillRect(0, 0, W, 34);
+    g.fillStyle = a.presence === "offline" ? "#334155" : a.presence === "waiting" ? "#e11d48" : a.presence === "stuck" || a.presence === "error" ? PRESENCE_LOOK[a.presence].hex : hex; g.fillRect(0, 0, W, 34);
     g.fillStyle = "#fff"; g.font = "bold 20px system-ui, sans-serif"; g.textBaseline = "middle";
     g.fillText(a.name.toUpperCase(), 12, 18);
     g.textAlign = "right"; g.font = "16px system-ui, sans-serif";
-    g.fillText(a.presence === "working" ? "● LIVE" : a.presence === "waiting" ? "✋ NEEDS YOU" : a.presence === "idle" ? "STANDBY" : "OFFLINE", W - 12, 18);
+    g.fillText(a.presence === "working" ? "● LIVE" : a.presence === "waiting" ? "✋ NEEDS YOU" : a.presence === "idle" ? "STANDBY" : a.presence === "stuck" ? "⏳ STUCK" : a.presence === "error" ? "⚠ ERROR" : "OFFLINE", W - 12, 18);
     g.textAlign = "left";
     if (a.presence === "offline" || !a.activity) {
       g.fillStyle = "#475569"; g.font = "bold 30px system-ui, sans-serif"; g.textAlign = "center";
@@ -593,6 +600,23 @@ export class OpsEngine {
       g.fillStyle = "rgba(255,255,255,.025)";
       for (let y = 40; y < H; y += 6) g.fillRect(0, y, W, 1); // scanlines
     }
+    t.needsUpdate = true;
+  }
+
+  /** The status tag over the head: a coloured state and a short reason, always visible. */
+  private drawTag(s: Slot) {
+    const { g, t } = s.tag;
+    const a = s.agent;
+    const look = PRESENCE_LOOK[a.presence];
+    g.clearRect(0, 0, 512, 96);
+    g.fillStyle = "rgba(30,31,34,.94)"; roundRect(g, 3, 3, 506, 90, 20); g.fill();
+    g.strokeStyle = look.hex; g.lineWidth = 4; roundRect(g, 3, 3, 506, 90, 20); g.stroke();
+    g.fillStyle = look.hex; g.beginPath(); g.arc(34, 34, 11, 0, Math.PI * 2); g.fill();
+    g.textBaseline = "middle"; g.textAlign = "left";
+    g.font = "bold 30px system-ui, sans-serif"; g.fillText(look.label.toUpperCase(), 56, 35);
+    g.fillStyle = "#cbd5e1"; g.font = "24px system-ui, sans-serif";
+    const note = a.statusNote ?? "";
+    g.fillText(note.length > 38 ? `${note.slice(0, 37)}…` : note, 22, 70);
     t.needsUpdate = true;
   }
 
@@ -837,7 +861,11 @@ export class OpsEngine {
     plate.position.set(0, 0.5, 0.77); root.add(plate);
     const bc = makeCanvas(512, 128);
     const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(bc.c), transparent: true, opacity: 0, depthWrite: false }));
-    bubble.scale.set(3.3, 0.82, 1); bubble.position.set(-0.55, 4.1, -0.7); root.add(bubble);
+    bubble.scale.set(3.3, 0.82, 1); bubble.position.set(-0.55, 4.75, -0.7); root.add(bubble);
+    // Status tag, always on: WORKING / IDLE / NEEDS YOU / OFFLINE / STUCK / ERROR + a short reason.
+    const tc = makeCanvas(512, 96);
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(tc.c), transparent: true, depthWrite: false }));
+    tag.scale.set(3.0, 0.56, 1); tag.position.set(-0.55, 3.95, -0.7); root.add(tag);
 
     // Status pad on the floor in front of the desk + an invisible hit target for clicking.
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.62, 32), new THREE.MeshBasicMaterial({ color: 0xfbbf24, side: THREE.DoubleSide }));
@@ -866,6 +894,7 @@ export class OpsEngine {
       agent: a, root, pos: pos.clone(), head, armL, armR, eyes, prop, ring, hit, beacon, rack, body: ag, home: ag.position.clone(),
       mon: { g: mc.g, t: mon.map as THREE.CanvasTexture, sig: "\u0000", mat: mon },
       bubble: { g: bc.g, t: bubble.material.map as THREE.CanvasTexture, sprite: bubble, sig: "" },
+      tag: { g: tc.g, t: tag.material.map as THREE.CanvasTexture, sprite: tag, sig: "" },
       seed, flash: 0, nextBlink: 1 + (seed % 3),
     };
     this.updateAgentFirst(slot, a);

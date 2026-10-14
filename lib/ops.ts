@@ -84,7 +84,7 @@ export type EventKind = (typeof EVENT_KINDS)[number];
 /** What an agent may say it is doing with ops_log_activity (the rest are set by Galaxus). */
 export const LOGGABLE_KINDS = ["browse", "search", "read", "edit", "shell", "tool", "think"] as const;
 
-export type AgentStatus = "working" | "idle" | "waiting";
+export type AgentStatus = "working" | "idle" | "waiting" | "error";
 export type AgentEventInput = { kind: EventKind; label: string; url: string | null; status?: AgentStatus };
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
@@ -226,14 +226,24 @@ export function eventFromHook(payload: unknown): AgentEventInput | null {
 
 // ─── Presence ────────────────────────────────────────────────────────────────
 
-export type Presence = "working" | "idle" | "waiting" | "offline";
+export type Presence = "working" | "idle" | "waiting" | "offline" | "stuck" | "error";
+const ERROR_SHOWS_MS = 30 * 60_000; // a failure stays visible for half an hour (or until the agent does something else)
+const STUCK_LOCAL_MS = 15 * 60_000; // holding a mission, no signal: a local agent has stopped (closed, crashed, timed out)
+const STUCK_CLOUD_MS = 30 * 60_000; // a cloud run waits for the runner, so it gets longer
 const OFFLINE_AFTER_MS = 10 * 60_000;
 const WAITING_HOLDS_MS = 60 * 60_000; // an agent blocked on you stays "needs you" for an hour
 const WORKING_FRESH_MS = 2 * 60_000;
 const CLOUD_WORKING_MS = 15 * 60_000; // a cloud run is silent while Claude thinks
 
-export function presence(a: { status: string; lastSeenAt: Date | string | null; cloud?: boolean }, now = Date.now()): Presence {
+export function presence(a: { status: string; lastSeenAt: Date | string | null; cloud?: boolean }, now = Date.now(), o: { holdingSince?: Date | string | null } = {}): Presence {
   const age = a.lastSeenAt ? now - new Date(a.lastSeenAt).getTime() : Infinity;
+  if (a.status === "error" && age < ERROR_SHOWS_MS) return "error";
+  // Holds a mission but has gone quiet for too long: stuck (timed out, crashed, or the session closed).
+  if (o.holdingSince) {
+    const limit = a.cloud ? STUCK_CLOUD_MS : STUCK_LOCAL_MS;
+    const quiet = Math.min(age, now - new Date(o.holdingSince).getTime());
+    if (quiet > limit && a.status !== "waiting") return "stuck";
+  }
   if (a.cloud) return a.status === "working" && age < CLOUD_WORKING_MS ? "working" : "idle"; // always on standby
   if (a.status === "waiting" && age < WAITING_HOLDS_MS) return "waiting";
   if (age > OFFLINE_AFTER_MS) return "offline";
@@ -1008,4 +1018,31 @@ export function projectStep(o: { phase: "not started" | "working" | "final" | "o
   const canFinish = o.results > 0 && (o.phase === "over" || (o.phase === "final" && (o.dayEnded || (o.plannedToday && o.inProgress === 0))));
   if (canFinish) return "finish";
   return o.plannedToday ? "wait" : "plan";
+}
+
+/** How each state looks everywhere (3D tag, lists, cards). */
+export const PRESENCE_LOOK: Record<Presence, { label: string; hex: string }> = {
+  working: { label: "Working", hex: "#34d399" },
+  idle: { label: "Idle", hex: "#fbbf24" },
+  waiting: { label: "Needs you", hex: "#f43f5e" },
+  offline: { label: "Offline", hex: "#64748b" },
+  stuck: { label: "Stuck", hex: "#c084fc" },
+  error: { label: "Error", hex: "#fb923c" },
+};
+
+/** One short line under the state: what it's doing, or why it isn't. */
+export function presenceNote(p: Presence, a: { activity: string | null; lastSeenAt: Date | string | null; cloud?: boolean }, now = Date.now(), shiftOn = true) {
+  const ago = (d: Date | string | null) => {
+    if (!d) return null;
+    const m = Math.round((now - new Date(d).getTime()) / 60_000);
+    return m < 1 ? "just now" : m < 60 ? `${m}m ago` : m < 48 * 60 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
+  };
+  switch (p) {
+    case "working": return a.activity ?? "working";
+    case "waiting": return a.activity ?? "waiting for your answer";
+    case "error": return a.activity ?? "the last step failed";
+    case "stuck": return `no signal since ${ago(a.lastSeenAt) ?? "it took the mission"}`;
+    case "offline": return a.lastSeenAt ? `last seen ${ago(a.lastSeenAt)}` : "never connected";
+    default: return a.cloud ? (shiftOn ? "on standby: takes the next mission" : "off duty until the shift") : "waiting for orders";
+  }
 }

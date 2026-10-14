@@ -165,6 +165,13 @@ export async function opsOverviewFor(userId: number) {
     requests,
     shiftNow: shiftStatus(shift ?? null, hhmmIn(tz)),
     claudeMode: await claudeModeFor(userId),
+    // Claude is set up but its last run failed to log in (expired token): say so, with the fix.
+    claudeLoginExpired: await (async () => {
+      const mode = await claudeModeFor(userId);
+      if (mode === "none") return false;
+      const { claudeHealthy } = await import("@/lib/services/claude-jobs");
+      return !(await claudeHealthy(userId));
+    })(),
     totals: {
       budgetCents: todays.reduce((s, m) => s + (m.budgetCents ?? 0), 0),
       spentCents: todays.reduce((s, m) => s + m.spentCents, 0),
@@ -756,7 +763,7 @@ async function releaseCloudMission(userId: number, missionId: number, why: strin
     .where(and(eq(opsMissions.id, missionId), eq(opsMissions.userId, userId), eq(opsMissions.status, "claimed"))).returning();
   if (m && why && held?.agentId) {
     const [a] = await db.select().from(opsAgents).where(eq(opsAgents.id, held.agentId)).limit(1);
-    if (a) await recordEventForAgent(a, { kind: "status", label: why, url: null, status: "idle" }, { missionId });
+    if (a) await recordEventForAgent(a, { kind: "status", label: why, url: null, status: "error" }, { missionId });
   }
 }
 

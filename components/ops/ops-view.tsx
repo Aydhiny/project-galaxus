@@ -12,7 +12,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Activity, ArrowLeft, Brain, Cable, ClipboardList, Cloud, Eye, Gift, Hand, Inbox as InboxIcon, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BUILTIN_SKILLS, PROVIDERS, ROLES, TEAMS, formatUsd, presence, prLabel, providerOf, roleOf, type ProviderKey } from "@/lib/ops";
+import { BUILTIN_SKILLS, PRESENCE_LOOK, PROVIDERS, ROLES, TEAMS, formatUsd, presence, presenceNote, prLabel, providerOf, roleOf, type ProviderKey } from "@/lib/ops";
 import { ProviderIcon } from "@/components/ops/provider-logos";
 import { Briefing } from "@/components/ops/ops-briefing";
 import { Feed, Radio, timeAgo } from "@/components/ops/ops-feed";
@@ -30,7 +30,7 @@ import { removeAgentC, updateAgentC, type OpsOverview } from "@/lib/client/ops";
 
 const REFRESH_MS = 5000;
 const VIEWS: { key: ViewKey; label: string }[] = [{ key: "overview", label: "Floor" }, { key: "wall", label: "Mission wall" }, { key: "table", label: "Table" }];
-const DOT = { working: "bg-emerald-400", idle: "bg-amber-400", waiting: "bg-rose-400 animate-pulse", offline: "bg-slate-500" } as const;
+const DOT = { working: "bg-emerald-400", idle: "bg-amber-400", waiting: "bg-rose-400 animate-pulse", offline: "bg-slate-500", stuck: "bg-purple-400 animate-pulse", error: "bg-orange-400 animate-pulse" } as const;
 
 export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverview; openInbox?: boolean }) {
   const router = useRouter();
@@ -88,8 +88,12 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
     return () => { dead = true; engine.current?.dispose(); engine.current = null; setReady(false); };
   }, []);
 
-  const agents: AgentView[] = useMemo(() => data.agents.map((a) => ({
-    id: a.id, name: a.name, role: roleOf(a.role), provider: providerOf(a.provider), presence: presence(a, now), cloud: a.cloud,
+  const agents: AgentView[] = useMemo(() => data.agents.map((a) => {
+    const held = data.missions.find((m) => m.agentId === a.id && m.status === "claimed");
+    const p = presence(a, now, { holdingSince: held?.claimedAt ?? null });
+    return {
+    id: a.id, name: a.name, role: roleOf(a.role), provider: providerOf(a.provider), presence: p, cloud: a.cloud,
+    statusNote: presenceNote(p, a, now, data.shiftNow.state !== "off"),
     activity: a.activity, activityKind: a.activityKind, activityUrl: a.activityUrl,
     level: data.scores[a.id]?.level ?? 1,
     // A pull request the agent is on shows on its desk monitor.
@@ -98,7 +102,8 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
       const pr = m?.prUrl ? data.prs[m.prUrl] : null;
       return pr ? prLabel(pr) : null;
     })(),
-  })), [data.agents, data.scores, data.missions, data.prs, now]);
+  };
+  }), [data.agents, data.scores, data.missions, data.prs, data.shiftNow.state, now]);
 
   useEffect(() => {
     if (!ready) return;
@@ -197,6 +202,18 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
           )}
         </div>
 
+        {/* Claude's login expired: everything is running on free models until it's fixed. */}
+        {data.claudeLoginExpired && (
+          <div className="basis-full flex justify-center">
+            <div className="pointer-events-auto w-[min(40rem,100%)] rounded-xl bg-orange-500/90 border border-orange-200/40 px-3 py-2 text-xs text-white shadow-lg">
+              <b>Claude can&apos;t log in{data.claudeMode === "runner" ? " on your GitHub runner" : ""}</b> (401: the token expired), so agents are on free models only.
+              {data.claudeMode === "runner"
+                ? <> Fix: run <code className="font-mono bg-black/25 px-1 rounded">claude setup-token</code> on your PC and paste the result into GitHub → your repo → Settings → Secrets → <code className="font-mono bg-black/25 px-1 rounded">CLAUDE_CODE_OAUTH_TOKEN</code>.</>
+                : <> Fix: paste a new Anthropic API key in Connections → Claude.</>}
+            </div>
+          </div>
+        )}
+
         {/* Needs you: in the bar's own flow, so it sits under however many rows the buttons wrap to. */}
         {waiting.length > 0 && (
           <div className="basis-full flex justify-center">
@@ -277,7 +294,9 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
               <p className="text-[11px] mt-0.5" style={{ color: TEAMS[ROLES[selView.role].team].hex }}>{TEAMS[ROLES[selView.role].team].label}</p>
               <p className="mt-1 text-sm text-white/85 break-words">
                 <span className={cn("inline-block w-2 h-2 rounded-full mr-1.5", DOT[selView.presence])} />
-                {selView.presence === "offline" ? `Not connected${sel.lastSeenAt ? ` · last seen ${timeAgo(sel.lastSeenAt, now)} ago` : " yet"}`
+                <b style={{ color: PRESENCE_LOOK[selView.presence].hex }} className="mr-1">{PRESENCE_LOOK[selView.presence].label}:</b>
+                {selView.presence === "stuck" || selView.presence === "error" ? <span className="text-white/85">{selView.statusNote}</span>
+                  : selView.presence === "offline" ? `Not connected${sel.lastSeenAt ? ` · last seen ${timeAgo(sel.lastSeenAt, now)} ago` : " yet"}`
                   : selView.presence === "waiting" ? <b className="text-rose-200">Needs you: {selView.activity ?? "waiting for permission"}</b>
                   : selView.activity ?? (selView.cloud ? (data.shiftNow.state === "on" ? "On standby: takes the next open mission" : "Off duty until the next shift") : "Waiting for orders")}
               </p>

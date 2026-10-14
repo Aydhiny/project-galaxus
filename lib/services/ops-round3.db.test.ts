@@ -402,6 +402,48 @@ describe("a 1-day lead-finding project, end to end", () => {
   });
 });
 
+describe("you can see the lead think, and a failed plan is never silent", () => {
+  it("a plan that never landed is retried; a failure shows on the lead and the card; the next beat plans and hands work out on the radio", async () => {
+    const dino = (await testDb.insert(users).values({ name: "Dino", email: "dino@example.test" }).returning())[0].id;
+    await free.saveFreeKeyFor(dino, { provider: "groq", key: "gsk_dino_1234567890", model: "openai/gpt-oss-120b" });
+    const { agent: lead } = await ops.createAgentFor(dino, { name: "Novacheck", role: "chief", provider: "claude", cloud: true });
+    const { agent: testy } = await ops.createAgentFor(dino, { name: "Testy", role: "scout", provider: "claude", cloud: true, engine: "free" });
+    // Exactly the stuck state from production: "planned" today, no missions, created before plan tracking existed.
+    await testDb.insert(schema.opsProjects).values({
+      userId: dino, title: "Leads", goal: "Find 200 dentists and lawyers that need websites, as an Excel sheet.", startDay: today(), deadline: today(),
+      leadAgentId: lead.id, lastPlannedDay: today(),
+    });
+
+    // Every free model is down: the lead shows the error, the card says why, and the day is released.
+    h.reply = () => ({ status: 503, text: '{"error":"overloaded"}' });
+    await projects.projectsTickFor(dino, { shiftOn: true, shiftEnded: false });
+    await settle();
+    const leadNow = (await testDb.select().from(opsAgents).where(eq(opsAgents.id, lead.id)))[0];
+    expect(leadNow.status).toBe("error");
+    expect(leadNow.activity).toMatch(/^Couldn't finish "Planning day 1 of 1: Leads": Every free model failed/);
+    const card = (await projects.projectsFor(dino))[0];
+    expect(card.planError).toMatch(/Every free model failed/);
+    expect(card.lastPlannedDay).toBeNull();
+
+    // Next beat, a model answers: the plan lands, work is handed to Testy by name, on the radio.
+    await testDb.update(freeLlmKeys).set({ cooldownUntil: null }).where(eq(freeLlmKeys.userId, dino));
+    h.reply = () => llm(JSON.stringify({ plan: "Dentists first.", message: "Testy: dentists.", missions: [{ title: "Dentists in Mostar", brief: "FIND: dentist @ Mostar\n50 rows", agent: "Testy", kind: "research", effort: "quick" }] }));
+    h.web = (url) => url.startsWith("https://nominatim") ? Response.json([{ boundingbox: ["43.3", "43.4", "17.7", "17.9"] }]) : url.includes("overpass") ? Response.json({ elements: [] }) : null;
+    await projects.projectsTickFor(dino, { shiftOn: true, shiftEnded: false });
+    await settle();
+    const after = (await projects.projectsFor(dino))[0];
+    expect(after).toMatchObject({ planError: null });
+    // What the lead did, as you see it in the feed (it then went on to review Testy's result).
+    const leadEvents = (await testDb.select().from(schema.opsEvents).where(eq(schema.opsEvents.agentId, lead.id)).orderBy(schema.opsEvents.id)).map((e) => e.label);
+    expect(leadEvents).toEqual(expect.arrayContaining([
+      "Planning day 1 of 1: Leads (on a free model)", expect.stringMatching(/^Couldn't finish "Planning day 1 of 1: Leads"/), expect.stringMatching(/^Leads: day 1 planned, 1 mission · on Groq/),
+    ]));
+    const radio = await testDb.select().from(opsMessages).where(and(eq(opsMessages.userId, dino), eq(opsMessages.toAgentId, testy.id)));
+    expect(radio.map((r) => r.body)).toContain('For you today: "Dentists in Mostar"');
+    h.web = () => null;
+  });
+});
+
 describe("projects and work requests", () => {
   it("a project with a cloud lead is planned through the runner, and its goal is remembered", async () => {
     await tokens.createApiTokenFor(faruk, "Runner", "voice");

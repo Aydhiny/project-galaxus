@@ -128,7 +128,7 @@ export function readRateHeaders(h: { get(name: string): string | null }) {
  */
 export function modelTrouble(status: number, body: string): "missing" | "busy" | null {
   if (status === 404 || /model_not_found|does not exist|not found for API version|is not supported/i.test(body)) return "missing";
-  if (status === 503 || status === 529 || /overloaded|high demand|UNAVAILABLE/.test(body)) return "busy";
+  if (status === 503 || status === 529 || /overloaded|high demand|UNAVAILABLE|currently unavailable|temporarily unavailable|Empty answer/i.test(body)) return "busy";
   return null;
 }
 

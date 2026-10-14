@@ -46,7 +46,7 @@ export async function runFreeMission(userId: number, missionId: number, agentId:
     });
   } catch (e) {
     await db.update(opsMissions).set({ status: "open", claimedAt: null, jobId: null, agentId: m.role ? null : m.agentId }).where(and(eq(opsMissions.id, m.id), eq(opsMissions.status, "claimed")));
-    await ops.recordEventForAgent(a, { kind: "status", label: `Free models couldn't finish: ${e instanceof Error ? e.message.slice(0, 140) : "error"}`, url: null, status: "idle" }, { missionId: m.id }).catch(() => {});
+    await ops.recordEventForAgent(a, { kind: "status", label: `Free models couldn't finish: ${e instanceof Error ? e.message.slice(0, 140) : "error"}`, url: null, status: "error" }, { missionId: m.id }).catch(() => {});
   }
 }
 
@@ -95,7 +95,10 @@ type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_proj
  * a free model does it right here (same prompt, same parser) if "free fallback" is on.
  * Returns which engine took it, or null if neither could.
  */
-export async function runPlannerJob(userId: number, kind: PlannerKind, label: string, payload: Record<string, unknown>, opts: { preferFree?: boolean } = {}): Promise<"claude" | "free" | null> {
+export async function runPlannerJob(userId: number, kind: PlannerKind, label: string, payload: Record<string, unknown>, opts: { preferFree?: boolean; agentId?: number | null } = {}): Promise<"claude" | "free" | null> {
+  const agent = opts.agentId ? (await db.select().from(opsAgents).where(eq(opsAgents.id, opts.agentId)).limit(1))[0] : undefined;
+  const ops = await import("@/lib/services/ops");
+  const show = (status: "working" | "idle" | "error", text: string) => agent ? ops.recordEventForAgent(agent, { kind: status === "working" ? "think" : "status", label: text.slice(0, 200), url: null, status }).catch(() => {}) : Promise.resolve();
   const { claudeHealthy, enqueueJobFor, buildJobPrompt, applyJobResult } = await import("@/lib/services/claude-jobs");
   const { budgetFor, opsSettingsFor } = await import("@/lib/services/ops-inbox");
   const { freeStatusFor, askFree } = await import("@/lib/services/free-llm");
@@ -104,16 +107,28 @@ export async function runPlannerJob(userId: number, kind: PlannerKind, label: st
   const freeFirst = !!opts.preferFree && settings.freeFirst && free.usableCount > 0;
   if (!freeFirst && healthy && !budget.paused && !budget.exhausted) {
     const ok = await enqueueJobFor(userId, kind, label, { model: "haiku", capCents: Math.min(15, budget.leftToday), ...payload }).then(() => true, () => false);
-    if (ok) return "claude";
+    if (ok) { await show("working", `${label} (on Claude)`); return "claude"; }
   }
-  if (!(freeFirst || settings.freeFallback) || free.usableCount === 0) return null;
+  if (!(freeFirst || settings.freeFallback) || free.usableCount === 0) {
+    const why = !healthy && free.usableCount === 0 ? "Claude isn't available and every free model is resting" : !healthy ? "Claude isn't available and free fallback is off" : "no engine available right now";
+    await show("error", `Can't think right now: ${why}. Retrying on the next beat.`);
+    await plannerJobFailed(userId, kind, payload, why);
+    return null;
+  }
+  await show("working", `${label} (on a free model)`);
   const run = async () => {
     try {
       const row = { userId, kind, payload } as Pick<VoiceCommand, "userId" | "kind" | "payload">;
       const { system, prompt } = await buildJobPrompt(row);
       const r = await askFree(userId, { system, prompt, maxTokens: 3500 });
-      await applyJobResult(row as VoiceCommand, r.text, 0);
-    } catch { /* best effort: the day still runs without the lead's notes */ }
+      const summary = await applyJobResult(row as VoiceCommand, r.text, 0);
+      await show("idle", `${summary} · on ${r.name}`);
+    } catch (e) {
+      // Never silent: the agent shows the error, and the work is released to be tried again.
+      const why = e instanceof Error ? e.message : "failed";
+      await show("error", `Couldn't finish "${label}": ${why}`);
+      await plannerJobFailed(userId, kind, payload, why);
+    }
   };
   try { after(run); } catch { await run(); }
   return "free";
@@ -147,6 +162,18 @@ export async function runFindMission(userId: number, missionId: number, agentId:
     await ops.submitDeliverableForAgent(a, { missionId: m.id, title: `${r.rows.length} × ${find.type.replace(/_/g, " ")} · ${find.city}`, markdown: md, costCents: 0, measured: true });
   } catch (e) {
     await db.update(opsMissions).set({ status: "open", claimedAt: null, jobId: null, agentId: m.role ? null : m.agentId }).where(and(eq(opsMissions.id, m.id), eq(opsMissions.status, "claimed")));
-    await ops.recordEventForAgent(a, { kind: "status", label: `Map search failed: ${e instanceof Error ? e.message.slice(0, 140) : "error"}`, url: null, status: "idle" }, { missionId: m.id }).catch(() => {});
+    await ops.recordEventForAgent(a, { kind: "status", label: `Map search failed: ${e instanceof Error ? e.message.slice(0, 140) : "error"}`, url: null, status: "error" }, { missionId: m.id }).catch(() => {});
+  }
+}
+
+/** A planner job failed (free model, or a Claude run on the runner): release what it held so it's tried again, and say why. */
+export async function plannerJobFailed(userId: number, kind: string, payload: Record<string, unknown>, error: string | null) {
+  const why = String(error ?? "failed").slice(0, 300);
+  if (kind === "ops_project_day" || kind === "ops_project_final") {
+    const { planFailedFor } = await import("@/lib/services/ops-projects");
+    await planFailedFor(userId, Number(payload.projectId), kind === "ops_project_final", why).catch(() => {});
+  } else if (kind === "ops_review") {
+    await db.update(opsMissions).set({ chiefNote: `The review failed (${why.slice(0, 120)}): it's yours to check.` })
+      .where(and(eq(opsMissions.id, Number(payload.missionId)), eq(opsMissions.userId, userId)));
   }
 }

@@ -17,7 +17,7 @@ import { timeAgo } from "@/components/ops/ops-feed";
 import { ConfirmDialog, Dialog, btnPrimary, field } from "@/components/ops/ops-dialog";
 import { dispatchNowC, inviteLinkC, removeLinkC, respondLinkC, setLinkShareC, type OpsOverview } from "@/lib/client/ops";
 
-const DOT = { working: "bg-emerald-400", idle: "bg-amber-400", waiting: "bg-rose-400 animate-pulse", offline: "bg-slate-500" } as const;
+const DOT = { working: "bg-emerald-400", idle: "bg-amber-400", waiting: "bg-rose-400 animate-pulse", offline: "bg-slate-500", stuck: "bg-purple-400 animate-pulse", error: "bg-orange-400 animate-pulse" } as const;
 const MODE = {
   runner: { ok: true, text: "Your GitHub Actions runner (your Claude subscription)" },
   api: { ok: true, text: "Your Anthropic API key (runs right away, billed to the key)" },
@@ -92,7 +92,7 @@ export function Connectors({ data, now, onClose, onConnect, onChanged }: {
                       const pr = presence(a, now);
                       return (
                         <li key={a.id} className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px]">
-                          <span className={cn("w-1.5 h-1.5 rounded-full", DOT[pr])} />{a.name}{pr === "waiting" && <span className="text-rose-300"> needs you</span>}
+                          <span className={cn("w-1.5 h-1.5 rounded-full", DOT[pr])} />{a.name}{pr === "waiting" && <span className="text-rose-300"> needs you</span>}{(pr === "stuck" || pr === "error") && <span className="text-orange-300"> {pr}</span>}
                         </li>
                       );
                     })}

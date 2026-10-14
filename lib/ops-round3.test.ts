@@ -2,7 +2,7 @@
 // quota maths, the Reach parsers, and how deliverables are squeezed into memory.
 
 import { describe, expect, it } from "vitest";
-import { MAX_REVIEW_ROUNDS, cloudRoute, mdInline, mdToBlocks, mergeTables, parseCloudReply, parseReview, projectStep } from "@/lib/ops";
+import { MAX_REVIEW_ROUNDS, PRESENCE_LOOK, cloudRoute, presence, presenceNote, mdInline, mdToBlocks, mergeTables, parseCloudReply, parseReview, projectStep } from "@/lib/ops";
 import { cooldownMs, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday, usable, type FreeKeyState } from "@/lib/free-llm";
 import { htmlToText, parseExa } from "@/lib/services/reach";
 import { compress } from "@/lib/services/ops-memory";
@@ -174,5 +174,30 @@ describe("business finder pieces", () => {
     expect(extractEmail('<a href="mailto:Info@Zubar.ba?subject=x">pišite</a>')).toBe("info@zubar.ba");
     expect(extractEmail("<img src='logo@2x.png'> kontakt: ordinacija@gmail.com")).toBe("ordinacija@gmail.com");
     expect(extractEmail("abc@sentry.wixpress.com nothing else")).toBeNull();
+  });
+});
+
+describe("presence: you can always see what an agent is doing", () => {
+  const now = Date.parse("2026-10-14T18:00:00Z");
+  const ago = (m: number) => new Date(now - m * 60_000);
+  it("shows errors for half an hour", () => {
+    expect(presence({ status: "error", lastSeenAt: ago(5), cloud: true }, now)).toBe("error");
+    expect(presence({ status: "error", lastSeenAt: ago(45), cloud: true }, now)).toBe("idle");
+  });
+  it("calls an agent stuck when it holds a mission and has gone quiet (timeout)", () => {
+    expect(presence({ status: "working", lastSeenAt: ago(20) }, now, { holdingSince: ago(40) })).toBe("stuck");
+    expect(presence({ status: "working", lastSeenAt: ago(1) }, now, { holdingSince: ago(40) })).toBe("working");
+    // A cloud run gets longer (it waits for the runner).
+    expect(presence({ status: "working", lastSeenAt: ago(20), cloud: true }, now, { holdingSince: ago(20) })).toBe("idle");
+    expect(presence({ status: "working", lastSeenAt: ago(35), cloud: true }, now, { holdingSince: ago(35) })).toBe("stuck");
+    // Waiting for your answer isn't stuck.
+    expect(presence({ status: "waiting", lastSeenAt: ago(50) }, now, { holdingSince: ago(50) })).toBe("waiting");
+  });
+  it("says why, in a few words", () => {
+    expect(presenceNote("offline", { activity: null, lastSeenAt: ago(130) }, now)).toBe("last seen 2h ago");
+    expect(presenceNote("offline", { activity: null, lastSeenAt: null }, now)).toBe("never connected");
+    expect(presenceNote("stuck", { activity: "Reading", lastSeenAt: ago(18) }, now)).toBe("no signal since 18m ago");
+    expect(presenceNote("idle", { activity: null, lastSeenAt: null, cloud: true }, now, false)).toBe("off duty until the shift");
+    expect(Object.keys(PRESENCE_LOOK).sort()).toEqual(["error", "idle", "offline", "stuck", "waiting", "working"]);
   });
 });

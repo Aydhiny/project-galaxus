@@ -1436,6 +1436,8 @@ export const opsProjects = pgTable(
     plan: text("plan"), // the lead's plan (markdown)
     pageId: integer("page_id"), // the project's page: plan, daily reports, final solution
     lastPlannedDay: date("last_planned_day"),
+    planStartedAt: timestamp("plan_started_at"), // when the lead started planning today (Planning… on the card; retried if it never lands)
+    planError: text("plan_error"), // why the last plan failed (shown on the card; retried on the next beat)
     lastReportDay: date("last_report_day"),
     finalAt: timestamp("final_at"),
     createdAt: timestamp("created_at").defaultNow(),

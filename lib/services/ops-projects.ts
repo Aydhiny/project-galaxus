@@ -151,11 +151,21 @@ export async function planProjectDayFor(userId: number, p: OpsProject, o: { dayE
     p = { ...p, finalAt: null };
   } else if (p.finalAt) return false;
   const d = projectDay({ startDay: String(p.startDay), deadline: String(p.deadline) }, t);
-  const step = projectStep({ phase: d.phase, plannedToday: String(p.lastPlannedDay ?? "") === t, dayEnded: !!o.dayEnded, ...(await projectProgress(userId, p.id)) });
+  let plannedToday = String(p.lastPlannedDay ?? "") === t;
+  // "Planned" but nothing came of it (the plan job died, or ran before this fix): after 20 minutes, plan again.
+  if (plannedToday && (!p.planStartedAt || Date.now() - p.planStartedAt.getTime() > 20 * 60_000)) {
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(opsMissions)
+      .where(and(eq(opsMissions.projectId, p.id), eq(opsMissions.day, t), sql`${opsMissions.title} not like 'Plan day %'`));
+    if (n === 0) {
+      await db.update(opsProjects).set({ lastPlannedDay: null }).where(eq(opsProjects.id, p.id));
+      plannedToday = false;
+    }
+  }
+  const step = projectStep({ phase: d.phase, plannedToday, dayEnded: !!o.dayEnded, ...(await projectProgress(userId, p.id)) });
   if (step === "wait") return false;
   // Claim it first, so two beats can't both plan the day (or both write the final).
   const [won] = step === "plan"
-    ? await db.update(opsProjects).set({ lastPlannedDay: t }).where(and(eq(opsProjects.id, p.id), sql`(${opsProjects.lastPlannedDay} is null or ${opsProjects.lastPlannedDay} <> ${t})`)).returning()
+    ? await db.update(opsProjects).set({ lastPlannedDay: t, planStartedAt: new Date(), planError: null }).where(and(eq(opsProjects.id, p.id), sql`(${opsProjects.lastPlannedDay} is null or ${opsProjects.lastPlannedDay} <> ${t})`)).returning()
     : await db.update(opsProjects).set({ finalAt: new Date() }).where(and(eq(opsProjects.id, p.id), sql`${opsProjects.finalAt} is null`)).returning();
   if (!won) return false;
   const [lead] = p.leadAgentId ? await db.select().from(opsAgents).where(eq(opsAgents.id, p.leadAgentId)).limit(1) : [];
@@ -165,10 +175,12 @@ export async function planProjectDayFor(userId: number, p: OpsProject, o: { dayE
     const { runPlannerJob } = await import("@/lib/services/ops-free");
     const b = await budgetFor(userId);
     // Claude when it can; a free model when Claude is paused or out of budget (and "free fallback" is on).
-    const ran = await runPlannerJob(userId, finalDay ? "ops_project_final" : "ops_project_day", `Project: ${p.title} · day ${d.dayNo}`, {
+    const short = p.title.length > 50 ? `${p.title.slice(0, 48)}…` : p.title;
+    const ran = await runPlannerJob(userId, finalDay ? "ops_project_final" : "ops_project_day", finalDay ? `Writing the final result: ${short}` : `Planning day ${d.dayNo} of ${d.totalDays}: ${short}`, {
       projectId: p.id, leadId: lead.id, model: b.model, capCents: Math.min(finalDay ? 80 : 40, b.leftToday),
-    });
+    }, { agentId: lead.id });
     if (ran) return true;
+    return false; // it couldn't think (error shown on the lead and the card); it's released and tried again next beat
   }
   // No cloud lead (or neither Claude nor a free model can take it): the lead gets a mission to plan/finish it through MCP.
   await db.insert(opsMissions).values({
@@ -231,6 +243,8 @@ export async function applyProjectDayResult(userId: number, projectId: number, l
     });
     made++;
   }
+  if (made === 0 && d.phase !== "not started") throw new Error("the plan had no missions"); // released and planned again
+  await db.update(opsProjects).set({ planError: null }).where(eq(opsProjects.id, projectId));
   if (r.plan?.trim()) {
     await db.update(opsProjects).set({ plan: r.plan.trim().slice(0, 8000) }).where(eq(opsProjects.id, projectId));
     if (p.pageId) {
@@ -239,6 +253,14 @@ export async function applyProjectDayResult(userId: number, projectId: number, l
     }
   }
   if (lead && r.message) await db.insert(opsMessages).values({ userId, fromAgentId: lead.id, body: `${p.title} · day ${d.dayNo}/${d.totalDays}\n${String(r.message).slice(0, 1500)}` });
+  // Each crew member it gave work to hears it on the radio (you see the hand-offs fly across the floor).
+  if (lead) {
+    const given = await db.select({ agentId: opsMissions.agentId, title: opsMissions.title }).from(opsMissions)
+      .where(and(eq(opsMissions.projectId, projectId), eq(opsMissions.day, t), eq(opsMissions.createdByAgentId, lead.id), eq(opsMissions.status, "open")));
+    for (const [aid, titles] of Object.entries(Object.groupBy(given.filter((g) => g.agentId && g.agentId !== lead.id), (g) => String(g.agentId)))) {
+      await db.insert(opsMessages).values({ userId, fromAgentId: lead.id, toAgentId: Number(aid), body: `For you today: ${(titles ?? []).map((x) => `"${x.title}"`).join(", ")}`.slice(0, 2000) });
+    }
+  }
   if (lead && r.question_for_user?.question) {
     const { askUserForAgent } = await import("@/lib/services/ops-inbox");
     await askUserForAgent(lead, { question: r.question_for_user.question, options: r.question_for_user.options ?? [] }).catch(() => null);
@@ -360,4 +382,10 @@ export async function extendProjectFor(userId: number, id: number, days: number)
     .where(eq(opsProjects.id, id)).returning();
   await planProjectDayFor(userId, row);
   return row;
+}
+
+/** The lead couldn't plan (or finish): release the day so the next beat tries again, and show why on the card. */
+export async function planFailedFor(userId: number, projectId: number, final: boolean, why: string) {
+  await db.update(opsProjects).set({ ...(final ? { finalAt: null } : { lastPlannedDay: null }), planStartedAt: null, planError: why.slice(0, 300) })
+    .where(and(eq(opsProjects.id, projectId), eq(opsProjects.userId, userId)));
 }

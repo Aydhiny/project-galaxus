@@ -38,7 +38,7 @@ export async function requestReview(userId: number, missionId: number, submitted
       return null;
     }
     const { runPlannerJob } = await import("@/lib/services/ops-free");
-    return await runPlannerJob(userId, "ops_review", `Chief reviews: ${m.title}`.slice(0, 120), { missionId: m.id, chiefId: chief.id }, { preferFree: true });
+    return await runPlannerJob(userId, "ops_review", `Reviewing "${m.title}"`.slice(0, 120), { missionId: m.id, chiefId: chief.id }, { preferFree: true, agentId: chief.id });
   } catch { return null; }
 }
 

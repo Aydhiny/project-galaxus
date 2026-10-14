@@ -85,7 +85,7 @@ export async function standupFor(userId: number, opts: { manual?: boolean } = {}
 
   const chief = await cloudChief(userId);
   const { runPlannerJob } = await import("@/lib/services/ops-free");
-  const planned = chief ? await runPlannerJob(userId, "ops_standup", "Ops stand-up: the Chief plans the day", { day, chiefId: chief.id }).catch(() => null) : null;
+  const planned = chief ? await runPlannerJob(userId, "ops_standup", "Planning today's stand-up", { day, chiefId: chief.id }, { agentId: chief.id }).catch(() => null) : null;
   return { done: true, planned: !!planned };
 }
 
@@ -183,9 +183,10 @@ export async function debriefFor(userId: number, row: Pick<OpsDay, "id" | "day">
   if (row) await db.update(opsDays).set({ debriefPageId: pageId }).where(eq(opsDays.id, row.id));
   const { pushFor } = await import("@/lib/services/ops-inbox");
   await pushFor(userId, "report", false, "Your Ops debrief is ready", md.split("\n\n")[1] ?? "", `ops-debrief-${day}`);
-  if (await cloudChief(userId)) {
+  const chief = await cloudChief(userId);
+  if (chief) {
     const { runPlannerJob } = await import("@/lib/services/ops-free");
-    await runPlannerJob(userId, "ops_debrief", "Ops debrief: the Chief's notes", { pageId, day }).catch(() => null);
+    await runPlannerJob(userId, "ops_debrief", "Writing the debrief", { pageId, day }, { agentId: chief.id }).catch(() => null);
   }
   return pageId;
 }

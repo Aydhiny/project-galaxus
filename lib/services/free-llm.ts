@@ -149,7 +149,7 @@ export async function askFree(userId: number, o: { system: string; prompt: strin
         }
         const j = JSON.parse(body) as { choices?: { message?: { content?: string } }[]; usage?: { total_tokens?: number } };
         const text = j.choices?.[0]?.message?.content?.trim() ?? "";
-        if (!text) { last = { res, error: `Empty answer (${model})`, status: 500 }; continue; }
+        if (!text) { last = { res, error: `Empty answer (${model})`, status: 503 }; continue; }
         await noteUse(k, res, j.usage?.total_tokens ?? Math.ceil((o.prompt.length + text.length) / 4), null);
         // Your model doesn't exist (any more) for this key, another one worked: keep the one that works.
         if (model !== k.model && last && modelTrouble(last.status, last.error) === "missing") await db.update(freeLlmKeys).set({ model }).where(eq(freeLlmKeys.id, k.id));
@@ -177,7 +177,8 @@ export async function testFreeKeyFor(userId: number, id: number) {
   // Your model isn't one this key can use: switch to the best one it can (catalog order), before testing.
   const fix = models.length && !models.includes(k.model) ? modelsToTry(k.provider, k.model, models).find((m) => models.includes(m)) : undefined;
   await db.update(freeLlmKeys).set({ cooldownUntil: null, ...(fix ? { model: fix } : {}) }).where(eq(freeLlmKeys.id, k.id)); // a manual test gets a fresh chance
-  const r = await askFree(userId, { system: "Reply with exactly: ok", prompt: "Say ok.", maxTokens: 10, only: [k.id] });
+  // Room to answer: reasoning models (gpt-oss, nemotron…) think first, and 10 tokens left them with nothing to say.
+  const r = await askFree(userId, { system: "Reply with exactly: ok", prompt: "Say ok.", maxTokens: 400, only: [k.id] });
   return { ok: true, reply: r.text.slice(0, 40), models, model: r.model, switchedFrom: r.model !== k.model ? k.model : null };
 }
 

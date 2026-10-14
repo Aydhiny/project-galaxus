@@ -965,6 +965,8 @@ const STATEMENTS = [
   // The Chief reviews results against the goal and steers the agent (round 3b).
   `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "review_round" integer DEFAULT 0 NOT NULL`,
   `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "chief_note" text`,
+  `ALTER TABLE "ops_projects" ADD COLUMN IF NOT EXISTS "plan_started_at" timestamp`,
+  `ALTER TABLE "ops_projects" ADD COLUMN IF NOT EXISTS "plan_error" text`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "to_user" boolean DEFAULT false NOT NULL`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "kind" varchar(10) DEFAULT 'radio' NOT NULL`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "urgent" boolean DEFAULT false NOT NULL`,

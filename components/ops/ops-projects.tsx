@@ -9,7 +9,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { CalendarRange, FileSpreadsheet, FileText, Loader2, Pause, Play, Plus, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROLES, formatUsd, roleOf } from "@/lib/ops";
+import { PRESENCE_LOOK, ROLES, formatUsd, presence, roleOf } from "@/lib/ops";
 import { ConfirmDialog, btnPrimary, field } from "@/components/ops/ops-dialog";
 import { createProjectC, extendProjectC, setProjectStatusC, type OpsOverview } from "@/lib/client/ops";
 
@@ -30,6 +30,7 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
   const [cancelling, setCancelling] = useState(false);
   const [busy, start] = useTransition();
   const lead = p.leadAgentId ? data.agents.find((a) => a.id === p.leadAgentId) : null;
+  const leadP = lead ? presence(lead, data.now) : null;
   const pct = Math.round((Math.min(p.dayNo, p.totalDays) / p.totalDays) * 100);
   const run = (fn: () => Promise<unknown>, ok: string) => start(async () => { try { await fn(); toast.success(ok); onChanged(); } catch (e) { toast.error((e as Error).message); } });
   return (
@@ -46,6 +47,21 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
           </p>
         </div>
       </div>
+      {p.status === "active" && lead && (() => {
+        const look = PRESENCE_LOOK[leadP!];
+        const planning = !p.planError && p.planStartedAt && String(p.lastPlannedDay ?? "") && p.active === 0 && data.now - new Date(p.planStartedAt).getTime() < 20 * 60_000;
+        return (
+          <div className={cn("mt-2 rounded-lg border px-2.5 py-1.5 text-[11px] flex gap-2", p.planError ? "border-orange-300/40 bg-orange-400/10 text-orange-50" : "border-white/10 bg-white/[0.03] text-white/75")}>
+            <span className="mt-1 w-2 h-2 shrink-0 rounded-full" style={{ background: p.planError ? PRESENCE_LOOK.error.hex : look.hex }} />
+            <span className="min-w-0">
+              <b>{lead.name}</b>{" "}
+              {p.planError ? <>couldn&apos;t plan: {p.planError}. <span className="text-white/60">Retrying on the next beat (every ~10 min).</span></>
+                : planning ? <>is planning today&apos;s work…</>
+                : <>{look.label.toLowerCase()}{lead.activity ? `: ${lead.activity}` : ""}</>}
+            </span>
+          </div>
+        );
+      })()}
       <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full", p.status === "done" ? "bg-emerald-400" : "bg-[#6b8afd]")} style={{ width: `${p.status === "done" ? 100 : pct}%` }} /></div>
       <p className="mt-1.5 text-[11px] text-white/60 flex flex-wrap gap-x-2">
         {p.sheetRows > 0 && <span className="text-emerald-300">{p.sheetRows} rows</span>}
