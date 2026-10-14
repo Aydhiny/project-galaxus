@@ -6,12 +6,20 @@
 
 import { Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PROVIDERS, ROLES, formatUsd, providerOf, roleOf, type ProviderKey, type Score } from "@/lib/ops";
+import { MISSION_KIND_INFO, PROVIDERS, ROLES, formatUsd, providerOf, roleOf, type MissionKind, type ProviderKey, type Score } from "@/lib/ops";
+import type { CostBucket } from "@/lib/ops-costs";
 import { ProviderIcon } from "@/components/ops/provider-logos";
 import { Dialog } from "@/components/ops/ops-dialog";
 import type { OpsOverview } from "@/lib/client/ops";
 
 const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
+// Cost per lead: Claude dollars per result, and the $0 free-model runs it took (they cost quota, not money).
+const per = (b: CostBucket | undefined, n: "qualified" | "replies") => {
+  if (!b || !b[n]) return "—";
+  const cents = n === "qualified" ? b.perQualifiedCents : b.perReplyCents;
+  const free = b.freeCalls ? ` + ${(b.freeCalls / b[n]).toFixed(b.freeCalls >= b[n] ? 0 : 1)} free` : "";
+  return `${formatUsd(cents ?? 0)}${free}`;
+};
 const mins = (v: number | null) => (v == null ? "—" : v < 60 ? `${v}m` : `${Math.floor(v / 60)}h ${v % 60}m`);
 
 export function Scoreboard({ data, onClose }: { data: OpsOverview; onClose: () => void }) {
@@ -27,6 +35,8 @@ export function Scoreboard({ data, onClose }: { data: OpsOverview; onClose: () =
     groups.set(key, g);
   }
   const providers = [...groups.values()].filter((g) => g.delivered > 0).sort((x, y) => y.accepted - x.accepted);
+  const costs = data.leadCosts; // undefined on an older payload
+  const kinds = Object.entries(costs?.byKind ?? {}).filter(([, b]) => b.spentCents || b.freeCalls || b.qualified).sort((x, y) => y[1].qualified - x[1].qualified);
 
   return (
     <Dialog title={<span className="inline-flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-300" /> Scoreboard</span>} sub="The last 30 days. XP: accepted +10, head-to-head win +15, delivered +2, sent back −3." onClose={onClose} wide>
@@ -37,7 +47,7 @@ export function Scoreboard({ data, onClose }: { data: OpsOverview; onClose: () =
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="text-white/45 text-left">
-                <tr><th className="py-1.5 pr-2 font-medium">Agent</th><th className="px-2 font-medium">Level</th><th className="px-2 font-medium">Delivered</th><th className="px-2 font-medium">Accepted</th><th className="px-2 font-medium">Cost / accepted</th><th className="px-2 font-medium">Avg time</th><th className="px-2 font-medium">Duels</th></tr>
+                <tr><th className="py-1.5 pr-2 font-medium">Agent</th><th className="px-2 font-medium">Level</th><th className="px-2 font-medium">Delivered</th><th className="px-2 font-medium">Accepted</th><th className="px-2 font-medium">Cost / accepted</th><th className="px-2 font-medium">Avg time</th><th className="px-2 font-medium">Duels</th><th className="px-2 font-medium" title="Spend ÷ table rows it delivered with a phone or an email">Per lead</th><th className="px-2 font-medium" title="Spend ÷ Outreach replies from those leads">Per reply</th></tr>
               </thead>
               <tbody>
                 {rows.map(({ a, s }, i) => (
@@ -56,11 +66,32 @@ export function Scoreboard({ data, onClose }: { data: OpsOverview; onClose: () =
                     <td className="px-2 tabular-nums">{s.costPerAcceptedCents == null ? "—" : formatUsd(s.costPerAcceptedCents)}</td>
                     <td className="px-2 tabular-nums">{mins(s.avgMinutes)}</td>
                     <td className="px-2 tabular-nums">{s.wins || s.losses ? `${s.wins}–${s.losses}` : "—"}</td>
+                    <td className="px-2 tabular-nums whitespace-nowrap">{per(costs?.byAgent[a.id], "qualified")}{costs?.byAgent[a.id]?.qualified ? <span className="text-white/40"> ({costs.byAgent[a.id].qualified})</span> : null}</td>
+                    <td className="px-2 tabular-nums whitespace-nowrap">{per(costs?.byAgent[a.id], "replies")}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {costs && (costs.total.qualified > 0 || costs.total.spentCents > 0 || costs.total.freeCalls > 0) && (
+            <>
+              <h3 className="mt-5 mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/55">Cost per lead</h3>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5 text-xs text-white/75">
+                <p>
+                  <span className="text-white font-semibold">{per(costs.total, "qualified")}</span> per qualified lead ({costs.total.qualified} with a phone or an email)
+                  {" · "}<span className="text-white font-semibold">{per(costs.total, "replies")}</span> per reply{costs.total.replies ? ` (${costs.total.replies})` : ""}
+                </p>
+                <p className="mt-0.5 text-white/45">Spent {formatUsd(costs.total.spentCents)} of Claude and {costs.total.freeCalls} free run{costs.total.freeCalls === 1 ? "" : "s"}.{costs.total.replies ? "" : " Replies count once leads sent to Outreach answer."}</p>
+                {kinds.length > 1 && (
+                  <div className="mt-2 grid sm:grid-cols-2 gap-x-4 gap-y-1">
+                    {kinds.map(([k, b]) => (
+                      <p key={k} className="flex justify-between gap-2"><span className="text-white/55">{MISSION_KIND_INFO[k as MissionKind]?.label ?? k}</span><span className="tabular-nums">{per(b, "qualified")} / lead{b.qualified ? ` · ${b.qualified}` : ""}{b.replies ? ` · ${per(b, "replies")} / reply` : ""}</span></p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           {providers.length > 1 && (
             <>
               <h3 className="mt-5 mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/55">By provider</h3>

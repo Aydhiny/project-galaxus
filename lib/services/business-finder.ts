@@ -11,6 +11,7 @@
 import { getSecret } from "@/lib/services/secrets";
 import { GAP_META, bizKey, extractEmail, extractPhone, isMobileBA, isSocialUrl, osmType, type Gap } from "@/lib/outreach";
 import type { Place } from "@/lib/services/outreach/places";
+import { rankBusinessRows } from "@/lib/ops-learning";
 
 export type BusinessRow = {
   name: string; category: string; address: string; phone: string; whatsapp: "yes" | "no" | "";
@@ -95,7 +96,8 @@ async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>) {
 
 /**
  * Find businesses of a type in a city and fill their contacts and website status.
- * Businesses that most need a website come first (none / Facebook only / broken / outdated).
+ * Businesses that most need a website come first (none / Facebook only / broken / outdated),
+ * nudged by your learned preferences (lib/ops-learning.ts rankBusinessRows).
  */
 export async function findBusinessesFor(userId: number, typeKey: string, city: string, o: { limit?: number; deadlineMs?: number } = {}) {
   const type = osmType(typeKey);
@@ -109,9 +111,10 @@ export async function findBusinessesFor(userId: number, typeKey: string, city: s
     name: p.name, category: type.label, address: p.address ?? city, phone: p.internationalPhone ?? "", whatsapp: p.internationalPhone ? (isMobileBA(p.internationalPhone) ? "yes" : "no") : "",
     email: "", website: p.website ?? "", websiteStatus: "", source: p.mapsUrl ?? "",
   }));
-  const need = (r: BusinessRow) => (/No website/.test(r.websiteStatus) ? 0 : /Facebook/.test(r.websiteStatus) ? 1 : /broken/.test(r.websiteStatus) ? 2 : /outdated|mobile/.test(r.websiteStatus) ? 3 : 4);
-  rows.sort((a, b) => need(a) - need(b) || Number(!!b.phone) - Number(!!a.phone));
-  return { rows, found: places.length, sources: used };
+  // Need first, adjusted by what you've taught it (skipped / moved forward leads, accepted / sent-back sheets).
+  const { preferencesFor } = await import("@/lib/services/ops-learning");
+  const prefs = await preferencesFor(userId).catch(() => []);
+  return { rows: rankBusinessRows(rows, prefs), found: places.length, sources: used };
 }
 
 /** Rows → one markdown table (what missions deliver and the merged sheet reads). */

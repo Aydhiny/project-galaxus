@@ -547,6 +547,11 @@ export async function updateLeadFor(userId: number, id: number, patch: LeadPatch
     set.score = scoreLead({ ...lead, revenueKm: rev });
   }
   const [row] = await db.update(leads).set(set).where(eq(leads.id, id)).returning();
+  // A skip or a step forward teaches Ops what kind of business you want (lib/ops-learning.ts).
+  if (patch.status !== undefined || patch.skipReason !== undefined) {
+    const { learnFromLeadUpdate } = await import("@/lib/services/ops-learning");
+    await learnFromLeadUpdate(userId, lead, row);
+  }
   return row;
 }
 

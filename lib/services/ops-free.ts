@@ -33,6 +33,7 @@ export async function runFreeMission(userId: number, missionId: number, agentId:
     const prompt = await buildFreePrompt(userId, m, a);
     const { askFree } = await import("@/lib/services/free-llm");
     const r = await askFree(userId, { system: SYSTEM, prompt, maxTokens: m.effort === "quick" ? 1800 : 3500 });
+    await countFreeCall(m.id);
     await ops.recordEventForAgent(a, { kind: "think", label: `Writing on ${r.name}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
     const q = parseCloudReply(r.text);
     if (q) {
@@ -80,6 +81,9 @@ async function buildFreePrompt(userId: number, m: OpsMission, a: OpsAgent) {
     sources.length ? `\nSOURCES (found for you):\n${sources.join("\n\n")}` : "\nSOURCES: none found — answer from what you know and say so.",
   ].filter(Boolean).join("\n").slice(0, 24_000);
 }
+
+/** One $0 run on this mission (cost per lead on the scoreboard counts them). */
+const countFreeCall = (id: number) => db.update(opsMissions).set({ freeCalls: sql`coalesce(${opsMissions.freeCalls}, 0) + 1` }).where(eq(opsMissions.id, id)).catch(() => {});
 
 /** Missions a free model is "working on" for too long (crashed function) go back on the board. */
 export async function healFreeRuns(userId: number) {
@@ -151,6 +155,7 @@ export async function runFindMission(userId: number, missionId: number, agentId:
     await ops.recordEventForAgent(a, { kind: "search", label: `Searching the map: ${find.type} in ${find.city}`, url: null, status: "working" }, { missionId: m.id });
     const target = Number(m.brief?.match(/\b(\d{1,3})\s+(?:rows|businesses|leads)\b/i)?.[1]) || 60;
     const r = await findBusinessesFor(userId, find.type, find.city, { limit: Math.min(120, target), deadlineMs: 150_000 });
+    await countFreeCall(m.id);
     const withPhone = r.rows.filter((x) => x.phone).length, wa = r.rows.filter((x) => x.whatsapp === "yes").length, mail = r.rows.filter((x) => x.email).length;
     const needSite = r.rows.filter((x) => /No website|Facebook|broken|outdated|mobile/.test(x.websiteStatus)).length;
     await ops.recordEventForAgent(a, { kind: "read", label: `Checked ${r.rows.length} websites and pages`, url: null, status: "working" }, { missionId: m.id });

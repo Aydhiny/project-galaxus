@@ -165,6 +165,7 @@ export async function opsOverviewFor(userId: number) {
     requests,
     shiftNow: shiftStatus(shift ?? null, hhmmIn(tz)),
     claudeMode: await claudeModeFor(userId),
+    leadCosts: await (await import("@/lib/services/ops-costs")).leadCostsFor(userId), // Learning & progress: cost per lead
     // Claude is set up but its last run failed to log in (expired token): say so, with the fix.
     claudeLoginExpired: await (async () => {
       const mode = await claudeModeFor(userId);
@@ -270,6 +271,8 @@ export async function acceptMissionFor(userId: number, id: number) {
     const { remember, compress } = await import("@/lib/services/ops-memory");
     await remember(userId, { type: "finding", title: m.deliverableTitle || m.title, body: compress(m.deliverable), source: `deliverable:${m.id}`, projectId: m.projectId, agentId: m.submittedBy }).catch(() => null);
   }
+  const { learnFromMissionReview } = await import("@/lib/services/ops-learning"); // Learning & progress
+  await learnFromMissionReview(userId, m, "accept");
   // Head-to-head: accepting one result makes it the winner; the other one is closed (its result stays readable).
   if (m.duelId != null) {
     const others = await db.update(opsMissions).set({ status: "cancelled" })
@@ -291,6 +294,7 @@ export async function reopenMissionFor(userId: number, id: number, note?: string
     })
     .where(eq(opsMissions.id, id));
   if (wasDelivered) await reviewEvent(userId, m.submittedBy, m.id, `Sent back: ${m.title}`);
+  if (wasDelivered) await (await import("@/lib/services/ops-learning")).learnFromMissionReview(userId, m, "sendBack", note?.trim() ? redact(note.trim()) : null); // Learning & progress
   await dispatchCloudFor(userId).catch(() => {});
 }
 
