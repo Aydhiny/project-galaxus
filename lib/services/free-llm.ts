@@ -8,7 +8,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { freeLlmKeys, type FreeLlmKey } from "@/lib/db/schema";
 import { encrypt, tryDecrypt } from "@/lib/crypto-box";
-import { FREE_PROVIDERS, cooldownMs, freeProvider, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday } from "@/lib/free-llm";
+import { FREE_PROVIDERS, cooldownMs, freeProvider, isUnhealthy, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday } from "@/lib/free-llm";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -25,6 +25,8 @@ export async function freeStatusFor(userId: number) {
     enabled: k.enabled, priority: k.priority, hasKey: !!k.keyEnc,
     left: remainingToday(k, t), cooldownUntil: k.cooldownUntil && k.cooldownUntil.getTime() > Date.now() ? k.cooldownUntil : null,
     lastError: k.lastError, lastOkAt: k.lastOkAt,
+    // Hourly health checks (lib/free-health.ts): counted in today's requests, but labelled.
+    unhealthy: isUnhealthy(k), healthFails: k.healthFails, healthAt: k.healthAt, healthChecksToday: String(k.day ?? "") === t ? k.healthChecks : 0,
   }));
   const usable = pickOrder(keys, t);
   const total = usable.reduce((s, k) => s + (remainingToday(k, t).requests ?? 0), 0);
@@ -111,10 +113,11 @@ async function noteUse(k: FreeLlmKey, res: Response | null, tokens: number, erro
     day: t,
     requests: (fresh ? k.requests : 0) + 1,
     tokens: (fresh ? k.tokens : 0) + tokens,
+    ...(fresh ? {} : { healthChecks: 0 }), // a new day: today's health-check count starts over
     ...(h.remainingRequests != null ? { remainingRequests: h.remainingRequests, limitRequests: h.limitRequests, remainingTokens: h.remainingTokens, headersAt: new Date() } : {}),
     ...(error
       ? { lastError: error.slice(0, 300), cooldownUntil: new Date(Date.now() + cooldownMs(status, error, retryAfter)) }
-      : { lastError: null, lastOkAt: new Date() }),
+      : { lastError: null, lastOkAt: new Date(), healthFails: 0 }), // real work succeeding counts as passing a health check
   }).where(eq(freeLlmKeys.id, k.id));
 }
 

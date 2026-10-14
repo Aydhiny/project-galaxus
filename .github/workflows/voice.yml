@@ -25,6 +25,7 @@ on:
   workflow_dispatch: {} # Galaxus starts it the moment you send a command
   schedule:
     - cron: "*/5 4-22 * * *" # every 5 min: client replies get answered fast; also the daily automations
+    - cron: "*/10 23,0-3 * * *" # the night (01:00–06:00 Sarajevo): Ops night shift (free models only) + free-model health checks
 
 permissions: {}
 

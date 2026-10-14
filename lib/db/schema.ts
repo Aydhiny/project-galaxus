@@ -1311,6 +1311,7 @@ export const opsMissions = pgTable(
     deliverable: text("deliverable"), // markdown, written by the agent: untrusted, render as text
     claimedAt: timestamp("claimed_at"),
     submittedAt: timestamp("submitted_at"),
+    nightShift: boolean("night_shift").notNull().default(false), // taken by the night shift (free models, while you slept)
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [index("idx_ops_missions_user_day").on(t.userId, t.day), index("idx_ops_missions_user_status").on(t.userId, t.status)]
@@ -1467,6 +1468,8 @@ export const opsSettings = pgTable("ops_settings", {
   pauseReason: text("pause_reason"),
   freeFallback: boolean("free_fallback").notNull().default(true), // Claude's budget used up → keep going on free models
   freeFirst: boolean("free_first").notNull().default(true), // quick missions use free models first (saves Claude for deep work)
+  nightShift: boolean("night_shift").notNull().default(false), // while you sleep, cloud agents keep working on free models only (lib/ops-night.ts)
+  nightStartedAt: timestamp("night_started_at"), // the night shift running now started then (cleared by the morning summary)
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -1493,6 +1496,9 @@ export const freeLlmKeys = pgTable(
     cooldownUntil: timestamp("cooldown_until"),
     lastError: text("last_error"),
     lastOkAt: timestamp("last_ok_at"),
+    healthAt: timestamp("health_at"), // last hourly health check (lib/free-health.ts)
+    healthFails: integer("health_fails").notNull().default(0), // failed checks in a row; 3+ = unhealthy, tried last
+    healthChecks: integer("health_checks").notNull().default(0), // of today's `requests`, how many were health checks
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [uniqueIndex("uq_free_llm_keys_user_provider").on(t.userId, t.provider)]

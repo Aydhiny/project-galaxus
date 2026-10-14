@@ -12,6 +12,7 @@ import { and, desc, eq, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-or
 import { after } from "next/server";
 import { db } from "@/lib/db";
 import { FREE_JOB } from "@/lib/services/ops-free";
+import { nightRoute } from "@/lib/ops-night";
 import { opsAgents, opsDays, opsEvents, opsMessages, opsMissions, opsRecurring, opsSkills, outreachSettings, voiceCommands, type OpsAgent, type OpsMission } from "@/lib/db/schema";
 import { createApiTokenFor, revokeApiTokenFor } from "@/lib/services/api-tokens";
 import {
@@ -688,17 +689,20 @@ export async function dispatchCloudFor(userId: number) {
   }
 
   const shift = await shiftFor(userId);
-  if (shift.state === "off") return { dispatched: 0, reason: "off shift" };
+  // Night shift (lib/ops-night.ts): while you sleep and off shift, work goes on — on free models only, never Claude.
+  const { nightShiftActiveFor } = await import("@/lib/services/ops-night");
+  const night = await nightShiftActiveFor(userId, shift.state);
+  if (shift.state === "off" && !night) return { dispatched: 0, reason: "off shift" };
   const { claudeHealthy, enqueueJobFor } = await import("@/lib/services/claude-jobs");
   const { budgetFor, opsSettingsFor } = await import("@/lib/services/ops-inbox");
   const { freeStatusFor } = await import("@/lib/services/free-llm");
   const [healthy, budget, settings, free] = await Promise.all([claudeHealthy(userId), budgetFor(userId), opsSettingsFor(userId), freeStatusFor(userId)]);
   // Why Claude can't take work right now (null = it can). Your plan's limits: a usage-limit pause, and today's share of the monthly budget.
-  const claudeBlocked = !healthy ? "Claude isn't connected" : budget.paused ? "paused: your Claude plan hit a usage limit" : budget.exhausted ? "today's budget is used up" : null;
+  const claudeBlocked = night ? "night shift: free models only" : !healthy ? "Claude isn't connected" : budget.paused ? "paused: your Claude plan hit a usage limit" : budget.exhausted ? "today's budget is used up" : null;
   const freeReady = free.usableCount > 0;
   const findWaiting = (await db.select({ id: opsMissions.id }).from(opsMissions)
     .where(and(eq(opsMissions.userId, userId), eq(opsMissions.status, "open"), sql`${opsMissions.brief} ~* '^FIND:'`)).limit(1)).length > 0;
-  if (claudeBlocked && !findWaiting && !(freeReady && (settings.freeFallback || cloud.some((a) => a.engine === "free")))) return { dispatched: 0, reason: claudeBlocked };
+  if (claudeBlocked && !findWaiting && !(freeReady && (settings.freeFallback || night || cloud.some((a) => a.engine === "free")))) return { dispatched: 0, reason: claudeBlocked };
   let leftToday = budget.leftToday;
   let freeRuns = 0;
 
@@ -722,7 +726,7 @@ export async function dispatchCloudFor(userId: number) {
     if (parseFindLine(m.brief)) {
       if (freeRuns >= MAX_FREE_RUNS_PER_BEAT) { await releaseCloudMission(userId, m.id, null); continue; }
       freeRuns++;
-      await db.update(opsMissions).set({ jobId: FREE_JOB }).where(eq(opsMissions.id, m.id));
+      await db.update(opsMissions).set({ jobId: FREE_JOB, nightShift: night }).where(eq(opsMissions.id, m.id));
       await recordEventForAgent(a, { kind: "status", label: `Took the mission: ${m.title}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
       const { runFindMission } = await import("@/lib/services/ops-free");
       const run = () => runFindMission(userId, m.id, a.id);
@@ -730,19 +734,23 @@ export async function dispatchCloudFor(userId: number) {
       dispatched++;
       continue;
     }
-    const route = cloudRoute({ engine: a.engine, effort: m.effort, claudeBlocked: !!claudeBlocked, freeReady: freeReady && freeRuns < MAX_FREE_RUNS_PER_BEAT, freeFirst: settings.freeFirst, freeFallback: settings.freeFallback });
+    const freeOk = freeReady && freeRuns < MAX_FREE_RUNS_PER_BEAT;
+    // At night the night rules pick the engine (never Claude); by day, your usual routing.
+    const route = night ? nightRoute({ engine: a.engine, freeReady: freeOk })
+      : cloudRoute({ engine: a.engine, effort: m.effort, claudeBlocked: !!claudeBlocked, freeReady: freeOk, freeFirst: settings.freeFirst, freeFallback: settings.freeFallback });
     if (route === "none") { await releaseCloudMission(userId, m.id, null); continue; }
     if (route === "free") {
       // Free model: no runner job — it runs right here, after the response (Reach finds the sources, the model writes).
       freeRuns++;
-      await db.update(opsMissions).set({ jobId: FREE_JOB }).where(eq(opsMissions.id, m.id));
-      await recordEventForAgent(a, { kind: "status", label: `Took the mission on a free model: ${m.title}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
+      await db.update(opsMissions).set({ jobId: FREE_JOB, nightShift: night }).where(eq(opsMissions.id, m.id));
+      await recordEventForAgent(a, { kind: "status", label: `Took the mission on a free model${night ? " (night shift)" : ""}: ${m.title}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
       const { runFreeMission } = await import("@/lib/services/ops-free");
       const run = () => runFreeMission(userId, m.id, a.id);
       try { after(run); } catch { void run(); } // outside a request (scripts/tests) there's no after()
       dispatched++;
       continue;
     }
+    if (night) { await releaseCloudMission(userId, m.id, null); continue; } // belt and braces: no Claude run is ever queued at night
     const plan = runPlan(m.effort, budget.model);
     const capCents = runCapCents({ effortCapCents: plan.capCents, leftTodayCents: leftToday, missionLeftCents: m.budgetCents != null ? m.budgetCents - m.spentCents : null });
     if (capCents < 5) { await releaseCloudMission(userId, m.id, null); continue; } // not enough Claude left today for this one

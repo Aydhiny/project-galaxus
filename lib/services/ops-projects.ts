@@ -157,7 +157,7 @@ async function projectProgress(userId: number, projectId: number) {
  * One project beat: plan today's work (every day, the deadline day too), or
  * write the final result when it's time (see projectStep). Returns what it did.
  */
-export async function planProjectDayFor(userId: number, p: OpsProject, o: { dayEnded?: boolean } = {}) {
+export async function planProjectDayFor(userId: number, p: OpsProject, o: { dayEnded?: boolean; night?: boolean } = {}) {
   const t = today();
   if (p.status !== "active") return false;
   // A final that never came back (job failed): try again after 6 hours.
@@ -178,6 +178,11 @@ export async function planProjectDayFor(userId: number, p: OpsProject, o: { dayE
   }
   const step = projectStep({ phase: d.phase, plannedToday, dayEnded: !!o.dayEnded, ...(await projectProgress(userId, p.id)) });
   if (step === "wait") return false;
+  // Night shift: only a cloud lead thinks at night (on a free model); a lead on your computer would use Claude, so it waits for morning.
+  if (o.night) {
+    const [l] = p.leadAgentId ? await db.select({ cloud: opsAgents.cloud }).from(opsAgents).where(eq(opsAgents.id, p.leadAgentId)).limit(1) : [];
+    if (!l?.cloud) return false;
+  }
   // Claim it first, so two beats can't both plan the day (or both write the final).
   const [won] = step === "plan"
     ? await db.update(opsProjects).set({ lastPlannedDay: t, planStartedAt: new Date(), planError: null }).where(and(eq(opsProjects.id, p.id), sql`(${opsProjects.lastPlannedDay} is null or ${opsProjects.lastPlannedDay} <> ${t})`)).returning()
@@ -375,12 +380,12 @@ export async function reportProjectDayFor(userId: number, p: OpsProject) {
 }
 
 /** Everything project-shaped on a beat: plan today or finish (while the shift is on, or when it ends), report at the end of the day. */
-export async function projectsTickFor(userId: number, o: { shiftOn: boolean; shiftEnded: boolean }) {
+export async function projectsTickFor(userId: number, o: { shiftOn: boolean; shiftEnded: boolean; night?: boolean }) {
   const active = await db.select().from(opsProjects).where(and(eq(opsProjects.userId, userId), eq(opsProjects.status, "active")));
   let planned = 0, reported = 0;
   for (const p of active) {
     if (o.shiftEnded && (await reportProjectDayFor(userId, p))) reported++;
-    if ((o.shiftOn || o.shiftEnded) && (await planProjectDayFor(userId, p, { dayEnded: o.shiftEnded }))) planned++;
+    if ((o.shiftOn || o.shiftEnded) && (await planProjectDayFor(userId, p, { dayEnded: o.shiftEnded, night: o.night }))) planned++;
   }
   return { planned, reported };
 }

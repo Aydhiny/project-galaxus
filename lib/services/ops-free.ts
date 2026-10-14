@@ -106,15 +106,17 @@ export async function runPlannerJob(userId: number, kind: PlannerKind, label: st
   const { claudeHealthy, enqueueJobFor, buildJobPrompt, applyJobResult } = await import("@/lib/services/claude-jobs");
   const { budgetFor, opsSettingsFor } = await import("@/lib/services/ops-inbox");
   const { freeStatusFor, askFree } = await import("@/lib/services/free-llm");
-  const [healthy, budget, settings, free] = await Promise.all([claudeHealthy(userId), budgetFor(userId), opsSettingsFor(userId), freeStatusFor(userId)]);
+  const { nightShiftActiveFor } = await import("@/lib/services/ops-night");
+  const [healthy, budget, settings, free, night] = await Promise.all([claudeHealthy(userId), budgetFor(userId), opsSettingsFor(userId), freeStatusFor(userId), nightShiftActiveFor(userId)]);
   // Cheap, frequent thinking (reviews) goes to free models first when you've said "free first".
   const freeFirst = !!opts.preferFree && settings.freeFirst && free.usableCount > 0;
-  if (!freeFirst && healthy && !budget.paused && !budget.exhausted) {
+  // Night shift: Claude is never started while you sleep; the thinking happens on a free model or waits for morning.
+  if (!night && !freeFirst && healthy && !budget.paused && !budget.exhausted) {
     const ok = await enqueueJobFor(userId, kind, label, { model: "haiku", capCents: Math.min(15, budget.leftToday), ...payload }).then(() => true, () => false);
     if (ok) { await show("working", `${label} (on Claude)`); return "claude"; }
   }
-  if (!(freeFirst || settings.freeFallback) || free.usableCount === 0) {
-    const why = !healthy && free.usableCount === 0 ? "Claude isn't available and every free model is resting" : !healthy ? "Claude isn't available and free fallback is off" : "no engine available right now";
+  if (!(freeFirst || settings.freeFallback || night) || free.usableCount === 0) {
+    const why = night ? "night shift (free models only) and every free model is resting" : !healthy && free.usableCount === 0 ? "Claude isn't available and every free model is resting" : !healthy ? "Claude isn't available and free fallback is off" : "no engine available right now";
     await show("error", `Can't think right now: ${why}. Retrying on the next beat.`);
     await plannerJobFailed(userId, kind, payload, why);
     return null;

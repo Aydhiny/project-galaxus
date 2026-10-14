@@ -250,3 +250,12 @@ export async function setLinkLeads(id: number, share: boolean) {
     done();
   });
 }
+
+// ── Free-model ops: the night shift toggle ──
+export async function saveNightShift(on: boolean) {
+  return toResult(async () => {
+    const { setNightShiftFor } = await import("@/lib/services/ops-night");
+    await setNightShiftFor(await requireUserId(), !!on);
+    done();
+  });
+}

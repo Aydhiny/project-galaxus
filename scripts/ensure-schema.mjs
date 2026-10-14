@@ -1084,6 +1084,13 @@ const STATEMENTS = [
   `ALTER TABLE "ops_links" ADD COLUMN IF NOT EXISTS "share_leads_from" boolean DEFAULT false NOT NULL`,
   `ALTER TABLE "ops_links" ADD COLUMN IF NOT EXISTS "share_leads_to" boolean DEFAULT false NOT NULL`,
   `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "partner_note" varchar(160)`,
+  // Free-model ops: the night shift (free models only while you sleep) and hourly free-model health checks.
+  `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "night_shift" boolean DEFAULT false NOT NULL`,
+  `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "night_started_at" timestamp`,
+  `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "night_shift" boolean DEFAULT false NOT NULL`,
+  `ALTER TABLE "free_llm_keys" ADD COLUMN IF NOT EXISTS "health_at" timestamp`,
+  `ALTER TABLE "free_llm_keys" ADD COLUMN IF NOT EXISTS "health_fails" integer DEFAULT 0 NOT NULL`,
+  `ALTER TABLE "free_llm_keys" ADD COLUMN IF NOT EXISTS "health_checks" integer DEFAULT 0 NOT NULL`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,

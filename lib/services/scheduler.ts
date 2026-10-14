@@ -17,6 +17,7 @@ import { runAutopilotFollowUpsFor, runAutopilotInboxFor, runAutopilotSendFor } f
 import { runRedditDailyFor } from "@/lib/services/reddit";
 import { pullNextCommentsFor, scanScoutFor } from "@/lib/services/scout";
 import { opsTickFor } from "@/lib/services/ops-day";
+import { healthCheckFor } from "@/lib/services/free-health";
 import {
   checkClientSitesFor, checkLeadSitesFor, ensureDemosFor, findNewBusinessesFor, monthlyReportsReadyFor, queueFollowUpsFor,
 } from "@/lib/services/leads-auto";
@@ -52,6 +53,9 @@ export const TASKS: Task[] = [
   // Gig autopilot: replies first (speed wins), then applications, then follow-ups.
   { id: "autopilot_send", when: { every: 30, from: 9, to: 21 }, run: (u) => runAutopilotSendFor(u) },
   { id: "autopilot_followups", when: { daily: 10 }, run: (u) => runAutopilotFollowUpsFor(u) },
+  // Free models: one tiny request per provider an hour (fewer for small daily caps), so quota and "resting" are
+  // true before missions need them. Runs before ops_cloud so this beat's dispatch sees the fresh state.
+  { id: "free_health", when: { every: 60, from: 0, to: 24 }, run: (u) => healthCheckFor(u) },
   // Ops: recurring missions, the stand-up, the debrief, and cloud agents taking their next mission.
   { id: "ops_cloud", when: { every: 10, from: 0, to: 24 }, run: (u) => opsTickFor(u) },
   // Outreach bridge (lib/services/outreach-bridge.ts), last so they never starve the tasks above. Capped:
