@@ -8,7 +8,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { freeLlmKeys, type FreeLlmKey } from "@/lib/db/schema";
 import { encrypt, tryDecrypt } from "@/lib/crypto-box";
-import { FREE_PROVIDERS, cooldownMs, freeProvider, pickOrder, readRateHeaders, remainingToday } from "@/lib/free-llm";
+import { FREE_PROVIDERS, cooldownMs, freeProvider, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday } from "@/lib/free-llm";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -78,14 +78,25 @@ export async function moveFreeKeyFor(userId: number, id: number, dir: -1 | 1) {
 
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 
-async function call(k: FreeLlmKey, messages: Msg[], maxTokens: number, json: boolean) {
-  const p = freeProvider(k.provider);
-  const base = (k.baseUrl ?? p?.baseUrl ?? "").replace(/\/+$/, "");
+const baseOf = (k: FreeLlmKey) => (k.baseUrl ?? freeProvider(k.provider)?.baseUrl ?? "").replace(/\/+$/, "");
+
+/** The models this key can actually use, as the provider lists them (empty if it won't say). */
+async function listModels(k: FreeLlmKey) {
   const key = tryDecrypt(k.keyEnc);
-  const res = await fetch(`${base}/chat/completions`, {
+  try {
+    const r = await fetch(`${baseOf(k)}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(15_000), cache: "no-store" });
+    if (!r.ok) return [];
+    // OpenAI shape ({data:[{id}]}); Gemini's OpenAI layer answers ids like "models/gemini-…".
+    return (((await r.json()) as { data?: { id: string }[] }).data ?? []).map((m) => m.id.replace(/^models\//, "")).slice(0, 300);
+  } catch { return []; }
+}
+
+async function call(k: FreeLlmKey, model: string, messages: Msg[], maxTokens: number, json: boolean) {
+  const key = tryDecrypt(k.keyEnc);
+  const res = await fetch(`${baseOf(k)}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(key ? { Authorization: `Bearer ${key}` } : {}), ...(k.provider === "openrouter" ? { "HTTP-Referer": "https://project-galaxus.vercel.app", "X-Title": "Galaxus Ops" } : {}) },
-    body: JSON.stringify({ model: k.model, messages, max_tokens: maxTokens, temperature: 0.4, ...(json ? { response_format: { type: "json_object" } } : {}) }),
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4, ...(json ? { response_format: { type: "json_object" } } : {}) }),
     signal: AbortSignal.timeout(60_000),
     cache: "no-store",
   });
@@ -118,23 +129,41 @@ export async function askFree(userId: number, o: { system: string; prompt: strin
   const messages: Msg[] = [{ role: "system", content: o.system }, { role: "user", content: o.prompt }];
   const reasons: string[] = [];
   for (const k of keys.slice(0, 5)) {
-    let res: Response | null = null;
-    try {
-      res = await call(k, messages, o.maxTokens ?? 3000, !!o.json);
-      const body = await res.text();
-      if (!res.ok) {
-        await noteUse(k, res, 0, `HTTP ${res.status}: ${body.slice(0, 200)}`, res.status, res.headers.get("retry-after"));
-        reasons.push(`${k.provider}: HTTP ${res.status}`);
-        continue;
+    // One provider, up to 3 models: a missing or overloaded MODEL isn't a reason to give up on the provider.
+    let models = modelsToTry(k.provider, k.model);
+    let listed = false;
+    let last: { res: Response | null; error: string; status: number } | null = null;
+    for (let i = 0; i < models.length; i++) {
+      const model = models[i];
+      let res: Response | null = null;
+      try {
+        res = await call(k, model, messages, o.maxTokens ?? 3000, !!o.json);
+        const body = await res.text();
+        if (!res.ok) {
+          last = { res, error: `HTTP ${res.status} (${model}): ${body.slice(0, 200)}`, status: res.status };
+          const trouble = modelTrouble(res.status, body);
+          if (!trouble) break; // key, quota or rate limit: the whole provider rests
+          // The model is the problem: ask the provider which models this key can use (once), then try the next one.
+          if (trouble === "missing" && !listed) { listed = true; models = [...models.slice(0, i + 1), ...modelsToTry(k.provider, model, await listModels(k)).filter((m) => !models.slice(0, i + 1).includes(m))].slice(0, 4); }
+          continue;
+        }
+        const j = JSON.parse(body) as { choices?: { message?: { content?: string } }[]; usage?: { total_tokens?: number } };
+        const text = j.choices?.[0]?.message?.content?.trim() ?? "";
+        if (!text) { last = { res, error: `Empty answer (${model})`, status: 500 }; continue; }
+        await noteUse(k, res, j.usage?.total_tokens ?? Math.ceil((o.prompt.length + text.length) / 4), null);
+        // Your model doesn't exist (any more) for this key, another one worked: keep the one that works.
+        if (model !== k.model && last && modelTrouble(last.status, last.error) === "missing") await db.update(freeLlmKeys).set({ model }).where(eq(freeLlmKeys.id, k.id));
+        return { text, provider: k.provider, model, name: freeProvider(k.provider)?.name ?? k.provider };
+      } catch (e) {
+        last = { res, error: e instanceof Error ? e.message : "Request failed", status: 0 };
+        break;
       }
-      const j = JSON.parse(body) as { choices?: { message?: { content?: string } }[]; usage?: { total_tokens?: number } };
-      const text = j.choices?.[0]?.message?.content?.trim() ?? "";
-      await noteUse(k, res, j.usage?.total_tokens ?? Math.ceil((o.prompt.length + text.length) / 4), text ? null : "Empty answer", text ? 0 : 500);
-      if (!text) { reasons.push(`${k.provider}: empty answer`); continue; }
-      return { text, provider: k.provider, model: k.model, name: freeProvider(k.provider)?.name ?? k.provider };
-    } catch (e) {
-      await noteUse(k, res, 0, e instanceof Error ? e.message : "Request failed", 0);
-      reasons.push(`${k.provider}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+    if (last) {
+      // Every model was missing/busy: rest briefly if busy (it passes), longer if nothing exists for this key.
+      const busy = modelTrouble(last.status, last.error) === "busy";
+      await noteUse(k, last.res, 0, last.error, busy ? 503 : last.status, busy ? "120" : last.res?.headers.get("retry-after") ?? null);
+      reasons.push(`${k.provider}: ${last.error.slice(0, 80)}`);
     }
   }
   throw new Error(`Every free model failed (${reasons.join("; ")}).`);
@@ -144,16 +173,12 @@ export async function askFree(userId: number, o: { system: string; prompt: strin
 export async function testFreeKeyFor(userId: number, id: number) {
   const [k] = await db.select().from(freeLlmKeys).where(and(eq(freeLlmKeys.id, id), eq(freeLlmKeys.userId, userId))).limit(1);
   if (!k) throw new Error("Not found.");
-  const base = (k.baseUrl ?? freeProvider(k.provider)?.baseUrl ?? "").replace(/\/+$/, "");
-  const key = tryDecrypt(k.keyEnc);
-  let models: string[] = [];
-  try {
-    const r = await fetch(`${base}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(15_000), cache: "no-store" });
-    if (r.ok) models = (((await r.json()) as { data?: { id: string }[] }).data ?? []).map((m) => m.id).slice(0, 200);
-  } catch { /* listing is optional */ }
-  await db.update(freeLlmKeys).set({ cooldownUntil: null }).where(eq(freeLlmKeys.id, k.id)); // a manual test gets a fresh chance
+  const models = await listModels(k);
+  // Your model isn't one this key can use: switch to the best one it can (catalog order), before testing.
+  const fix = models.length && !models.includes(k.model) ? modelsToTry(k.provider, k.model, models).find((m) => models.includes(m)) : undefined;
+  await db.update(freeLlmKeys).set({ cooldownUntil: null, ...(fix ? { model: fix } : {}) }).where(eq(freeLlmKeys.id, k.id)); // a manual test gets a fresh chance
   const r = await askFree(userId, { system: "Reply with exactly: ok", prompt: "Say ok.", maxTokens: 10, only: [k.id] });
-  return { ok: true, reply: r.text.slice(0, 40), models };
+  return { ok: true, reply: r.text.slice(0, 40), models, model: r.model, switchedFrom: r.model !== k.model ? k.model : null };
 }
 
 export const FREE_CATALOG = FREE_PROVIDERS;

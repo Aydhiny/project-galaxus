@@ -18,12 +18,12 @@ export type FreeProvider = {
 export const FREE_PROVIDERS: FreeProvider[] = [
   {
     key: "groq", name: "Groq", baseUrl: "https://api.groq.com/openai/v1", keyUrl: "https://console.groq.com/keys", card: "none",
-    models: [{ id: "llama-3.3-70b-versatile", ctx: 131_072 }, { id: "moonshotai/kimi-k2-instruct", ctx: 131_072 }, { id: "groq/compound", ctx: 131_072 }],
+    models: [{ id: "openai/gpt-oss-120b", ctx: 131_072 }, { id: "llama-3.3-70b-versatile", ctx: 131_072 }, { id: "openai/gpt-oss-20b", ctx: 131_072 }, { id: "llama-3.1-8b-instant", ctx: 131_072 }],
     limits: { rpm: 30, rpd: 1000, tpd: 100_000 }, note: "Fastest. No card. Reports exact remaining requests per day.",
   },
   {
     key: "gemini", name: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", keyUrl: "https://aistudio.google.com/apikey", card: "none",
-    models: [{ id: "gemini-3.6-flash", ctx: 1_000_000 }, { id: "gemini-3.7-flash", ctx: 1_000_000 }, { id: "gemini-3.8-flash", ctx: 1_000_000 }],
+    models: [{ id: "gemini-3.8-flash", ctx: 1_000_000 }, { id: "gemini-3.5-flash-lite", ctx: 1_000_000 }, { id: "gemini-3.6-flash", ctx: 1_000_000 }, { id: "gemini-3.1-flash-lite", ctx: 1_000_000 }],
     limits: { rpm: 15, rpd: 1500, tpd: null }, note: "Huge context, generous daily limit. No card.", logo: "googlegemini",
   },
   {
@@ -114,6 +114,25 @@ export function readRateHeaders(h: { get(name: string): string | null }) {
  * quota (402, "quota", "per day") rests until tomorrow; a burst limit a minute;
  * a broken key or model 6 hours (fix it in settings).
  */
+/**
+ * Did the provider say this MODEL is the problem (not the key or the quota)?
+ * Then another model on the same provider may well work: "missing" = doesn't
+ * exist / no access, "busy" = overloaded right now.
+ */
+export function modelTrouble(status: number, body: string): "missing" | "busy" | null {
+  if (status === 404 || /model_not_found|does not exist|not found for API version|is not supported/i.test(body)) return "missing";
+  if (status === 503 || status === 529 || /overloaded|high demand|UNAVAILABLE/.test(body)) return "busy";
+  return null;
+}
+
+/** The models to try on one provider: yours first, then the catalog's others, then (if it listed them) what your key can use. */
+export function modelsToTry(provider: string, mine: string, available: string[] = [], max = 3) {
+  const catalog = freeProvider(provider)?.models.map((m) => m.id) ?? [];
+  const listed = available.length ? catalog.filter((m) => available.includes(m)) : [];
+  const rest = available.length ? listed : catalog;
+  return [...new Set([mine, ...rest, ...(available.length && !listed.length ? available.filter((m) => !/embed|whisper|tts|guard|vision|image|audio/i.test(m)).slice(0, 2) : [])])].slice(0, max);
+}
+
 export function cooldownMs(status: number, body: string, retryAfter: string | null) {
   const ra = retryAfter != null ? Number(retryAfter) : NaN;
   if (Number.isFinite(ra) && ra > 0) return Math.min(ra * 1000, 24 * 3_600_000);

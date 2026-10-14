@@ -69,7 +69,7 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
                   <IconBtn label="Up" disabled={busy || i === 0} onClick={() => run(() => moveFreeKeyC(p.id, -1))}><ArrowUp className="w-3.5 h-3.5" /></IconBtn>
                   <IconBtn label="Down" disabled={busy || i === f.providers.length - 1} onClick={() => run(() => moveFreeKeyC(p.id, 1))}><ArrowDown className="w-3.5 h-3.5" /></IconBtn>
                   <IconBtn label="Test" disabled={busy || testing != null} onClick={() => { setTesting(p.id); start(async () => {
-                    try { const r = await testFreeKeyC(p.id); toast.success(`${p.name} works: “${r.reply}”${r.models.length ? ` · ${r.models.length} models available` : ""}`); onChanged(); }
+                    try { const r = await testFreeKeyC(p.id); toast.success(`${p.name} works${r.switchedFrom ? ` — switched to ${r.model} (your key can't use ${r.switchedFrom})` : ""}: “${r.reply}”${r.models.length ? ` · ${r.models.length} models available` : ""}`); onChanged(); }
                     catch (e) { toast.error((e as Error).message); } finally { setTesting(null); }
                   }); }}>{testing === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlugZap className="w-3.5 h-3.5" />}</IconBtn>
                   <IconBtn label={p.enabled ? "Turn off" : "Turn on"} disabled={busy} onClick={() => run(() => saveFreeKeyC({ provider: p.provider, model: p.model, baseUrl: p.baseUrl ?? undefined, enabled: !p.enabled }))}>

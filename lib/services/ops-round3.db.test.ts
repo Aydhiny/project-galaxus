@@ -125,6 +125,35 @@ describe("free models", () => {
     await testDb.update(freeLlmKeys).set({ cooldownUntil: null }).where(eq(freeLlmKeys.id, groq.id));
   });
 
+  it("a missing or overloaded model doesn't sink the provider: it tries its other models and keeps the one that works", async () => {
+    const [g] = await testDb.select().from(freeLlmKeys).where(and(eq(freeLlmKeys.userId, me), eq(freeLlmKeys.provider, "gemini")));
+    await testDb.update(freeLlmKeys).set({ model: "gemini-3.6-flash", priority: 0 }).where(eq(freeLlmKeys.id, g.id));
+    await testDb.update(freeLlmKeys).set({ priority: 1 }).where(and(eq(freeLlmKeys.userId, me), eq(freeLlmKeys.provider, "groq")));
+    h.reply = (url) => url.includes("generativelanguage") ? { status: 503, text: '{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}' } : llm("groq");
+    // Busy is per model: the request body says which one was asked.
+    const models: string[] = [];
+    const orig = h.reply;
+    h.reply = (url) => { const body = JSON.parse(h.calls.at(-1)!.body) as { model: string }; models.push(body.model); return body.model === "gemini-3.8-flash" ? llm("from 3.8") : orig(url); };
+    const r = await free.askFree(me, { system: "s", prompt: "p" });
+    expect(r).toMatchObject({ provider: "gemini", model: "gemini-3.8-flash", text: "from 3.8" });
+    expect(models).toEqual(["gemini-3.6-flash", "gemini-3.8-flash"]);
+    // Busy is temporary: your chosen model stays.
+    expect((await testDb.select().from(freeLlmKeys).where(eq(freeLlmKeys.id, g.id)))[0].model).toBe("gemini-3.6-flash");
+
+    // Groq says your model doesn't exist for this key; it lists what does; the working one is saved.
+    await testDb.update(freeLlmKeys).set({ priority: 5 }).where(eq(freeLlmKeys.id, g.id));
+    await testDb.update(freeLlmKeys).set({ model: "llama-3.3-70b-versatile", cooldownUntil: null }).where(and(eq(freeLlmKeys.userId, me), eq(freeLlmKeys.provider, "groq")));
+    h.reply = () => {
+      const body = JSON.parse(h.calls.at(-1)!.body) as { model: string };
+      return body.model === "openai/gpt-oss-120b" ? llm("from gpt-oss") : { status: 404, text: '{"error":{"code":"model_not_found"}}' };
+    };
+    const r2 = await free.askFree(me, { system: "s", prompt: "p" });
+    expect(r2).toMatchObject({ provider: "groq", model: "openai/gpt-oss-120b" });
+    expect((await testDb.select().from(freeLlmKeys).where(and(eq(freeLlmKeys.userId, me), eq(freeLlmKeys.provider, "groq"))))[0]).toMatchObject({ model: "openai/gpt-oss-120b", cooldownUntil: null });
+    await testDb.update(freeLlmKeys).set({ model: "llama-3.3-70b-versatile", priority: 0 }).where(and(eq(freeLlmKeys.userId, me), eq(freeLlmKeys.provider, "groq")));
+    await testDb.update(freeLlmKeys).set({ priority: 1 }).where(eq(freeLlmKeys.id, g.id));
+  });
+
   it("a free-model agent can ask you; your answer is remembered and the mission resumes", async () => {
     const nova = (await testDb.select().from(opsAgents).where(and(eq(opsAgents.userId, me), eq(opsAgents.name, "Nova"))))[0];
     h.reply = () => llm("QUESTION: Logos only, or also social media templates?\nOPTIONS: Logos only | Both");

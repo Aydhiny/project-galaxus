@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { cloudRoute, parseCloudReply } from "@/lib/ops";
-import { cooldownMs, pickOrder, readRateHeaders, remainingToday, usable, type FreeKeyState } from "@/lib/free-llm";
+import { cooldownMs, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday, usable, type FreeKeyState } from "@/lib/free-llm";
 import { htmlToText, parseExa } from "@/lib/services/reach";
 import { compress } from "@/lib/services/ops-memory";
 
@@ -85,5 +85,20 @@ describe("memory compression", () => {
   it("keeps the lead and the first bullets of a deliverable", () => {
     const md = "# Gigs\n\nThree good gigs this week.\n\n- Logo for a café, 50 KM\n- Video edit, 80 KM\n\n## Notes\nLong notes…";
     expect(compress(md)).toBe("Three good gigs this week. Long notes…\n- Logo for a café, 50 KM\n- Video edit, 80 KM");
+  });
+});
+
+describe("model trouble: try another model before giving up on a provider", () => {
+  it("tells a missing or busy model from a key/quota problem", () => {
+    expect(modelTrouble(404, '{"error":{"code":"model_not_found"}}')).toBe("missing");
+    expect(modelTrouble(503, "This model is currently experiencing high demand")).toBe("busy");
+    expect(modelTrouble(429, "rate limit")).toBeNull();
+    expect(modelTrouble(401, "invalid api key")).toBeNull();
+  });
+  it("tries yours first, then the catalog's, then what the key lists", () => {
+    expect(modelsToTry("gemini", "gemini-3.6-flash")).toEqual(["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite"]);
+    expect(modelsToTry("groq", "llama-3.3-70b-versatile", ["openai/gpt-oss-20b", "whisper-large-v3"])).toEqual(["llama-3.3-70b-versatile", "openai/gpt-oss-20b"]);
+    // A custom provider has no catalog: use what it lists (never audio/embedding models).
+    expect(modelsToTry("custom", "x", ["text-embed-1", "chat-a", "chat-b", "chat-c"])).toEqual(["x", "chat-a", "chat-b"]);
   });
 });
