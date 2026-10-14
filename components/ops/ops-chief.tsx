@@ -20,7 +20,7 @@ export function ChiefOrders({ data, onChanged }: { data: OpsOverview; onChanged:
   const [busy, start] = useTransition();
   useEffect(() => {
     let dead = false;
-    getDirectionsC().then((r) => { if (!dead) setItems(r); }).catch((e) => toast.error((e as Error).message));
+    getDirectionsC().then((r) => { if (!dead) setItems(r); }).catch((e) => { if (!dead) setItems([]); toast.error((e as Error).message); }); // never spin forever
     return () => { dead = true; };
   }, [version]);
 
