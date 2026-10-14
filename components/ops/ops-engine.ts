@@ -30,6 +30,7 @@ export type SceneExtras = {
   shift: string; shiftOn: boolean;
   standupAt?: number | null; // ms; a fresh stand-up plays at the holo table
   partners?: string[]; // linked facilities: the portal on the side wall
+  boardTitle?: string; // the mission wall's heading (a replay says which day)
 };
 export type MissionView = { id: number; title: string; status: string; budgetCents: number | null; spentCents: number };
 export type OpsView = "overview" | "wall" | "table";
@@ -143,6 +144,7 @@ export class OpsEngine {
   private table = new THREE.Group();
   private ringsHolo: THREE.Mesh[] = [];
   private board: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sig: string } | null = null;
+  private boardTitle = "MISSION BOARD // TODAY";
   private layoutSig = "";
   private visHandler = () => { if (document.hidden) this.pause(); else this.run(); };
   private controls: OrbitControls;
@@ -193,6 +195,7 @@ export class OpsEngine {
     const sig = agents.map((a) => `${a.id}:${a.role}:${a.provider}:${a.name}:${a.cloud ? 1 : 0}:${a.level ?? 1}`).join("|");
     if (sig !== this.layoutSig) { this.layoutSig = sig; this.layout(agents); this.linkSig = ""; }
     for (const a of agents) this.updateAgent(this.slots.get(a.id)!, a);
+    this.boardTitle = extras?.boardTitle ?? "MISSION BOARD // TODAY";
     this.drawBoard(missions);
     if (!extras) return;
     this.radio(extras.messages, agents);
@@ -206,6 +209,12 @@ export class OpsEngine {
     this.drawLinks(extras.links);
     if (this.clock && (this.clock.label !== extras.shift || this.clock.on !== extras.shiftOn)) { this.clock.label = extras.shift; this.clock.on = extras.shiftOn; this.drawClock(); }
   }
+
+  /**
+   * Replay: fly these radio messages now, whatever their ids (the live radio only
+   * flies messages newer than the last one it saw). Never moves the camera.
+   */
+  replayRadio(messages: SceneExtras["messages"], agents: AgentView[]) { this.flyMessages(messages.slice(0, 6), agents); }
 
   /** Highlight an agent (ring, speech bubble). Never moves the camera. */
   select(id: number | null) { this.selected = id; }
@@ -466,6 +475,10 @@ export class OpsEngine {
     if (this.lastMsgId == null) { this.lastMsgId = max; return; } // don't replay history on load
     const fresh = messages.filter((m) => m.id > this.lastMsgId!).slice(0, 6);
     this.lastMsgId = Math.max(this.lastMsgId, max);
+    this.flyMessages(fresh, agents);
+  }
+
+  private flyMessages(fresh: SceneExtras["messages"], agents: AgentView[]) {
     for (const m of fresh) {
       const from = m.from != null ? this.slots.get(m.from) : null;
       if (m.external === "out") {
@@ -636,7 +649,7 @@ export class OpsEngine {
 
   private drawBoard(missions: MissionView[]) {
     if (!this.board) return;
-    const sig = missions.map((m) => `${m.id}:${m.status}:${m.spentCents}`).join("|");
+    const sig = `${this.boardTitle}#${missions.map((m) => `${m.id}:${m.status}:${m.spentCents}`).join("|")}`;
     if (sig === this.board.sig) return;
     this.board.sig = sig;
     const { g, t } = this.board;
@@ -644,7 +657,7 @@ export class OpsEngine {
     g.fillStyle = "#1e1f22"; g.fillRect(0, 0, W, H);
     g.fillStyle = "#26272b"; g.fillRect(0, 0, W, 86);
     g.fillStyle = "#e8e8e6"; g.font = "bold 46px ui-monospace, monospace"; g.textBaseline = "middle";
-    g.fillText("MISSION BOARD // TODAY", 40, 44);
+    g.fillText(this.boardTitle.slice(0, 60), 40, 44);
     const cols = [
       { title: "OPEN", color: "#fbbf24", ms: missions.filter((m) => m.status === "open") },
       { title: "IN PROGRESS", color: "#38bdf8", ms: missions.filter((m) => m.status === "claimed" || m.status === "submitted") },

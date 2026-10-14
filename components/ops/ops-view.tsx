@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Activity, ArrowLeft, Brain, Cable, ClipboardList, Cloud, Eye, Gift, Hand, Inbox as InboxIcon, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus, Wallet } from "lucide-react";
+import { Activity, ArrowLeft, Brain, Cable, ClipboardList, Cloud, Eye, Gift, Hand, History, Inbox as InboxIcon, Megaphone, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BUILTIN_SKILLS, PRESENCE_LOOK, PROVIDERS, ROLES, TEAMS, formatUsd, presence, presenceNote, prLabel, providerOf, roleOf, type ProviderKey } from "@/lib/ops";
 import { ProviderIcon } from "@/components/ops/provider-logos";
@@ -25,6 +25,8 @@ import { Inbox, inboxCount } from "@/components/ops/ops-inbox";
 import { BudgetDialog } from "@/components/ops/ops-budget";
 import { FreeModelsDialog, freeLabel } from "@/components/ops/ops-free";
 import { MemoryDialog } from "@/components/ops/ops-memory";
+import { Replay } from "@/components/ops/ops-replay";
+import { ChiefOrders, ChiefOrdersDialog } from "@/components/ops/ops-chief";
 import type { AgentView, OpsEngine, OpsView as ViewKey } from "@/components/ops/ops-engine";
 import { removeAgentC, updateAgentC, type OpsOverview } from "@/lib/client/ops";
 
@@ -45,7 +47,10 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
   // Deep link from a push notification (/ops?inbox=1) opens the inbox.
   const [right, setRight] = useState<boolean | null>(deepInbox ? true : null);
   const [rightTab, setRightTab] = useState<"inbox" | "feed" | "radio">(deepInbox ? "inbox" : "feed");
-  const [dialog, setDialog] = useState<"free" | "memory" | "budget" | null>(null);
+  const [dialog, setDialog] = useState<"free" | "memory" | "budget" | "chief" | null>(null);
+  // Replay of a day: while it's on, live data stops reaching the scene (ops-replay.tsx drives it).
+  const [replay, setReplay] = useState(false);
+  const exitReplay = useCallback(() => setReplay(false), []);
   const [connect, setConnect] = useState<ProviderKey | "cloud" | "pick" | null>(null);
   const [connectors, setConnectors] = useState(false);
   const [skillsFor, setSkillsFor] = useState<number | null | "library">(null);
@@ -106,7 +111,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
   }), [data.agents, data.scores, data.missions, data.prs, data.shiftNow.state, now]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || replay) return;
     const live = data.missions.filter((m) => m.status !== "cancelled" && (m.day === data.day || m.status !== "done"));
     // Two agents on linked missions (one delegated to the other) get a link on the floor while both are on them.
     const holder = new Map(live.filter((m) => m.status === "claimed" && m.agentId).map((m) => [m.id, m.agentId!]));
@@ -120,7 +125,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
       standupAt: data.shift?.standupAt ? new Date(data.shift.standupAt).getTime() : null,
       partners: data.links.filter((l) => l.status === "active").map((l) => l.partner),
     });
-  }, [ready, agents, data.missions, data.day, data.messages, data.shiftNow, data.shift, data.links]);
+  }, [ready, replay, agents, data.missions, data.day, data.messages, data.shiftNow, data.shift, data.links]);
 
   // Selecting an agent never moves the camera: it only highlights them. The view is yours.
   useEffect(() => { engine.current?.select(selected); }, [selected, ready]);
@@ -170,6 +175,8 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
           <ClipboardList className="w-4 h-4" /> Plan{review > 0 && <span className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold">{review}</span>}
         </button>
         <button onClick={() => setRight(flip)} className={cn(chip, right === true && "bg-white text-black", right === null && "lg:bg-white lg:text-black")}><Activity className="w-4 h-4" /> Live</button>
+        <button onClick={() => { setSelected(null); setReplay((r) => !r); }} disabled={!ready} title="Replay a day: who worked on what, hour by hour"
+          className={cn(chip, replay && "bg-[#6b8afd] text-[#0f1222] border-transparent")}><History className="w-4 h-4" /><span className="hidden md:inline">Replay</span></button>
         <button onClick={openInbox} aria-label="Inbox" className={cn(chip, "relative", unread > 0 && "border-amber-300/50")}>
           <InboxIcon className="w-4 h-4" /><span className="hidden md:inline">Inbox</span>
           {unread > 0 && <span className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold">{unread}</span>}
@@ -190,6 +197,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
                 [Sparkles, "Skills", "What your agents know how to do", () => setSkillsFor("library")],
                 [Gift, "Free models", `${freeLabel(data.free)} · switch when Claude runs out`, () => setDialog("free")],
                 [Brain, "Shared memory", "What every agent knows about you", () => setDialog("memory")],
+                [Megaphone, "Talk to the Chief", "Standing orders every plan follows", () => setDialog("chief")],
                 [Wallet, "Budget & alerts", data.budget.paused ? "Paused by a usage limit" : "Spend per day, model, notifications", () => setDialog("budget")],
                 [Trophy, "Scoreboard", "Levels, accept rate, cost, wins", () => setScores(true)],
               ] as const).map(([Icon, label, hint, go]) => (
@@ -232,7 +240,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
       </div>
 
       {/* How to move (fades after a few seconds) */}
-      {hint && (
+      {hint && !replay && (
         <p className="pointer-events-none absolute z-10 bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 text-[11px] text-white/75 whitespace-nowrap hidden sm:block">
           Drag to look · right-drag to move · scroll to zoom · WASD to walk, Q/E to turn
         </p>
@@ -279,8 +287,11 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
         </div>
       )}
 
+      {/* Replay of a day (replaces the live scene and the agent card until you exit) */}
+      {replay && <Replay data={data} engine={engine} top={barBottom} onExit={exitReplay} />}
+
       {/* Selected agent */}
-      {sel && selView && (
+      {sel && selView && !replay && (
         <div className="absolute z-20 bottom-3 left-1/2 -translate-x-1/2 w-[min(34rem,calc(100%-1.5rem))] rounded-2xl bg-[#26272b]/94 backdrop-blur-md border border-white/12 p-3">
           <div className="flex items-start gap-3">
             <span className="w-10 h-10 shrink-0 rounded-xl bg-white/8 flex items-center justify-center">
@@ -326,6 +337,12 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
               ) : null}
             </div>
           </div>
+          {/* The Chief takes your directions here: standing orders every plan follows. */}
+          {selView.role === "chief" && (
+            <div className="mt-2.5 border-t border-white/10 pt-2.5">
+              <ChiefOrders data={data} onChanged={refresh} />
+            </div>
+          )}
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <button onClick={() => { setAssignTo(sel.id); setLeft(true); }} className="h-8 px-3 rounded-lg bg-[#6b8afd] text-[#0f1222] text-xs font-semibold">Give a mission</button>
             <button onClick={() => { setRightTab("radio"); setRight(true); }} className="h-8 px-3 rounded-lg border border-white/15 text-xs text-white/80 hover:bg-white/10 inline-flex items-center gap-1"><RadioIcon className="w-3.5 h-3.5" /> Radio</button>
@@ -337,7 +354,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
       )}
 
       {/* Budget strip */}
-      {data.totals.budgetCents > 0 && (
+      {data.totals.budgetCents > 0 && !replay && (
         <div className="absolute z-10 bottom-3 right-3 hidden lg:flex items-center gap-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 px-3 h-9 text-xs font-mono"
           style={{ marginRight: right !== false ? "20.5rem" : 0 }}>
           <span className="text-white/50">today</span>
@@ -355,6 +372,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
       {dialog === "free" && <FreeModelsDialog data={data} onClose={() => setDialog(null)} onChanged={refresh} />}
       {dialog === "memory" && <MemoryDialog onClose={() => setDialog(null)} />}
       {dialog === "budget" && <BudgetDialog data={data} onClose={() => setDialog(null)} onChanged={refresh} />}
+      {dialog === "chief" && <ChiefOrdersDialog data={data} onClose={() => setDialog(null)} onChanged={refresh} />}
       {removingAgent && (
         <RemoveAgentDialog
           agent={{ name: removingAgent.name, role: roleOf(removingAgent.role), provider: providerOf(removingAgent.provider), cloud: removingAgent.cloud }}

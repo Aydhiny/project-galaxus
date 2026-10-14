@@ -95,13 +95,15 @@ async function projectBrief(userId: number, p: OpsProject) {
   const t = today();
   const d = projectDay({ startDay: String(p.startDay), deadline: String(p.deadline) }, t);
   const { memoryBrief } = await import("@/lib/services/ops-memory");
-  const [ms, crew, answers, memory] = await Promise.all([
+  const { directionsBlock } = await import("@/lib/services/ops-directions");
+  const [ms, crew, answers, memory, directions] = await Promise.all([
     db.select().from(opsMissions).where(and(eq(opsMissions.userId, userId), eq(opsMissions.projectId, p.id))).orderBy(opsMissions.id),
     db.select({ name: opsAgents.name, role: opsAgents.role, cloud: opsAgents.cloud, provider: opsAgents.provider }).from(opsAgents).where(eq(opsAgents.userId, userId)),
     db.select({ q: opsMessages.body, a: opsMessages.answer }).from(opsMessages)
       .where(and(eq(opsMessages.userId, userId), eq(opsMessages.toUser, true), eq(opsMessages.kind, "question"), sql`${opsMessages.answer} is not null`,
         sql`${opsMessages.missionId} in (select id from ops_missions where project_id = ${p.id})`)).limit(20),
     memoryBrief(userId, `${p.title} ${p.goal}`, 1500).catch(() => ""),
+    directionsBlock(userId).catch(() => ""),
   ]);
   const spent = ms.reduce((s, m) => s + m.spentCents, 0);
   const results = ms.filter((m) => (m.status === "done" || m.status === "submitted") && m.deliverable);
@@ -117,6 +119,7 @@ async function projectBrief(userId: number, p: OpsProject) {
       `GOAL: ${p.goal}`,
       `Today is ${t}: day ${d.dayNo} of ${d.totalDays}. Deadline ${String(p.deadline)} (${d.daysLeft} day${d.daysLeft === 1 ? "" : "s"} after today).`,
       p.budgetCents ? `Budget: ${formatUsd(p.budgetCents)}, spent ${formatUsd(spent)}.` : "",
+      directions ? `\n${directions}` : "",
       p.plan ? `\nPLAN SO FAR:\n${p.plan.slice(0, 3000)}` : "",
       progress ? `\n${progress}` : "",
       results.length ? `\nRESULTS SO FAR:\n${results.slice(-8).map((m) => `- "${m.title}" (${m.status === "done" ? "accepted" : "waiting for review"}): ${(m.deliverable ?? "").replace(/\s+/g, " ").slice(0, 400)}`).join("\n")}` : "\nRESULTS SO FAR: none yet.",
@@ -219,7 +222,8 @@ Rules:
   "FIND: <type> @ <city>" with <type> one of: ${OSM_TYPES.map((t) => t.key).join(", ")}. Add "<N> rows" for the target. The finder returns the table (Name, Category, Address, Phone, WhatsApp, Email, Website, Website status, Source) from map data and the businesses' own pages — split categories and cities across the crew; several cities if one city can't reach the target.
 - If the goal is any other list: fix the columns on day 1 (put them in the plan) and make EVERY mission deliver its rows as ONE markdown table with exactly those columns, plus a target row count per mission. Rows must be real and checked (a source link per row); never invent contact details — leave a cell empty when unknown.
 - At most ${MAX_PROJECT_MISSIONS_PER_DAY} missions. Prefer "quick" (cheapest) unless a task needs depth. Most are due today (due_in_days 0).
-- Don't repeat finished work; build on results. Ask the user only when a decision is truly theirs. Never sending, buying or deploying.`;
+- Don't repeat finished work; build on results. Ask the user only when a decision is truly theirs. Never sending, buying or deploying.
+- DIRECTIONS FROM THE USER, when given, are standing orders: today's missions must follow them (what to focus on, what to skip), even over the plan so far.`;
 
 export async function buildProjectDayPrompt(userId: number, projectId: number) {
   const [p] = await db.select().from(opsProjects).where(and(eq(opsProjects.id, projectId), eq(opsProjects.userId, userId))).limit(1);

@@ -58,3 +58,9 @@ export type { OpsOverview } from "@/lib/actions/ops";
 // Outreach bridge
 import { sendToOutreach } from "@/lib/actions/ops";
 export const sendToOutreachC = unwrapped(sendToOutreach);
+// ─── See & steer: replay of the day, the Chief's standing orders ─────────────
+import { addDirection, getDirections, getReplayDay, removeDirection } from "@/lib/actions/ops";
+export const getReplayDayC = unwrapped(getReplayDay);
+export const getDirectionsC = unwrapped(getDirections);
+export const addDirectionC = unwrapped(addDirection);
+export const removeDirectionC = unwrapped(removeDirection);

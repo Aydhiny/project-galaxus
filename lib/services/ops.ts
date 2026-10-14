@@ -245,7 +245,7 @@ export async function removeRecurringFor(userId: number, id: number) {
 async function reviewEvent(userId: number, agentId: number | null, missionId: number, label: string) {
   if (!agentId) return;
   const [a] = await db.select({ id: opsAgents.id }).from(opsAgents).where(and(eq(opsAgents.id, agentId), eq(opsAgents.userId, userId))).limit(1);
-  if (a) await db.insert(opsEvents).values({ userId, agentId: a.id, missionId, kind: "status", label: label.slice(0, 200), url: null });
+  if (a) await db.insert(opsEvents).values({ userId, agentId: a.id, missionId, kind: "status", label: label.slice(0, 200), url: null, status: "note" });
 }
 
 async function mission(userId: number, id: number) {
@@ -403,7 +403,7 @@ export async function recordEventForAgent(agent: OpsAgent, ev: AgentEventInput, 
   // A pull request the agent opened while on a mission goes on the mission (and the Builder's desk).
   if (missionId && parsePrUrl(ev.url)) await db.update(opsMissions).set({ prUrl: parsePrUrl(ev.url)!.url }).where(and(eq(opsMissions.id, missionId), sql`${opsMissions.prUrl} is null`));
 
-  await db.insert(opsEvents).values({ userId: agent.userId, agentId: agent.id, missionId, kind: ev.kind, label: ev.label, url: ev.url });
+  await db.insert(opsEvents).values({ userId: agent.userId, agentId: agent.id, missionId, kind: ev.kind, label: ev.label, url: ev.url, status: ev.status ?? "working" });
   // It just started waiting for you: tell your phone (once per wait, not on every hook).
   if (ev.status === "waiting" && agent.status !== "waiting") await notifyOps(agent.userId, "waiting", `${agent.name} needs you`, ev.label, `ops-wait-${agent.id}`);
   await db.update(opsAgents).set({

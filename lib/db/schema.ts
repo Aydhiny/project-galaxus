@@ -1325,6 +1325,7 @@ export const opsEvents = pgTable(
     kind: varchar("kind", { length: 10 }).notNull(), // lib/ops.ts EVENT_KINDS
     label: varchar("label", { length: 200 }).notNull(),
     url: text("url"),
+    status: varchar("status", { length: 10 }), // the agent's status this event set (replay); "note" = left it alone; null = recorded before this column
     at: timestamp("at").defaultNow().notNull(),
   },
   (t) => [index("idx_ops_events_user_at").on(t.userId, t.at), index("idx_ops_events_agent").on(t.agentId)]
@@ -1500,7 +1501,7 @@ export const opsMemories = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: userIdCol(),
-    type: varchar("type", { length: 12 }).notNull(), // about | goal | decision | finding | preference | note
+    type: varchar("type", { length: 12 }).notNull(), // about | goal | decision | finding | preference | note | direction
     title: varchar("title", { length: 200 }).notNull(),
     body: text("body").notNull(),
     source: varchar("source", { length: 60 }).notNull(), // you | agent:<name> | deliverable:<id> | answer:<id> | project:<id> | galaxus

@@ -1057,6 +1057,8 @@ const STATEMENTS = [
   // Outreach bridge: demo-site copy written by an agent, and what CompanyWall shows publicly (both nullable).
   `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "demo_content" jsonb`,
   `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "company_wall" jsonb`,
+  // See & steer (replay of the day): each event remembers the status it set, so a replay shows presence exactly.
+  `ALTER TABLE "ops_events" ADD COLUMN IF NOT EXISTS "status" varchar(10)`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,

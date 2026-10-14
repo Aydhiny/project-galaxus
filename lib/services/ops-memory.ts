@@ -12,7 +12,8 @@ import { db } from "@/lib/db";
 import { opsMemories, type OpsMemory } from "@/lib/db/schema";
 import { redact } from "@/lib/ops";
 
-export const MEMORY_TYPES = ["about", "goal", "decision", "finding", "preference", "note"] as const;
+// "direction": your standing orders to the Chief (lib/services/ops-directions.ts), always pinned.
+export const MEMORY_TYPES = ["about", "goal", "decision", "finding", "preference", "note", "direction"] as const;
 export type MemoryType = (typeof MEMORY_TYPES)[number];
 
 const clean = (s: string, n: number) => redact(String(s ?? "")).replace(/\r/g, "").trim().slice(0, n);
@@ -131,7 +132,7 @@ export async function forgetFor(userId: number, id: number) {
 /** Your own note (e.g. "About me" in your words, or a preference). */
 export async function addNoteFor(userId: number, raw: { type?: string; title: string; body: string }) {
   const type = (MEMORY_TYPES as readonly string[]).includes(String(raw.type)) ? (raw.type as MemoryType) : "note";
-  const row = await remember(userId, { type, title: raw.title, body: raw.body, source: `you:${Date.now()}`, pinned: type === "about" || type === "preference" });
+  const row = await remember(userId, { type, title: raw.title, body: raw.body, source: `you:${Date.now()}`, pinned: type === "about" || type === "preference" || type === "direction" });
   if (!row) throw new Error("Write a title and a sentence or two.");
   return row;
 }

@@ -224,3 +224,21 @@ export async function sendToOutreach(src: { missionId?: number; projectId?: numb
     return r;
   });
 }
+
+// ─── See & steer: replay of the day, the Chief's standing orders ─────────────
+import { replayDayFor } from "@/lib/services/ops-replay";
+import { addDirectionFor, directionsFor, removeDirectionFor } from "@/lib/services/ops-directions";
+
+/** One day of the floor, compact and time-ordered, for the 3D replay (yours only, capped). */
+export async function getReplayDay(day: string) {
+  return toResult(async () => replayDayFor(await requireUserId(), day));
+}
+export async function getDirections() {
+  return toResult(async () => directionsFor(await requireUserId()));
+}
+export async function addDirection(text: string) {
+  return toResult(async () => { const r = await addDirectionFor(await requireUserId(), text); done(); return r; });
+}
+export async function removeDirection(id: number) {
+  return toResult(async () => { await removeDirectionFor(await requireUserId(), id); done(); });
+}

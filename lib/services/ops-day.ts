@@ -98,17 +98,21 @@ export async function buildStandupPrompt(userId: number, chiefId: number) {
       .where(and(eq(opsMissions.userId, userId), inArray(opsMissions.status, ["open", "claimed", "submitted"]))).limit(40),
     db.select({ name: opsAgents.name, role: opsAgents.role, cloud: opsAgents.cloud }).from(opsAgents).where(eq(opsAgents.userId, userId)),
   ]);
+  const { directionsBlock } = await import("@/lib/services/ops-directions");
+  const directions = await directionsBlock(userId).catch(() => "");
   const system = `You are the Chief of staff at Galaxus Ops, planning the user's working day at the morning stand-up. The user lives in Sarajevo, Bosnia and Herzegovina.
+DIRECTIONS FROM THE USER, when given, are your standing orders: plan to follow them (what to focus on, what to skip).
 Reply with ONLY a JSON object, no other text:
 {"message": "2-4 short lines for the crew: today's priorities and who does what", "missions": [{"title": "...", "brief": "what a good result looks like", "kind": "${MISSION_KINDS.join("|")}", "role": "${ROLE_KEYS.join("|")}", "budget_usd": 0}]}
 Add at most 4 missions, and only what is MISSING to reach today's focus — never duplicate what is already on the board. Each budget at most 5. Missions are research, writing and planning work; never sending, buying or deploying.`;
   const prompt = [
     `Today is ${day}. Shift: ${row ? `${row.startsAt}–${row.endsAt}` : "not set"}.`,
     `Focus: ${row?.focus ?? "(none set — keep the board moving, add nothing unless clearly useful)"}`,
+    directions,
     `Crew: ${crew.map((c) => `${c.name} (${ROLES[roleOf(c.role)].label}${c.cloud ? ", cloud" : ""})`).join("; ")}`,
     `Board:\n${board.map((m) => `- [${m.status}] ${m.title}${m.role ? ` (${m.role})` : ""}`).join("\n") || "- empty"}`,
     `You are agent #${chiefId}.`,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
   return { system, prompt };
 }
 
