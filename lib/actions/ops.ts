@@ -214,3 +214,13 @@ export async function reachDoctorNow() {
 export async function extendProject(id: number, days: number) {
   return toResult(async () => { await extendProjectFor(await requireUserId(), id, days); done(); });
 }
+
+// ─── Outreach bridge: a lead sheet → Outreach leads ───────────────────────────
+export async function sendToOutreach(src: { missionId?: number; projectId?: number }) {
+  return toResult(async () => {
+    const { sendToOutreachFor } = await import("@/lib/services/outreach-bridge");
+    const r = await sendToOutreachFor(await requireUserId(), src);
+    revalidatePath("/outreach");
+    return r;
+  });
+}

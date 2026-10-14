@@ -1054,6 +1054,9 @@ const STATEMENTS = [
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_place" varchar(80)`,
   // Learning & progress: free-model runs per mission (cost per lead on the scoreboard).
   `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "free_calls" integer`,
+  // Outreach bridge: demo-site copy written by an agent, and what CompanyWall shows publicly (both nullable).
+  `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "demo_content" jsonb`,
+  `ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "company_wall" jsonb`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,

@@ -1,6 +1,8 @@
 // Pure outreach logic — no I/O, so all of it is unit-tested (outreach.test.ts).
 // The services in lib/services/outreach/* do the fetching and storing.
 
+import { worthBonus, type CompanyWallInfo } from "@/lib/companywall";
+
 // ─── Lead statuses ────────────────────────────────────────────────────────────
 
 export const LEAD_STATUSES = [
@@ -131,6 +133,7 @@ export function scoreLead(l: {
   revenueKm?: number | null;
   channel?: string | null;
   tags?: string[] | null;
+  companyWall?: CompanyWallInfo | null;
 }): number {
   let score = 0;
   for (const g of l.gaps) score += GAP_META[g as Gap]?.weight ?? 0;
@@ -141,6 +144,7 @@ export function scoreLead(l: {
   if (l.channel === "whatsapp") score += 10;
   if (l.tags?.includes("new_business")) score += 15; // just opened: needs a site now
   if (l.tags?.includes("site_broke")) score += 30; // their site is down today
+  score += worthBonus(l); // CompanyWall: money + a bad website first, closed firms last
   return score;
 }
 

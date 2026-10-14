@@ -54,3 +54,7 @@ export const refreshAboutMemoryC = unwrapped(refreshAboutMemory);
 export const reachDoctorNowC = unwrapped(reachDoctorNow);
 export { getFreeStatus, getMemories } from "@/lib/actions/ops";
 export type { OpsOverview } from "@/lib/actions/ops";
+
+// Outreach bridge
+import { sendToOutreach } from "@/lib/actions/ops";
+export const sendToOutreachC = unwrapped(sendToOutreach);

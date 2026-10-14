@@ -591,6 +591,9 @@ export const leads = pgTable(
     siteDownSince: timestamp("site_down_since"),
     clientSiteUrl: text("client_site_url"), // the site you built them (uptime-monitored)
     retainerKm: integer("retainer_km"), // monthly maintenance fee
+    // Outreach bridge (lib/services/outreach-bridge.ts): demo-site copy an agent wrote, and the public CompanyWall facts.
+    demoContent: jsonb("demo_content").$type<import("@/lib/outreach-bridge").DemoContent>(),
+    companyWall: jsonb("company_wall").$type<import("@/lib/companywall").CompanyWallInfo>(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
