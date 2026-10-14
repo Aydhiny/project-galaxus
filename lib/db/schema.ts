@@ -752,6 +752,7 @@ export const voiceCommands = pgTable(
     summary: text("summary"), // Claude's own one-line recap
     error: text("error"),
     attempts: integer("attempts").notNull().default(0),
+    costCents: integer("cost_cents"), // what the run really cost (runner total_cost_usd / API usage): the monthly cloud budget counts this
     startedAt: timestamp("started_at"),
     finishedAt: timestamp("finished_at"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -1257,6 +1258,7 @@ export const opsAgents = pgTable(
     role: varchar("role", { length: 16 }).notNull(), // lib/ops.ts ROLE_KEYS
     provider: varchar("provider", { length: 12 }).notNull().default("other"), // lib/ops.ts PROVIDER_KEYS
     cloud: boolean("cloud").notNull().default(false), // runs on your Claude runner (no token, no client to connect)
+    engine: varchar("engine", { length: 8 }).notNull().default("auto"), // cloud agents: auto (Claude, then free models) | claude | free
     skills: jsonb("skills").$type<string[]>().notNull().default([]), // skill keys: "b:<builtin>" or "c:<ops_skills.id>"
     status: varchar("status", { length: 10 }).notNull().default("idle"), // working | idle | waiting (offline is derived from lastSeenAt)
     activity: varchar("activity", { length: 200 }), // what it is doing right now
@@ -1288,6 +1290,13 @@ export const opsMissions = pgTable(
     duelId: integer("duel_id"), // head-to-head: both missions share the first one's id
     prUrl: text("pr_url"), // a GitHub pull request this mission produced
     recurringId: integer("recurring_id"), // posted by a recurring mission
+    projectId: integer("project_id"), // part of a multi-day project
+    dueDay: date("due_day"), // its deadline (missions have real deadlines)
+    effort: varchar("effort", { length: 8 }).notNull().default("normal"), // quick | normal | deep: model + budget per cloud run
+    waitingOn: integer("waiting_on"), // an ops_messages question to you this mission waits for
+    requestLinkId: integer("request_link_id"), // a work request from / to a linked facility
+    requestFromLabel: varchar("request_from_label", { length: 90 }), // "Ajdin" — who asked (on the partner's copy)
+    echoMissionId: integer("echo_mission_id"), // the other facility's mission this one mirrors
     budgetCents: integer("budget_cents"),
     spentCents: integer("spent_cents").notNull().default(0), // as REPORTED by the agent; not enforced for external agents
     status: varchar("status", { length: 10 }).notNull().default("open"), // open | claimed | submitted | done | cancelled
@@ -1326,6 +1335,12 @@ export const opsMessages = pgTable(
     linkId: integer("link_id"), // a message to/from a linked facility (another user's)
     extFrom: varchar("ext_from", { length: 90 }), // "Faruk / Nova": who sent it from the partner facility
     extTo: varchar("ext_to", { length: 90 }), // your copy of what you sent out: "Faruk / Nova"
+    toUser: boolean("to_user").notNull().default(false), // an agent talking to YOU (inbox)
+    kind: varchar("kind", { length: 10 }).notNull().default("radio"), // radio | question | update
+    urgent: boolean("urgent").notNull().default(false),
+    options: jsonb("options").$type<string[]>(), // quick answers for a question
+    answer: text("answer"),
+    answeredAt: timestamp("answered_at"),
     missionId: integer("mission_id").references(() => opsMissions.id, { onDelete: "set null" }),
     body: text("body").notNull(),
     readAt: timestamp("read_at"),
@@ -1402,7 +1417,98 @@ export const opsLinks = pgTable(
   (t) => [uniqueIndex("uq_ops_links_pair").on(t.fromUserId, t.toUserId), index("idx_ops_links_to").on(t.toUserId)]
 );
 
+// A goal with a deadline ("in 14 days, a plan to earn 500 KM/month from editing"). The lead agent
+// plans each shift day toward it; on the deadline it writes the final solution.
+export const opsProjects = pgTable(
+  "ops_projects",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    title: varchar("title", { length: 200 }).notNull(),
+    goal: text("goal").notNull(), // what you want at the end
+    startDay: date("start_day").notNull(),
+    deadline: date("deadline").notNull(),
+    leadAgentId: integer("lead_agent_id").references(() => opsAgents.id, { onDelete: "set null" }),
+    budgetCents: integer("budget_cents"), // the whole project's cap (measured + reported spend)
+    status: varchar("status", { length: 10 }).notNull().default("active"), // active | paused | done | cancelled
+    plan: text("plan"), // the lead's plan (markdown)
+    pageId: integer("page_id"), // the project's page: plan, daily reports, final solution
+    lastPlannedDay: date("last_planned_day"),
+    lastReportDay: date("last_report_day"),
+    finalAt: timestamp("final_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_ops_projects_user").on(t.userId)]
+);
+
+// Your Ops preferences: what Claude may spend, which model, how often to buzz your phone.
+export const opsSettings = pgTable("ops_settings", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  monthlyBudgetCents: integer("monthly_budget_cents").notNull().default(1500), // API-equivalent $ for cloud runs per month
+  cloudModel: varchar("cloud_model", { length: 10 }).notNull().default("sonnet"), // haiku | sonnet | opus
+  notify: varchar("notify", { length: 10 }).notNull().default("normal"), // urgent | normal | all
+  maxPushesPerDay: integer("max_pushes_per_day").notNull().default(8),
+  pushDay: date("push_day"),
+  pushCount: integer("push_count").notNull().default(0),
+  pausedUntil: timestamp("paused_until"), // Claude said "usage limit": no cloud runs until then
+  pauseReason: text("pause_reason"),
+  freeFallback: boolean("free_fallback").notNull().default(true), // Claude's budget used up → keep going on free models
+  freeFirst: boolean("free_first").notNull().default(true), // quick missions use free models first (saves Claude for deep work)
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Free LLM API keys (lib/free-llm.ts catalog), encrypted. Usage is counted per day; providers that
+// report exact remaining quota in their headers update remaining*; a failing provider rests (cooldown).
+export const freeLlmKeys = pgTable(
+  "free_llm_keys",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    provider: varchar("provider", { length: 20 }).notNull(),
+    baseUrl: text("base_url"), // custom providers only
+    model: varchar("model", { length: 120 }).notNull(),
+    keyEnc: text("key_enc"), // null = keyless provider (e.g. LLM7 anonymous)
+    enabled: boolean("enabled").notNull().default(true),
+    priority: integer("priority").notNull().default(10),
+    day: date("day"),
+    requests: integer("requests").notNull().default(0),
+    tokens: integer("tokens").notNull().default(0),
+    remainingRequests: integer("remaining_requests"),
+    limitRequests: integer("limit_requests"),
+    remainingTokens: integer("remaining_tokens"),
+    headersAt: timestamp("headers_at"),
+    cooldownUntil: timestamp("cooldown_until"),
+    lastError: text("last_error"),
+    lastOkAt: timestamp("last_ok_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_free_llm_keys_user_provider").on(t.userId, t.provider)]
+);
+
+// Shared memory for every agent (claude-mem's model, built into Galaxus): who you are, your goals,
+// decisions you made, what the crew found. Agents search it in 3 steps (index → timeline → details).
+export const opsMemories = pgTable(
+  "ops_memories",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    type: varchar("type", { length: 12 }).notNull(), // about | goal | decision | finding | preference | note
+    title: varchar("title", { length: 200 }).notNull(),
+    body: text("body").notNull(),
+    source: varchar("source", { length: 60 }).notNull(), // you | agent:<name> | deliverable:<id> | answer:<id> | project:<id> | galaxus
+    projectId: integer("project_id"),
+    agentId: integer("agent_id"),
+    pinned: boolean("pinned").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("idx_ops_memories_user").on(t.userId, t.createdAt), uniqueIndex("uq_ops_memories_user_source").on(t.userId, t.source)]
+);
+
 export type OpsAgent = typeof opsAgents.$inferSelect;
+export type FreeLlmKey = typeof freeLlmKeys.$inferSelect;
+export type OpsMemory = typeof opsMemories.$inferSelect;
+export type OpsProject = typeof opsProjects.$inferSelect;
+export type OpsSettings = typeof opsSettings.$inferSelect;
 export type OpsRecurring = typeof opsRecurring.$inferSelect;
 export type OpsLink = typeof opsLinks.$inferSelect;
 export type OpsMessage = typeof opsMessages.$inferSelect;

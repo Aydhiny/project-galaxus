@@ -5,6 +5,8 @@ import {
   repeatLastDay, sendMessage, setDay, updateAgent,
   debriefNow, inviteLink, missionToLead, missionToPage, missionToReddit, missionToTasks, redditSubs, removeLink, removeRecurring, respondLink,
   setLinkShare, standupNow,
+  answerQuestion, createProject, markInboxRead, respondRequest, resumeCloud, saveOpsSettings, setProjectStatus,
+  addMemory, forgetMemory, moveFreeKey, pinMemory, reachDoctorNow, refreshAboutMemory, removeFreeKey, saveFreeKey, testFreeKey,
 } from "@/lib/actions/ops";
 
 export const createAgentC = unwrapped(createAgent);
@@ -33,4 +35,21 @@ export const inviteLinkC = unwrapped(inviteLink);
 export const respondLinkC = unwrapped(respondLink);
 export const setLinkShareC = unwrapped(setLinkShare);
 export const removeLinkC = unwrapped(removeLink);
+export const answerQuestionC = unwrapped(answerQuestion);
+export const markInboxReadC = unwrapped(markInboxRead);
+export const saveOpsSettingsC = unwrapped(saveOpsSettings);
+export const resumeCloudC = unwrapped(resumeCloud);
+export const createProjectC = unwrapped(createProject);
+export const setProjectStatusC = unwrapped(setProjectStatus);
+export const respondRequestC = unwrapped(respondRequest);
+export const saveFreeKeyC = unwrapped(saveFreeKey);
+export const removeFreeKeyC = unwrapped(removeFreeKey);
+export const moveFreeKeyC = unwrapped(moveFreeKey);
+export const testFreeKeyC = unwrapped(testFreeKey);
+export const addMemoryC = unwrapped(addMemory);
+export const pinMemoryC = unwrapped(pinMemory);
+export const forgetMemoryC = unwrapped(forgetMemory);
+export const refreshAboutMemoryC = unwrapped(refreshAboutMemory);
+export const reachDoctorNowC = unwrapped(reachDoctorNow);
+export { getFreeStatus, getMemories } from "@/lib/actions/ops";
 export type { OpsOverview } from "@/lib/actions/ops";

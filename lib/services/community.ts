@@ -23,7 +23,8 @@ async function getText(url: string, timeoutMs = 15_000) {
 type Found = { code: string; source: string; sourceUrl: string };
 
 async function fromReddit(): Promise<Found[]> {
-  const xml = await getText(`https://www.reddit.com/r/${SUBREDDITS}/search.rss?q=${encodeURIComponent("discord.gg OR \"discord server\"")}&restrict_sr=on&sort=new&t=month&limit=100`);
+  const { reachRedditFeed } = await import("@/lib/services/reach");
+  const xml = (await reachRedditFeed(`r/${SUBREDDITS}/search.rss?q=${encodeURIComponent("discord.gg OR \"discord server\"")}&restrict_sr=on&sort=new&t=month&limit=100`)).body;
   const out: Found[] = [];
   for (const [, entry] of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
     const link = entry.match(/<link href="([^"]+)"/)?.[1] ?? "https://www.reddit.com";

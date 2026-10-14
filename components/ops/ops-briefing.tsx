@@ -1,30 +1,33 @@
 "use client";
 
-// The plan panel, in three tabs so it stays simple:
-//   Board — what needs you, what's running, what's open, what's done
-//   New   — post a mission (title + Post; everything else under "More options")
-//   Day   — shift hours, focus, one-click day plans, stand-up and debrief
+// The plan panel, in four tabs so it stays simple:
+//   Board    — what needs you, what's running, what's open, what's done
+//   New      — post a mission (title + Post; everything else under "More options")
+//   Projects — multi-day goals with a deadline; the lead plans each day
+//   Day      — shift hours, focus, one-click day plans, stand-up and debrief
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  CalendarClock, Check, ChevronDown, Cloud, CornerDownRight, Copy, FileText, GitPullRequest, Loader2, Megaphone, Plus, Repeat, RotateCcw, Swords, Trash2, X,
+  CalendarClock, Check, ChevronDown, Cloud, CornerDownRight, Copy, FileText, Gift, GitPullRequest, HelpCircle, Link2, Loader2, Megaphone, Plus, Repeat, RotateCcw, Swords, Trash2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  DAY_TEMPLATES, MISSION_KINDS, MISSION_KIND_INFO, ROLES, WEEKDAYS, budgetState, describeRepeat, formatUsd, prLabel, roleOf,
-  type MissionKind, type RoleKey,
+  DAY_TEMPLATES, EFFORTS, MISSION_KINDS, MISSION_KIND_INFO, ROLES, WEEKDAYS, budgetState, describeRepeat, formatUsd, isLate, prLabel, roleOf,
+  type Effort, type MissionKind, type RoleKey,
 } from "@/lib/ops";
 import { ConfirmDialog, Dialog, PromptDialog, btnGhost, btnPrimary, field } from "@/components/ops/ops-dialog";
 import { UseIt } from "@/components/ops/ops-use";
+import { Projects } from "@/components/ops/ops-projects";
+import { BudgetMeter } from "@/components/ops/ops-budget";
 import {
   acceptMissionC, applyTemplateC, cancelMissionC, createMissionC, debriefNowC, removeRecurringC, reopenMissionC, repeatLastDayC, setDayC, standupNowC,
   type OpsOverview,
 } from "@/lib/client/ops";
 
 type Mission = OpsOverview["missions"][number];
-type Tab = "board" | "new" | "day";
+type Tab = "board" | "new" | "projects" | "day";
 const BUDGET_TINT = { none: "", ok: "text-emerald-300", near: "text-amber-300", over: "text-rose-300" } as const;
 
 export function Briefing({ data, assignTo, onChanged }: { data: OpsOverview; assignTo: number | null; onChanged: () => void }) {
@@ -37,13 +40,14 @@ export function Briefing({ data, assignTo, onChanged }: { data: OpsOverview; ass
   return (
     <div className="space-y-3">
       <div className="flex rounded-xl bg-white/[0.05] p-0.5" role="tablist">
-        {([["board", `Board${review ? ` · ${review}` : ""}`], ["new", "New mission"], ["day", "Day"]] as const).map(([k, label]) => (
+        {([["board", `Board${review ? ` · ${review}` : ""}`], ["new", "New"], ["projects", `Projects${data.projects.filter((p) => p.status === "active").length ? ` · ${data.projects.filter((p) => p.status === "active").length}` : ""}`], ["day", "Day"]] as const).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
             className={cn("flex-1 h-8 rounded-[10px] text-xs font-medium", tab === k ? "bg-white text-black" : "text-white/65 hover:text-white")}>{label}</button>
         ))}
       </div>
       {tab === "board" && <Board data={data} onChanged={onChanged} onNew={() => setTab("new")} />}
       {tab === "new" && <NewMission data={data} assignTo={assignTo} onPosted={() => { onChanged(); setTab("board"); }} />}
+      {tab === "projects" && <Projects data={data} onChanged={onChanged} />}
       {tab === "day" && <DayPlan data={data} onChanged={onChanged} />}
     </div>
   );
@@ -71,6 +75,15 @@ function Board({ data, onChanged, onNew }: { data: OpsOverview; onChanged: () =>
           <span className="text-white/40"> / {total.budgetCents ? formatUsd(total.budgetCents) : "no limit"}</span>
         </span>
       </div>
+      {data.agents.some((a) => a.cloud) && (
+        <details className="rounded-lg bg-white/[0.03] border border-white/10 px-3 py-2">
+          <summary className="cursor-pointer text-xs text-white/60 select-none">
+            Cloud budget · {formatUsd(data.budget.leftToday)} left today{data.budget.paused ? " · paused" : ""}
+            {data.free.usableCount > 0 && (data.budget.exhausted || data.budget.paused) && data.budget.freeFallback ? " · free models covering" : ""}
+          </summary>
+          <div className="mt-2"><BudgetMeter b={data.budget} /></div>
+        </details>
+      )}
       {live.filter((m) => m.status !== "cancelled").length === 0 && (
         <div className="text-center py-6">
           <p className="text-sm text-white/55">Nothing on the board.</p>
@@ -118,6 +131,16 @@ function MissionCard({ m, data, onChanged, onCompare }: { m: Mission; data: OpsO
             {by && <span className="text-violet-300/80">from {by}</span>}
             {m.budgetCents ? <span className={cn("font-mono", BUDGET_TINT[bs])}>{formatUsd(m.spentCents)}/{formatUsd(m.budgetCents)}{bs === "over" ? " over!" : ""}</span>
               : m.spentCents ? <span className="font-mono">{formatUsd(m.spentCents)}</span> : null}
+            {m.dueDay && m.status !== "done" && m.status !== "cancelled" && (
+              <span className={isLate({ status: m.status, dueDay: String(m.dueDay) }, data.day) ? "text-rose-300 font-semibold" : String(m.dueDay) === data.day ? "text-amber-200" : "text-white/55"}>
+                {isLate({ status: m.status, dueDay: String(m.dueDay) }, data.day) ? `late (was due ${String(m.dueDay).slice(5)})` : String(m.dueDay) === data.day ? "due today" : `due ${String(m.dueDay).slice(5)}`}
+              </span>
+            )}
+            {m.waitingOn != null && <span className="text-rose-200 inline-flex items-center gap-0.5"><HelpCircle className="w-3 h-3" />waiting for your answer</span>}
+            {m.requestLinkId != null && !m.requestFromLabel && <span className="text-sky-200 inline-flex items-center gap-0.5"><Link2 className="w-3 h-3" />at a linked facility</span>}
+            {m.requestFromLabel && <span className="text-sky-200 inline-flex items-center gap-0.5"><Link2 className="w-3 h-3" />for {m.requestFromLabel}</span>}
+            {m.status === "claimed" && m.jobId === 0 && <span className="text-emerald-200 inline-flex items-center gap-0.5"><Gift className="w-3 h-3" />free model</span>}
+            {m.effort !== "normal" && <span className="text-white/40">{m.effort}</span>}
             {m.spentCents > 0 && <span className={m.costMeasured ? "text-emerald-300/80" : "text-white/40"} title={m.costMeasured ? "From the run's real usage (on a subscription this is the API-equivalent cost)" : "As reported by the agent"}>{m.costMeasured ? "measured" : "reported"}</span>}
           </p>
           {pr && <p className="mt-0.5 text-[11px] text-white/70 inline-flex items-center gap-1"><GitPullRequest className="w-3 h-3" />{prLabel(pr)}</p>}
@@ -234,7 +257,11 @@ function NewMission({ data, assignTo, onPosted }: { data: OpsOverview; assignTo:
   const [repeatTime, setRepeatTime] = useState("09:00");
   const [duel, setDuel] = useState<number[]>([]);
   const [duelOn, setDuelOn] = useState(false);
+  const [effort, setEffort] = useState<Effort>("normal");
+  const [due, setDue] = useState("");
+  const [partner, setPartner] = useState("");
   const [more, setMore] = useState(false);
+  const partners = data.links.filter((l) => l.status === "active");
   const [busy, start] = useTransition();
 
   const [lastAssign, setLastAssign] = useState<number | null>(null);
@@ -252,9 +279,12 @@ function NewMission({ data, assignTo, onPosted }: { data: OpsOverview; assignTo:
     e.preventDefault();
     start(async () => {
       try {
-        const r = await createMissionC({ title, brief, kind, agentId: duelOn ? null : agentId, budgetUsd: budget, repeat, repeatTime, duelAgentIds: duelOn ? duel : undefined });
-        setTitle(""); setBrief(""); setBudget(""); setAgentId(null); setRepeat("once"); setDuel([]); setDuelOn(false);
-        toast.success(r.recurring ? "Repeating mission saved." : r.duel ? "Head-to-head posted." : "Mission posted.");
+        const r = await createMissionC({
+          title, brief, kind, agentId: duelOn ? null : agentId, budgetUsd: budget, repeat, repeatTime, duelAgentIds: duelOn ? duel : undefined,
+          effort, dueInDays: due, partnerLinkId: partner ? Number(partner) : undefined,
+        });
+        setTitle(""); setBrief(""); setBudget(""); setAgentId(null); setRepeat("once"); setDuel([]); setDuelOn(false); setDue(""); setPartner(""); setEffort("normal");
+        toast.success(partner ? "Request sent to the linked facility." : r.recurring ? "Repeating mission saved." : r.duel ? "Head-to-head posted." : "Mission posted.");
         onPosted();
       } catch (err) { toast.error((err as Error).message); }
     });
@@ -279,7 +309,34 @@ function NewMission({ data, assignTo, onPosted }: { data: OpsOverview; assignTo:
       </button>
       {more && (
         <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
-          {!duelOn && (
+          <div>
+            <p className="text-[11px] text-white/55">Effort <span className="text-white/40">(cloud cost: quick runs on the cheapest model{data.budget.freeFirst && data.free.usableCount ? " or a free one" : ""})</span></p>
+            <div className="mt-0.5 grid grid-cols-3 gap-1">
+              {EFFORTS.map((e) => (
+                <button type="button" key={e} onClick={() => setEffort(e)}
+                  className={cn("h-7 rounded-lg border text-xs capitalize", effort === e ? "border-[#6b8afd]/70 bg-[#6b8afd]/15" : "border-white/10 text-white/65 hover:text-white")}>{e}</button>
+              ))}
+            </div>
+          </div>
+          <label className="block text-[11px] text-white/55">Due
+            <select value={due} onChange={(e) => setDue(e.target.value)} className={cn(field, "mt-0.5 [&>option]:text-black")}>
+              <option value="">No deadline</option>
+              <option value="0">Today</option>
+              <option value="1">Tomorrow</option>
+              <option value="3">In 3 days</option>
+              <option value="7">In a week</option>
+              <option value="14">In 2 weeks</option>
+            </select>
+          </label>
+          {partners.length > 0 && (
+            <label className="block text-[11px] text-white/55">Ask a linked facility instead
+              <select value={partner} onChange={(e) => { setPartner(e.target.value); if (e.target.value) { setDuelOn(false); setRepeat("once"); } }} className={cn(field, "mt-0.5 [&>option]:text-black")}>
+                <option value="">No, my own crew</option>
+                {partners.map((l) => <option key={l.id} value={l.id}>{l.partner}&apos;s facility</option>)}
+              </select>
+            </label>
+          )}
+          {!duelOn && !partner && (
             <label className="block text-[11px] text-white/55">Who
               <select value={agentId ?? ""} onChange={(e) => setAgentId(e.target.value ? Number(e.target.value) : null)} className={cn(field, "mt-0.5 [&>option]:text-black")}>
                 <option value="">Any {ROLES[defaultRole].label}</option>

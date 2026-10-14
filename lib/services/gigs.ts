@@ -122,7 +122,8 @@ async function fetchReddit(userId: number, subs: string[]): Promise<RawGig[]> {
     const token = await redditToken(creds);
     return parseRedditListing(await getJson(`https://oauth.reddit.com/r/${path}/new?limit=100&raw_json=1`, { Authorization: `Bearer ${token}` }));
   }
-  return parseRedditRss(await getText(`https://www.reddit.com/r/${path}/new/.rss?limit=100`));
+  const { reachRedditFeed } = await import("@/lib/services/reach");
+  return parseRedditRss((await reachRedditFeed(`r/${path}/new/.rss?limit=100`)).body);
 }
 
 async function fetchHn(): Promise<RawGig[]> {

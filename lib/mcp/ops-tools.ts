@@ -6,7 +6,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import { LOGGABLE_KINDS, MISSION_KINDS, ROLE_KEYS, TEAM_KEYS, redact, safeUrl, type EventKind } from "@/lib/ops";
+import { EFFORTS, LOGGABLE_KINDS, MISSION_KINDS, ROLE_KEYS, TEAM_KEYS, redact, safeUrl, type EventKind } from "@/lib/ops";
 import {
   agentForToken, checkinForAgent, claimMissionForAgent, createMissionForAgent, crewForAgent, messagesForAgent, missionsForAgent,
   partnersForAgent, recordEventForAgent, searchLibraryFor, sendMessageForAgent, submitDeliverableForAgent,
@@ -192,11 +192,87 @@ export function registerOpsTools(server: McpServer) {
         to: z.string().max(40).optional().describe("Or one teammate by name"),
         budget_usd: z.number().min(0).max(1000).optional(),
         parent_mission_id: z.number().int().optional(),
+        project_id: z.number().int().optional().describe("A project (ops_get_project) this mission belongs to"),
+        due_in_days: z.number().int().min(0).max(60).optional().describe("Deadline: 0 = today"),
+        effort: z.enum(EFFORTS).optional().describe("quick (cheapest) | normal | deep — how much a cloud agent may spend"),
       }),
     },
-    async (a: { title: string; brief?: string; kind?: string; role?: string; to?: string; budget_usd?: number; parent_mission_id?: number }, ctx: Ctx) => {
+    async (a: { title: string; brief?: string; kind?: string; role?: string; to?: string; budget_usd?: number; parent_mission_id?: number; project_id?: number; due_in_days?: number; effort?: string }, ctx: Ctx) => {
       try {
-        return ok(await createMissionForAgent(await me(ctx), { title: a.title, brief: a.brief, kind: a.kind, role: a.role, to: a.to, budgetUsd: a.budget_usd, parentMissionId: a.parent_mission_id }));
+        return ok(await createMissionForAgent(await me(ctx), {
+          title: a.title, brief: a.brief, kind: a.kind, role: a.role, to: a.to, budgetUsd: a.budget_usd, parentMissionId: a.parent_mission_id,
+          projectId: a.project_id, dueInDays: a.due_in_days, effort: a.effort,
+        }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "ops_ask_user",
+    {
+      title: "Ask the user",
+      description:
+        "Ask your user a question when a decision is truly theirs. Give 2-4 short options when you can (they answer with one tap). " +
+        "blocking=true pauses that mission until they answer. Their answer arrives in ops_get_messages. Ask rarely: they're busy.",
+      inputSchema: z.object({
+        question: z.string().min(5).max(600),
+        options: z.array(z.string().max(60)).max(4).optional(),
+        mission_id: z.number().int().optional(),
+        blocking: z.boolean().optional(),
+        urgent: z.boolean().optional().describe("Only if it can't wait: it may wake their phone"),
+      }),
+    },
+    async (a: { question: string; options?: string[]; mission_id?: number; blocking?: boolean; urgent?: boolean }, ctx: Ctx) => {
+      try {
+        const { askUserForAgent } = await import("@/lib/services/ops-inbox");
+        return ok(await askUserForAgent(await me(ctx), { question: a.question, options: a.options, missionId: a.mission_id, blocking: a.blocking, urgent: a.urgent }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "ops_notify_user",
+    {
+      title: "Tell the user something",
+      description: "A short heads-up to your user (a finding, progress, a risk). It lands in their inbox; their notification settings decide if it buzzes their phone. Don't repeat what your deliverable will say.",
+      inputSchema: z.object({ text: z.string().min(3).max(600), mission_id: z.number().int().optional(), urgent: z.boolean().optional() }),
+    },
+    async (a: { text: string; mission_id?: number; urgent?: boolean }, ctx: Ctx) => {
+      try {
+        const { notifyUserForAgent } = await import("@/lib/services/ops-inbox");
+        return ok(await notifyUserForAgent(await me(ctx), { text: a.text, missionId: a.mission_id, urgent: a.urgent }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "ops_get_project",
+    {
+      title: "See the projects",
+      description: "Active projects: goal, deadline, day N of M, the lead's plan, results so far, what's late, and the user's answers. Call it before planning or working on a project mission.",
+      inputSchema: z.object({ project_id: z.number().int().optional() }),
+      annotations: { readOnlyHint: true },
+    },
+    async (a: { project_id?: number }, ctx: Ctx) => {
+      try {
+        const agent = await me(ctx);
+        const { projectBriefsFor } = await import("@/lib/services/ops-projects");
+        return ok(await projectBriefsFor(agent.userId, a.project_id));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "ops_request_partner",
+    {
+      title: "Ask a linked facility to do a mission",
+      description: "Ask a linked facility (another person's crew, see ops_list_crew) to take a mission. It only runs if its owner accepts, on their own plan; the result comes back to your board. Use it to share work, never to pass on private data.",
+      inputSchema: z.object({ facility: z.string().max(40), title: z.string().min(3).max(200), brief: z.string().max(4000).optional() }),
+    },
+    async (a: { facility: string; title: string; brief?: string }, ctx: Ctx) => {
+      try {
+        const { requestWorkForAgent } = await import("@/lib/services/ops-links");
+        return ok(await requestWorkForAgent(await me(ctx), a));
       } catch (e) { return fail(e); }
     }
   );

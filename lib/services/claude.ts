@@ -17,6 +17,8 @@ export async function askClaude(opts: {
   web?: boolean;
   /** Called with each response's real token usage (Ops turns it into measured cost). */
   onUsage?: (usage: ApiUsage) => void;
+  /** A cheaper model for Ops work when you chose one (Settings → Budget & alerts). Defaults to CLAUDE_MODEL. */
+  model?: string;
 }): Promise<string | null> {
   const client = new Anthropic({ apiKey: opts.apiKey, maxRetries: 2, timeout: opts.web ? 300_000 : 120_000 });
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: opts.prompt }];
@@ -27,7 +29,7 @@ export async function askClaude(opts: {
   // Server tools can pause a long turn ("pause_turn"); send it back as-is to let Claude carry on.
   for (let round = 0; round < 4; round++) {
     const response = await client.beta.messages.create({
-      model: CLAUDE_MODEL,
+      model: opts.model ?? CLAUDE_MODEL,
       max_tokens: opts.maxTokens,
       // A policy decline is retried on Anthropic's recommended fallback model
       // inside the same call, instead of coming back as a refusal.

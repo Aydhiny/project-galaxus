@@ -17,6 +17,7 @@ import { goalPace, goalProgress, groupByPhase, monthKey, monthLabel, PACE_LABEL 
 import type { Task } from "@/lib/db/schema";
 import { VOICE_BLOCKED_TOOLS } from "@/lib/voice";
 import { AGENT_TOOLS } from "@/lib/ops";
+import { registerMemoryReachTools } from "@/lib/mcp/memory-reach-tools";
 import { registerOpsTools } from "@/lib/mcp/ops-tools";
 
 type Ctx = { http?: { authInfo?: { extra?: Record<string, unknown> } } };
@@ -145,6 +146,7 @@ const goalShape = z.object({
 export function registerGalaxusTools(rawServer: McpServer, hooks: McpHooks = {}) {
   const server = instrument(rawServer, hooks);
   registerOpsTools(server);
+  registerMemoryReachTools(server);
   const written = () => hooks.onWrite?.();
   const today = (given?: string) => given ?? hooks.today?.() ?? new Date().toISOString().slice(0, 10);
 

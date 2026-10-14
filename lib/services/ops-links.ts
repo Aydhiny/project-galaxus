@@ -9,7 +9,7 @@
 
 import { and, eq, gte, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { opsAgents, opsLinks, opsMessages, userSettings, users, type OpsAgent } from "@/lib/db/schema";
+import { opsAgents, opsLinks, opsMessages, opsMissions, userSettings, users, type OpsAgent } from "@/lib/db/schema";
 import { MAX_LINKS, MAX_LINK_MESSAGES_PER_DAY, ROLES, facilityLabel, parseMessage, presence, roleOf } from "@/lib/ops";
 
 async function labelOf(userId: number) {
@@ -128,4 +128,89 @@ export async function sendExternalForAgent(agent: OpsAgent, input: { facility: s
   const { recordEventForAgent } = await import("@/lib/services/ops");
   await recordEventForAgent(agent, { kind: "message", label: `Radioed ${p.label}${toName ? ` / ${toName}` : ""}: ${body.replace(/\s+/g, " ").slice(0, 100)}`.slice(0, 200), url: null, status: "working" });
   return { sent: true, to: `${p.label}${toName ? ` / ${toName}` : " (everyone)"}` };
+}
+
+// ─── Work requests: pool two facilities' capacity ─────────────────────────────
+// You (or your agent) ask a linked facility to do a mission. It runs ONLY if
+// its owner accepts, on their plan and quota; the result comes back to your
+// board as a delivered mission you review like any other.
+
+const MAX_REQUESTS_PER_LINK_DAY = 5;
+
+export async function requestWorkFor(userId: number, input: { linkId: number; title: string; brief?: string | null; budgetCents?: number | null; dueDay?: string | null; fromAgent?: string | null }) {
+  const links = await activeLinks(userId);
+  const p = links.find((x) => x.link.id === input.linkId);
+  if (!p) throw new Error("That facility isn't linked (or the link isn't accepted yet).");
+  const startOfDay = new Date(new Date().toISOString().slice(0, 10));
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(opsMissions)
+    .where(and(eq(opsMissions.userId, p.partnerId), eq(opsMissions.requestLinkId, p.link.id), gte(opsMissions.createdAt, startOfDay)));
+  if (n >= MAX_REQUESTS_PER_LINK_DAY) throw new Error(`That's ${MAX_REQUESTS_PER_LINK_DAY} requests to ${p.label} today.`);
+  const me = await labelOf(userId);
+  const day = new Date().toISOString().slice(0, 10);
+  const title = String(input.title ?? "").trim().slice(0, 200);
+  if (title.length < 3) throw new Error("Give the request a title.");
+  const brief = String(input.brief ?? "").slice(0, 4000) || null;
+  // Ours: "at Faruk's", held until it comes back. Theirs: waiting for Faruk to accept.
+  const [ours] = await db.insert(opsMissions).values({
+    userId, day, title: `At ${p.label}'s: ${title}`.slice(0, 200), brief, kind: "other", status: "claimed", claimedAt: new Date(),
+    requestLinkId: p.link.id, requestFromLabel: null, dueDay: input.dueDay ?? null,
+  }).returning();
+  const [theirs] = await db.insert(opsMissions).values({
+    userId: p.partnerId, day, title, brief, kind: "research", status: "requested", requestLinkId: p.link.id,
+    requestFromLabel: `${me}${input.fromAgent ? ` / ${input.fromAgent}` : ""}`.slice(0, 90), echoMissionId: ours.id,
+    budgetCents: input.budgetCents ?? null, dueDay: input.dueDay ?? null,
+  }).returning();
+  await db.update(opsMissions).set({ echoMissionId: theirs.id }).where(eq(opsMissions.id, ours.id));
+  try {
+    const { pushFor } = await import("@/lib/services/ops-inbox");
+    await pushFor(p.partnerId, "question", false, `${me} asks your facility for help`, title, `ops-req-${theirs.id}`);
+  } catch { /* best effort */ }
+  return { id: ours.id, requested: true };
+}
+
+/** The partner (you, on your side) accepts a request onto your board, or declines it. */
+export async function respondRequestFor(userId: number, missionId: number, accept: boolean) {
+  const [m] = await db.select().from(opsMissions).where(and(eq(opsMissions.id, missionId), eq(opsMissions.userId, userId), eq(opsMissions.status, "requested"))).limit(1);
+  if (!m) throw new Error("That request isn't waiting for you.");
+  if (accept) {
+    await db.update(opsMissions).set({ status: "open", role: "researcher" }).where(eq(opsMissions.id, m.id));
+    const { dispatchCloudFor } = await import("@/lib/services/ops");
+    await dispatchCloudFor(userId).catch(() => {});
+    return;
+  }
+  await db.update(opsMissions).set({ status: "cancelled" }).where(eq(opsMissions.id, m.id));
+  if (!m.echoMissionId) return;
+  const [ours] = await db.update(opsMissions).set({ status: "cancelled" })
+    .where(and(eq(opsMissions.id, m.echoMissionId), eq(opsMissions.requestLinkId, m.requestLinkId ?? -1))).returning();
+  if (ours) {
+    try {
+      const { pushFor } = await import("@/lib/services/ops-inbox");
+      await pushFor(ours.userId, "report", false, "Request declined", ours.title, `ops-req-${ours.id}`);
+    } catch { /* best effort */ }
+  }
+}
+
+/** Their agent delivered your request: it lands on your board, ready for your review. */
+export async function returnRequestResult(m: { id: number; userId: number; title: string; requestLinkId: number | null; echoMissionId: number | null }, agent: OpsAgent, markdown: string) {
+  if (!m.echoMissionId || !m.requestLinkId) return;
+  const [link] = await db.select().from(opsLinks).where(and(eq(opsLinks.id, m.requestLinkId), eq(opsLinks.status, "active"))).limit(1);
+  if (!link) return; // unlinked since: nothing crosses any more
+  const them = await labelOf(m.userId);
+  const [ours] = await db.update(opsMissions).set({
+    status: "submitted", submittedAt: new Date(), deliverableTitle: `From ${them} / ${agent.name}`.slice(0, 200), deliverable: markdown.slice(0, 20_000),
+  }).where(and(eq(opsMissions.id, m.echoMissionId), eq(opsMissions.requestLinkId, m.requestLinkId), eq(opsMissions.status, "claimed"))).returning();
+  if (ours) {
+    try {
+      const { pushFor } = await import("@/lib/services/ops-inbox");
+      await pushFor(ours.userId, "delivered", false, `${them} delivered`, m.title, `ops-req-${ours.id}`);
+    } catch { /* best effort */ }
+  }
+}
+
+/** For an agent's ops_request_partner: by facility name. */
+export async function requestWorkForAgent(agent: OpsAgent, input: { facility: string; title: string; brief?: string }) {
+  const links = await activeLinks(agent.userId);
+  const p = links.find((x) => x.label.toLowerCase() === input.facility.trim().toLowerCase());
+  if (!p) throw new Error(`No linked facility called "${input.facility}".`);
+  return requestWorkFor(agent.userId, { linkId: p.link.id, title: input.title, brief: input.brief, fromAgent: agent.name });
 }

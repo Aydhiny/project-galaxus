@@ -123,6 +123,14 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       const { buildDebriefPrompt } = await import("@/lib/services/ops-day");
       return buildDebriefPrompt(row.userId, String(p.day));
     }
+    case "ops_project_day": {
+      const { buildProjectDayPrompt } = await import("@/lib/services/ops-projects");
+      return buildProjectDayPrompt(row.userId, Number(p.projectId));
+    }
+    case "ops_project_final": {
+      const { buildProjectFinalPrompt } = await import("@/lib/services/ops-projects");
+      return buildProjectFinalPrompt(row.userId, Number(p.projectId));
+    }
     case "scout":
       return buildScoutPrompt(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger));
     case "digest": {
@@ -189,6 +197,14 @@ export async function applyJobResult(row: VoiceCommand, text: string, costCents:
     case "ops_debrief": {
       const { applyDebriefResult } = await import("@/lib/services/ops-day");
       return applyDebriefResult(row.userId, Number(p.pageId), text);
+    }
+    case "ops_project_day": {
+      const { applyProjectDayResult } = await import("@/lib/services/ops-projects");
+      return applyProjectDayResult(row.userId, Number(p.projectId), Number(p.leadId), text);
+    }
+    case "ops_project_final": {
+      const { applyProjectFinalResult } = await import("@/lib/services/ops-projects");
+      return applyProjectFinalResult(row.userId, Number(p.projectId), text);
     }
     case "scout":
       return applyScoutResult(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger), text);

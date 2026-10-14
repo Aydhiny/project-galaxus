@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Activity, ArrowLeft, Cable, ClipboardList, Cloud, Eye, Hand, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus } from "lucide-react";
+import { Activity, ArrowLeft, Brain, Cable, ClipboardList, Cloud, Eye, Gift, Hand, Inbox as InboxIcon, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BUILTIN_SKILLS, PROVIDERS, ROLES, TEAMS, formatUsd, presence, prLabel, providerOf, roleOf, type ProviderKey } from "@/lib/ops";
 import { ProviderIcon } from "@/components/ops/provider-logos";
@@ -21,14 +21,18 @@ import { Connectors } from "@/components/ops/ops-connectors";
 import { SkillsPanel } from "@/components/ops/ops-skills";
 import { Scoreboard } from "@/components/ops/ops-scores";
 import { RemoveAgentDialog } from "@/components/ops/ops-dialog";
+import { Inbox, inboxCount } from "@/components/ops/ops-inbox";
+import { BudgetDialog } from "@/components/ops/ops-budget";
+import { FreeModelsDialog, freeLabel } from "@/components/ops/ops-free";
+import { MemoryDialog } from "@/components/ops/ops-memory";
 import type { AgentView, OpsEngine, OpsView as ViewKey } from "@/components/ops/ops-engine";
-import { removeAgentC, type OpsOverview } from "@/lib/client/ops";
+import { removeAgentC, updateAgentC, type OpsOverview } from "@/lib/client/ops";
 
 const REFRESH_MS = 5000;
 const VIEWS: { key: ViewKey; label: string }[] = [{ key: "overview", label: "Floor" }, { key: "wall", label: "Mission wall" }, { key: "table", label: "Table" }];
 const DOT = { working: "bg-emerald-400", idle: "bg-amber-400", waiting: "bg-rose-400 animate-pulse", offline: "bg-slate-500" } as const;
 
-export function OpsView({ data }: { data: OpsOverview }) {
+export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverview; openInbox?: boolean }) {
   const router = useRouter();
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<OpsEngine | null>(null);
@@ -38,8 +42,10 @@ export function OpsView({ data }: { data: OpsOverview }) {
   const [view, setView] = useState<ViewKey>("overview");
   // null = default (open on wide screens, closed on small ones, decided by CSS); true/false = you toggled it.
   const [left, setLeft] = useState<boolean | null>(null);
-  const [right, setRight] = useState<boolean | null>(null);
-  const [rightTab, setRightTab] = useState<"feed" | "radio">("feed");
+  // Deep link from a push notification (/ops?inbox=1) opens the inbox.
+  const [right, setRight] = useState<boolean | null>(deepInbox ? true : null);
+  const [rightTab, setRightTab] = useState<"inbox" | "feed" | "radio">(deepInbox ? "inbox" : "feed");
+  const [dialog, setDialog] = useState<"free" | "memory" | "budget" | null>(null);
   const [connect, setConnect] = useState<ProviderKey | "cloud" | "pick" | null>(null);
   const [connectors, setConnectors] = useState(false);
   const [skillsFor, setSkillsFor] = useState<number | null | "library">(null);
@@ -130,6 +136,8 @@ export function OpsView({ data }: { data: OpsOverview }) {
   const skillName = (k: string) => data.skills.find((s) => s.key === k)?.name ?? BUILTIN_SKILLS.find((s) => s.key === k)?.name ?? null;
 
   const invites = data.links.filter((l) => l.status === "pending" && l.direction === "in").length;
+  const unread = inboxCount(data);
+  const openInbox = () => { setRightTab("inbox"); setRight(true); };
   const removingAgent = removing != null ? data.agents.find((a) => a.id === removing) ?? null : null;
 
   const chip = "pointer-events-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-sm text-white";
@@ -139,7 +147,7 @@ export function OpsView({ data }: { data: OpsOverview }) {
       <div ref={host} className="absolute inset-0" />
 
       {/* Top bar */}
-      <div ref={bar} className="pointer-events-none absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center gap-2">
+      <div ref={bar} className="pointer-events-none absolute top-3 left-3 right-3 z-30 flex flex-wrap items-center gap-2">
         <Link href="/empire" title="Back to your city" className={cn(chip, "w-9 px-0 justify-center")}><ArrowLeft className="w-4 h-4" /></Link>
         <span className={cn(chip, "font-hud uppercase tracking-wider text-[13px]")}>
           <span className={cn("w-2 h-2 rounded-full", waiting.length ? "bg-rose-400 animate-pulse" : working ? "bg-emerald-400 animate-pulse" : "bg-white/30")} />
@@ -157,6 +165,14 @@ export function OpsView({ data }: { data: OpsOverview }) {
           <ClipboardList className="w-4 h-4" /> Plan{review > 0 && <span className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold">{review}</span>}
         </button>
         <button onClick={() => setRight(flip)} className={cn(chip, right === true && "bg-white text-black", right === null && "lg:bg-white lg:text-black")}><Activity className="w-4 h-4" /> Live</button>
+        <button onClick={openInbox} aria-label="Inbox" className={cn(chip, "relative", unread > 0 && "border-amber-300/50")}>
+          <InboxIcon className="w-4 h-4" /><span className="hidden md:inline">Inbox</span>
+          {unread > 0 && <span className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold">{unread}</span>}
+        </button>
+        <button onClick={() => setDialog("free")} title="Free models: what your agents can still use today when Claude runs out"
+          className={cn(chip, "hidden sm:inline-flex", data.free.usableCount ? "text-emerald-200" : "text-white/60")}>
+          <Gift className="w-4 h-4" /><span className="text-xs">{freeLabel(data.free)}</span>
+        </button>
         <div className="relative pointer-events-auto">
           <button onClick={() => setMore((o) => !o)} aria-expanded={more} aria-label="More" className={cn(chip, "w-9 px-0 justify-center relative")}>
             <MoreHorizontal className="w-4 h-4" />
@@ -167,6 +183,9 @@ export function OpsView({ data }: { data: OpsOverview }) {
               {([
                 [Cable, "Connectors", invites ? `${invites} link invite${invites === 1 ? "" : "s"}` : "Clients, cloud, linked facilities", () => setConnectors(true)],
                 [Sparkles, "Skills", "What your agents know how to do", () => setSkillsFor("library")],
+                [Gift, "Free models", `${freeLabel(data.free)} · switch when Claude runs out`, () => setDialog("free")],
+                [Brain, "Shared memory", "What every agent knows about you", () => setDialog("memory")],
+                [Wallet, "Budget & alerts", data.budget.paused ? "Paused by a usage limit" : "Spend per day, model, notifications", () => setDialog("budget")],
                 [Trophy, "Scoreboard", "Levels, accept rate, cost, wins", () => setScores(true)],
               ] as const).map(([Icon, label, hint, go]) => (
                 <button key={label} onClick={() => { setMore(false); go(); }} className="w-full flex items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-white/[0.06]">
@@ -213,15 +232,17 @@ export function OpsView({ data }: { data: OpsOverview }) {
       {right !== false && (
         <aside className={cn(`absolute z-20 left-3 right-3 sm:left-auto sm:w-80 bottom-3 overflow-y-auto rounded-2xl bg-[#26272b]/92 backdrop-blur-md border border-white/12 p-3 lg:z-10`, right === null && "hidden lg:block")} style={{ top: barBottom }}>
           <div className="flex items-center gap-1 mb-2">
-            {(["feed", "radio"] as const).map((t) => (
+            {(["inbox", "feed", "radio"] as const).map((t) => (
               <button key={t} onClick={() => setRightTab(t)} className={cn("h-7 px-2.5 rounded-lg text-xs inline-flex items-center gap-1", rightTab === t ? "bg-white text-black" : "text-white/65 hover:text-white")}>
-                {t === "feed" ? <Activity className="w-3.5 h-3.5" /> : <RadioIcon className="w-3.5 h-3.5" />}{t === "feed" ? "Feed" : "Radio"}
+                {t === "inbox" ? <InboxIcon className="w-3.5 h-3.5" /> : t === "feed" ? <Activity className="w-3.5 h-3.5" /> : <RadioIcon className="w-3.5 h-3.5" />}
+                {t === "inbox" ? "Inbox" : t === "feed" ? "Feed" : "Radio"}
+                {t === "inbox" && unread > 0 && <span className="rounded-full bg-amber-400 text-black text-[10px] px-1 font-bold">{unread}</span>}
               </button>
             ))}
             <span className="ml-auto text-[11px] text-[#8ea6ff] truncate">{sel ? sel.name : "everyone"}</span>
           </div>
-          {rightTab === "feed"
-            ? <Feed data={data} now={now} onlyAgent={selected} onPick={(id) => setSelected(id)} />
+          {rightTab === "inbox" ? <Inbox data={data} now={now} onChanged={refresh} />
+            : rightTab === "feed" ? <Feed data={data} now={now} onlyAgent={selected} onPick={(id) => setSelected(id)} />
             : <Radio data={data} now={now} onlyAgent={selected} onSent={refresh} />}
         </aside>
       )}
@@ -258,7 +279,7 @@ export function OpsView({ data }: { data: OpsOverview }) {
                 <span className={cn("inline-block w-2 h-2 rounded-full mr-1.5", DOT[selView.presence])} />
                 {selView.presence === "offline" ? `Not connected${sel.lastSeenAt ? ` · last seen ${timeAgo(sel.lastSeenAt, now)} ago` : " yet"}`
                   : selView.presence === "waiting" ? <b className="text-rose-200">Needs you: {selView.activity ?? "waiting for permission"}</b>
-                  : selView.activity ?? (selView.cloud ? "On standby: takes the next open mission" : "Waiting for orders")}
+                  : selView.activity ?? (selView.cloud ? (data.shiftNow.state === "on" ? "On standby: takes the next open mission" : "Off duty until the next shift") : "Waiting for orders")}
               </p>
               {selView.activityUrl && selView.presence !== "offline" && (
                 <a href={selView.activityUrl} target="_blank" rel="noopener noreferrer nofollow" className="text-[11px] text-[#8ea6ff] hover:underline break-all">{selView.activityUrl.slice(0, 80)}</a>
@@ -267,6 +288,16 @@ export function OpsView({ data }: { data: OpsOverview }) {
                 {sel.skills.map((k) => skillName(k)).filter(Boolean).map((n) => <span key={n} className="rounded-full bg-violet-400/15 text-violet-100 px-2 py-0.5 text-[10px]">{n}</span>)}
                 <button onClick={() => setSkillsFor(sel.id)} className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] text-white/70 hover:text-white inline-flex items-center gap-0.5"><Sparkles className="w-3 h-3" /> skills</button>
               </div>
+              {sel.cloud && (
+                <div className="mt-1.5 flex items-center gap-1 text-[11px]">
+                  <span className="text-white/50 mr-0.5">Runs on</span>
+                  {([["auto", "Auto"], ["claude", "Claude"], ["free", "Free models"]] as const).map(([k, label]) => (
+                    <button key={k} onClick={async () => { try { await updateAgentC(sel.id, { engine: k }); refresh(); } catch (e) { toast.error((e as Error).message); } }}
+                      title={k === "auto" ? "Claude, and free models when Claude runs out" : k === "claude" ? "Only Claude: waits when your plan is used up" : "Only free models: never touches your Claude plan"}
+                      className={cn("h-6 px-2 rounded-md border", sel.engine === k ? "border-[#6b8afd]/70 bg-[#6b8afd]/20 text-white" : "border-white/10 text-white/60 hover:text-white")}>{label}</button>
+                  ))}
+                </div>
+              )}
               {data.scores[sel.id]?.delivered ? (
                 <p className="mt-1 text-[11px] text-white/50">
                   {data.scores[sel.id].accepted}/{data.scores[sel.id].delivered} accepted
@@ -302,6 +333,9 @@ export function OpsView({ data }: { data: OpsOverview }) {
       )}
       {connectors && <Connectors data={data} now={now} onClose={() => setConnectors(false)} onChanged={refresh} onConnect={(p) => { setConnectors(false); setConnect(p); }} />}
       {scores && <Scoreboard data={data} onClose={() => setScores(false)} />}
+      {dialog === "free" && <FreeModelsDialog data={data} onClose={() => setDialog(null)} onChanged={refresh} />}
+      {dialog === "memory" && <MemoryDialog onClose={() => setDialog(null)} />}
+      {dialog === "budget" && <BudgetDialog data={data} onClose={() => setDialog(null)} onChanged={refresh} />}
       {removingAgent && (
         <RemoveAgentDialog
           agent={{ name: removingAgent.name, role: roleOf(removingAgent.role), provider: providerOf(removingAgent.provider), cloud: removingAgent.cloud }}

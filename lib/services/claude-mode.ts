@@ -42,7 +42,10 @@ export async function runJobViaApi(userId: number, id: number) {
     const web = jobUsesWeb(job.kind);
     const { usageCostCents } = await import("@/lib/ops");
     let costCents = 0;
-    const text = await askClaude({ apiKey, system, prompt, effort: "medium", maxTokens: web ? 12_000 : 6000, web, onUsage: (u) => { costCents += usageCostCents(u); } });
+    // Ops jobs carry the model you picked for cloud work; the API prices follow it.
+    const pick = String(((job.payload ?? {}) as { model?: string }).model ?? "");
+    const model = pick === "haiku" ? "claude-haiku-5-5" : pick === "sonnet" ? "claude-sonnet-5-5" : pick === "opus" ? "claude-opus-5-5" : undefined;
+    const text = await askClaude({ apiKey, system, prompt, effort: "medium", maxTokens: web ? 12_000 : 6000, web, model, onUsage: (u) => { costCents += usageCostCents(u, model); } });
     await completeFor(userId, id, text ? { ok: true, summary: text, costCents } : { ok: false, error: "Claude declined this one.", costCents });
   } catch (e) {
     await completeFor(userId, id, { ok: false, error: e instanceof Error ? e.message : "Claude call failed." });

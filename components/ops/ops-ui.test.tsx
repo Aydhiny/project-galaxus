@@ -23,6 +23,7 @@ import { ConnectDialog } from "./ops-connect";
 import { Briefing } from "./ops-briefing";
 import { Feed } from "./ops-feed";
 import { RemoveAgentDialog } from "./ops-dialog";
+import { FreeModelsDialog, freeLabel } from "./ops-free";
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -84,17 +85,22 @@ describe("ConnectDialog", () => {
 });
 
 const today = "2026-10-14";
-const agent = (id: number, name: string, role: string) => ({ id, userId: 1, tokenId: id, name, role, provider: "claude", cloud: false, skills: [], status: "idle", activity: null, activityKind: null, activityUrl: null, lastSeenAt: null, createdAt: new Date() });
+const agent = (id: number, name: string, role: string) => ({ id, userId: 1, tokenId: id, name, role, provider: "claude", cloud: false, skills: [], status: "idle", activity: null, activityKind: null, activityUrl: null, lastSeenAt: null, createdAt: new Date(), engine: "auto" });
 const mission = (over: Record<string, unknown>) => ({
   id: 1, userId: 1, day: today, title: "Find grants", brief: null, kind: "research", agentId: null, role: "researcher", budgetCents: null, spentCents: 0, status: "open",
   deliverableTitle: null, deliverable: null, claimedAt: null, submittedAt: null, createdAt: new Date(), parentId: null, createdByAgentId: null, jobId: null,
-  costMeasured: false, submittedBy: null, reopens: 0, duelId: null, prUrl: null, recurringId: null, ...over,
+  costMeasured: false, submittedBy: null, reopens: 0, duelId: null, prUrl: null, recurringId: null,
+  projectId: null, dueDay: null, effort: "normal", waitingOn: null, requestLinkId: null, requestFromLabel: null, echoMissionId: null, ...over,
 });
 const data = (missions: unknown[], agents = [agent(1, "Sage", "researcher")]): OpsOverview =>
   ({
     now: Date.now(), day: today, tz: "Europe/Sarajevo", agents, missions, events: [], messages: [], skills: [], shift: null, scores: {}, recurring: [], links: [], prs: {},
     shiftNow: { state: "none", minutesLeft: null, lengthMin: null, label: "No shift set: agents work whenever they run" }, claudeMode: "runner",
     totals: { budgetCents: 0, spentCents: 0 },
+    inbox: [], projects: [], requests: [],
+    budget: { monthlyBudgetCents: 1500, spentMonthCents: 0, spentTodayCents: 0, runsToday: 0, allowanceToday: 100, leftToday: 100, daysLeft: 17, exhausted: false,
+      model: "sonnet", notify: "normal", maxPushesPerDay: 6, paused: null, freeFallback: true, freeFirst: true },
+    free: { providers: [], usableCount: 0, requestsLeftToday: 0, unlimited: false },
   }) as unknown as OpsOverview;
 
 describe("Plan panel", () => {
@@ -170,6 +176,27 @@ describe("Plan panel", () => {
     expect(screen.getByRole("button", { name: /Add 2 to Tasks/ })).toBeTruthy();
   });
 
+  it("sends effort and a deadline with the mission", async () => {
+    render(<Briefing data={data([])} assignTo={null} onChanged={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText("What should they do?"), { target: { value: "Quick price check" } });
+    fireEvent.click(screen.getByRole("button", { name: /More options/ }));
+    fireEvent.click(screen.getByRole("button", { name: "quick" }));
+    fireEvent.change(screen.getByLabelText("Due"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: /Post mission/ }));
+    await waitFor(() => expect(createMissionC).toHaveBeenCalledWith(expect.objectContaining({ title: "Quick price check", effort: "quick", dueInDays: "3" })));
+  });
+
+  it("shows late work, missions waiting for your answer, and free-model runs", () => {
+    render(<Briefing data={data([
+      mission({ id: 1, title: "Late one", status: "open", dueDay: "2026-10-10" }),
+      mission({ id: 2, title: "Asked you", status: "open", agentId: 1, waitingOn: 77 }),
+      mission({ id: 3, title: "On a free model", status: "claimed", agentId: 1, jobId: 0 }),
+    ])} assignTo={null} onChanged={() => {}} />);
+    expect(screen.getByText(/late \(was due 10-10\)/)).toBeTruthy();
+    expect(screen.getByText("waiting for your answer")).toBeTruthy();
+    expect(screen.getByText("free model")).toBeTruthy();
+  });
+
   it("flags an over-budget mission and marks measured cost", () => {
     render(<Briefing data={data([mission({ status: "claimed", agentId: 1, budgetCents: 1000, spentCents: 1500, costMeasured: true })])} assignTo={null} onChanged={() => {}} />);
     expect(screen.getByText(/over!/)).toBeTruthy();
@@ -205,5 +232,33 @@ describe("Feed", () => {
     const link = screen.getByRole("link") as HTMLAnchorElement;
     expect(link.href).toBe("https://example.com/a");
     expect(link.rel).toContain("noopener");
+  });
+});
+
+describe("Free models", () => {
+  const withFree = () => ({
+    ...data([]),
+    free: {
+      usableCount: 1, requestsLeftToday: 742, unlimited: false,
+      providers: [
+        { id: 1, provider: "groq", name: "Groq", model: "llama-3.3-70b-versatile", baseUrl: null, enabled: true, priority: 0, hasKey: true,
+          left: { requests: 742, limit: 1000, exact: true, used: 258, usedTokens: 51000 }, cooldownUntil: null, lastError: null, lastOkAt: new Date() },
+        { id: 2, provider: "gemini", name: "Google Gemini", model: "gemini-3.6-flash", baseUrl: null, enabled: true, priority: 1, hasKey: true,
+          left: { requests: 0, limit: 1500, exact: false, used: 1500, usedTokens: 0 }, cooldownUntil: new Date(Date.now() + 3_600_000), lastError: "HTTP 429", lastOkAt: null },
+      ],
+    },
+  }) as unknown as OpsOverview;
+
+  it("labels what's left for the top bar", () => {
+    expect(freeLabel(withFree().free)).toBe("Free · 742 left");
+    expect(freeLabel(data([]).free)).toBe("Free models");
+  });
+
+  it("shows what's left today per provider, and which one is resting", () => {
+    render(<FreeModelsDialog data={withFree()} onClose={() => {}} onChanged={() => {}} />);
+    expect(screen.getByText("742 / 1,000 left today")).toBeTruthy();
+    expect(screen.getByText("(reported by provider)")).toBeTruthy();
+    expect(screen.getByText(/Resting until .* HTTP 429 — the next provider takes over/)).toBeTruthy();
+    expect(screen.getByRole("switch", { name: /When Claude runs out/ }).getAttribute("aria-checked")).toBe("true");
   });
 });

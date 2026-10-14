@@ -16,7 +16,7 @@ export type { OpsOverview } from "@/lib/services/ops";
 const done = () => revalidatePath("/ops");
 
 /** Returns the new agent and its token (null for cloud agents). The token is shown once, then only its hash exists. */
-export async function createAgent(input: { name: string; role: string; provider: string; cloud?: boolean; skills?: string[] }) {
+export async function createAgent(input: { name: string; role: string; provider: string; cloud?: boolean; skills?: string[]; engine?: string }) {
   return toResult(async () => {
     const r = await createAgentFor(await requireUserId(), input);
     done();
@@ -24,7 +24,7 @@ export async function createAgent(input: { name: string; role: string; provider:
   });
 }
 
-export async function updateAgent(id: number, input: { skills?: string[]; role?: string }) {
+export async function updateAgent(id: number, input: { skills?: string[]; role?: string; engine?: string }) {
   return toResult(async () => { await updateAgentFor(await requireUserId(), id, input); done(); });
 }
 
@@ -133,4 +133,80 @@ export async function setLinkShare(id: number, share: boolean) {
 }
 export async function removeLink(id: number) {
   return toResult(async () => { await removeLinkFor(await requireUserId(), id); done(); });
+}
+
+// ─── Round 3: the inbox, budget & alerts, projects, work requests ────────────
+import { answerFor, markReadFor, resumeCloudFor, saveOpsSettingsFor } from "@/lib/services/ops-inbox";
+import { createProjectFor, setProjectStatusFor } from "@/lib/services/ops-projects";
+import { respondRequestFor } from "@/lib/services/ops-links";
+
+export async function answerQuestion(id: number, answer: string) {
+  return toResult(async () => { const r = await answerFor(await requireUserId(), id, answer); done(); return r; });
+}
+export async function markInboxRead(ids: number[]) {
+  return toResult(async () => { await markReadFor(await requireUserId(), ids); done(); });
+}
+export async function saveOpsSettings(raw: { monthlyBudgetUsd?: number; cloudModel?: string; notify?: string; maxPushesPerDay?: number; freeFallback?: boolean; freeFirst?: boolean }) {
+  return toResult(async () => { await saveOpsSettingsFor(await requireUserId(), raw); done(); });
+}
+export async function resumeCloud() {
+  return toResult(async () => { await resumeCloudFor(await requireUserId()); done(); });
+}
+export async function createProject(raw: Record<string, unknown>) {
+  return toResult(async () => {
+    const p = await createProjectFor(await requireUserId(), raw);
+    done(); revalidatePath("/pages", "layout");
+    return { id: p.id, pageId: p.pageId };
+  });
+}
+export async function setProjectStatus(id: number, status: "active" | "paused" | "cancelled") {
+  return toResult(async () => { await setProjectStatusFor(await requireUserId(), id, status); done(); });
+}
+export async function respondRequest(id: number, accept: boolean) {
+  return toResult(async () => { await respondRequestFor(await requireUserId(), id, accept); done(); });
+}
+
+// ─── Free models, shared memory, Reach ───────────────────────────────────────
+import { freeStatusFor, moveFreeKeyFor, removeFreeKeyFor, saveFreeKeyFor, testFreeKeyFor } from "@/lib/services/free-llm";
+import { addNoteFor, forgetFor, memoriesFor, refreshAboutMe, setPinnedFor } from "@/lib/services/ops-memory";
+
+export async function getFreeStatus() {
+  return freeStatusFor(await requireUserId());
+}
+export async function saveFreeKey(raw: { provider: string; key?: string | null; model?: string; baseUrl?: string; enabled?: boolean }) {
+  return toResult(async () => { await saveFreeKeyFor(await requireUserId(), raw); done(); });
+}
+export async function removeFreeKey(id: number) {
+  return toResult(async () => { await removeFreeKeyFor(await requireUserId(), id); done(); });
+}
+export async function moveFreeKey(id: number, dir: -1 | 1) {
+  return toResult(async () => { await moveFreeKeyFor(await requireUserId(), id, dir); done(); });
+}
+export async function testFreeKey(id: number) {
+  return toResult(async () => { const r = await testFreeKeyFor(await requireUserId(), id); done(); return r; });
+}
+export async function getMemories() {
+  const userId = await requireUserId();
+  return (await memoriesFor(userId)).map((m) => ({ id: m.id, type: m.type, title: m.title, body: m.body, source: m.source, pinned: m.pinned, at: m.createdAt.toISOString() }));
+}
+export async function addMemory(raw: { type?: string; title: string; body: string }) {
+  return toResult(async () => { const r = await addNoteFor(await requireUserId(), raw); return { id: r.id }; });
+}
+export async function pinMemory(id: number, pinned: boolean) {
+  return toResult(async () => { await setPinnedFor(await requireUserId(), id, pinned); });
+}
+export async function forgetMemory(id: number) {
+  return toResult(async () => { await forgetFor(await requireUserId(), id); });
+}
+export async function refreshAboutMemory() {
+  return toResult(async () => { await refreshAboutMe(await requireUserId()); });
+}
+export async function reachDoctorNow() {
+  return toResult(async () => {
+    const userId = await requireUserId();
+    const { getSecret } = await import("@/lib/services/secrets");
+    const { reachDoctor } = await import("@/lib/services/reach");
+    const key = (await getSecret(userId, "youtube")) ?? (await getSecret(userId, "google"));
+    return (await reachDoctor(key)).map((r) => ({ channel: r.channel, ok: r.ok, route: r.route, error: r.error ?? null }));
+  });
 }

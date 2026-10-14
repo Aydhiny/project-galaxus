@@ -4,6 +4,7 @@
 // Every provider (observed via hooks or self-reported), who is connected on it
 // and when it last signalled, the cloud runner, and the endpoints.
 
+import { ReachDoctor } from "@/components/ops/ops-reach";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Check, Cloud, ExternalLink, Link2, Loader2, Play, Plus, Unlink } from "lucide-react";
@@ -101,6 +102,8 @@ export function Connectors({ data, now, onClose, onConnect, onChanged }: {
             );
           })}
         </div>
+
+        <div className="mt-4"><ReachDoctor /></div>
 
         {/* Endpoints */}
         <h3 className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#8ea6ff]">Endpoints</h3>

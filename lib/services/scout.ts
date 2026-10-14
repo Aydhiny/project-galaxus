@@ -20,8 +20,6 @@ import {
 import { claudeHealthy, enqueueJobFor } from "@/lib/services/claude-jobs";
 import { notifyUser } from "@/lib/services/outreach/push";
 
-// Reddit asks for a descriptive User-Agent; generic ones are throttled first.
-const UA = "web:galaxus-scout:1.0 (personal research tool; read-only)";
 const MAX_NEW_PER_SCAN = 8;
 const MAX_AGE_DAYS = 9; // "top of the week" can include older posts
 const BATCH = 5; // threads per Claude job
@@ -40,14 +38,15 @@ class FeedError extends Error {
   }
 }
 
+/** Reddit feeds go through Reach (www.reddit.com ▸ old.reddit.com); a rate limit on every route still surfaces as 429. */
 async function getFeed(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "application/atom+xml, application/xml;q=0.9" },
-    signal: AbortSignal.timeout(15_000),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new FeedError(res.status);
-  return res.text();
+  const { reachRedditFeed, ReachError } = await import("@/lib/services/reach");
+  try {
+    return (await reachRedditFeed(url.replace(/^https:\/\/(www\.)?reddit\.com\//, ""))).body;
+  } catch (e) {
+    if (e instanceof ReachError) throw new FeedError(e.tried.every((t) => t.includes("429")) ? 429 : Number(e.tried[0]?.match(/HTTP (\d+)/)?.[1] ?? 502));
+    throw e;
+  }
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

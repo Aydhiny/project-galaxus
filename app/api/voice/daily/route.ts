@@ -5,7 +5,7 @@ import { voiceRunnerAuth } from "@/lib/api/voice-auth";
 import { dailyFor } from "@/lib/services/voice";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300; // free-model missions finish in after() within this limit
 
 export async function POST(req: NextRequest) {
   const auth = await voiceRunnerAuth(req);

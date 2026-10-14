@@ -7,7 +7,7 @@ import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opsAgents, opsDays, opsEvents, opsMessages, opsMissions, opsRecurring, outreachSettings, type OpsDay } from "@/lib/db/schema";
 import {
-  MISSION_KINDS, MISSION_KIND_INFO, ROLES, ROLE_KEYS, describeRepeat, formatUsd, hhmmIn, presence, recurringDue, roleOf, shiftEnded, standupDue, weekdayOf,
+  MISSION_KINDS, MISSION_KIND_INFO, ROLES, ROLE_KEYS, describeRepeat, formatUsd, hhmmIn, presence, recurringDue, roleOf, shiftEnded, shiftStatus, standupDue, weekdayOf,
   type MissionKind, type RoleKey,
 } from "@/lib/ops";
 
@@ -26,19 +26,10 @@ const dayIn = (_tz?: string) => new Date().toISOString().slice(0, 10);
 const shiftDay = (d: string, delta: number) => new Date(Date.parse(`${d}T12:00:00Z`) + delta * 86_400_000).toISOString().slice(0, 10);
 const cents = (n: number) => formatUsd(n);
 
-async function notify(userId: number, title: string, body: string, tag: string) {
-  try {
-    const { notifyUser } = await import("@/lib/services/outreach/push");
-    await notifyUser(userId, { title, body: body.slice(0, 160), url: "/ops", tag });
-  } catch { /* best effort */ }
-}
-
-/** A cloud Chief of staff that can think for the stand-up and the debrief, if you have one and Claude is connected. */
+/** A cloud Chief of staff that can think for the stand-up and the debrief, if you have one (Claude or a free model runs it). */
 async function cloudChief(userId: number) {
   const [chief] = await db.select().from(opsAgents).where(and(eq(opsAgents.userId, userId), eq(opsAgents.cloud, true), eq(opsAgents.role, "chief"))).limit(1);
-  if (!chief) return null;
-  const { claudeHealthy } = await import("@/lib/services/claude-jobs");
-  return (await claudeHealthy(userId)) ? chief : null;
+  return chief ?? null;
 }
 
 // ─── Recurring missions ───────────────────────────────────────────────────────
@@ -93,11 +84,9 @@ export async function standupFor(userId: number, opts: { manual?: boolean } = {}
   await db.insert(opsMessages).values({ userId, fromAgentId: null, body: lines.join("\n").slice(0, 2000) });
 
   const chief = await cloudChief(userId);
-  if (chief) {
-    const { enqueueJobFor } = await import("@/lib/services/claude-jobs");
-    await enqueueJobFor(userId, "ops_standup", "Ops stand-up: the Chief plans the day", { day, chiefId: chief.id }).catch(() => null);
-  }
-  return { done: true, planned: !!chief };
+  const { runPlannerJob } = await import("@/lib/services/ops-free");
+  const planned = chief ? await runPlannerJob(userId, "ops_standup", "Ops stand-up: the Chief plans the day", { day, chiefId: chief.id }).catch(() => null) : null;
+  return { done: true, planned: !!planned };
 }
 
 export async function buildStandupPrompt(userId: number, chiefId: number) {
@@ -192,11 +181,11 @@ export async function debriefFor(userId: number, row: Pick<OpsDay, "id" | "day">
   const { createPageFromMarkdown } = await import("@/lib/services/ops-deliver");
   const pageId = await createPageFromMarkdown(userId, `Ops debrief · ${day}`, md, { icon: "📋" });
   if (row) await db.update(opsDays).set({ debriefPageId: pageId }).where(eq(opsDays.id, row.id));
-  await notify(userId, "Your Ops debrief is ready", md.split("\n\n")[1] ?? "", `ops-debrief-${day}`);
-  const chief = await cloudChief(userId);
-  if (chief) {
-    const { enqueueJobFor } = await import("@/lib/services/claude-jobs");
-    await enqueueJobFor(userId, "ops_debrief", "Ops debrief: the Chief's notes", { pageId, day }).catch(() => null);
+  const { pushFor } = await import("@/lib/services/ops-inbox");
+  await pushFor(userId, "report", false, "Your Ops debrief is ready", md.split("\n\n")[1] ?? "", `ops-debrief-${day}`);
+  if (await cloudChief(userId)) {
+    const { runPlannerJob } = await import("@/lib/services/ops-free");
+    await runPlannerJob(userId, "ops_debrief", "Ops debrief: the Chief's notes", { pageId, day }).catch(() => null);
   }
   return pageId;
 }
@@ -221,6 +210,8 @@ export async function opsTickFor(userId: number) {
   const tz = await tzFor(userId);
   const day = dayIn(tz), now = hhmmIn(tz);
   const posted = await postDueRecurringFor(userId);
+  const { refreshAboutMeIfStale } = await import("@/lib/services/ops-memory");
+  await refreshAboutMeIfStale(userId).catch(() => false);
   const [[today], [yesterday]] = await Promise.all([
     db.select().from(opsDays).where(and(eq(opsDays.userId, userId), eq(opsDays.day, day))).limit(1),
     db.select().from(opsDays).where(and(eq(opsDays.userId, userId), eq(opsDays.day, shiftDay(day, -1)))).limit(1),
@@ -229,7 +220,12 @@ export async function opsTickFor(userId: number) {
   if (standupDue(today ?? null, now)) standup = (await standupFor(userId)).done;
   if (shiftEnded(today ?? null, now, "today") && (await debriefFor(userId, today))) debriefs++;
   if (shiftEnded(yesterday ?? null, now, "yesterday") && (await debriefFor(userId, yesterday))) debriefs++;
+  // Projects: plan each day while the shift is on (or from 08:00 with no shift); report when it ends (or at 21:00).
+  const on = today ? shiftStatus(today, now).state === "on" : now >= "08:00" && now < "21:00";
+  const ended = today ? shiftEnded({ ...today, debriefAt: null }, now, "today") : now >= "21:00";
+  const { projectsTickFor } = await import("@/lib/services/ops-projects");
+  const projects = await projectsTickFor(userId, { shiftOn: on, shiftEnded: ended });
   const { dispatchCloudFor } = await import("@/lib/services/ops");
   const dispatch = await dispatchCloudFor(userId);
-  return { posted, standup, debriefs, ...dispatch };
+  return { posted, standup, debriefs, projects, ...dispatch };
 }

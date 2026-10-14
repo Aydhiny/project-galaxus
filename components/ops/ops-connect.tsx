@@ -38,6 +38,7 @@ export function ConnectDialog({ onClose, onCreated, preset, claudeMode, shiftEnd
   const [cloud, setCloud] = useState(preset === "cloud");
   const [provider, setProvider] = useState<ProviderKey>(preset && preset !== "cloud" ? preset : "claude");
   const [skills, setSkills] = useState<string[]>(defaultSkillsFor("researcher"));
+  const [engine, setEngine] = useState<"auto" | "claude" | "free">("auto");
   const [made, setMade] = useState<Made | null>(null);
   const [busy, start] = useTransition();
 
@@ -47,7 +48,7 @@ export function ConnectDialog({ onClose, onCreated, preset, claudeMode, shiftEnd
     e.preventDefault();
     start(async () => {
       try {
-        const r = await createAgentC({ name, role, provider: cloud ? "claude" : provider, cloud, skills });
+        const r = await createAgentC({ name, role, provider: cloud ? "claude" : provider, cloud, skills, engine: cloud ? engine : undefined });
         setMade({ token: r.token, name: name.trim(), role, provider: cloud ? "claude" : provider, cloud });
         onCreated();
       } catch (err) { toast.error((err as Error).message); }
@@ -83,8 +84,21 @@ export function ConnectDialog({ onClose, onCreated, preset, claudeMode, shiftEnd
                   <span className="block text-[11px] text-white/55 mt-0.5">Runs on your Claude, with web search. Fully automatic.</span>
                 </button>
               </div>
-              {cloud && claudeMode === "none" && (
-                <p className="mt-1.5 text-[11px] text-amber-200">Connect your Claude first (Connections → Claude): cloud agents run on your own subscription or API key.</p>
+              {cloud && claudeMode === "none" && engine !== "free" && (
+                <p className="mt-1.5 text-[11px] text-amber-200">Connect your Claude first (Connections → Claude), or pick “Free models” below: they need only a free API key (More → Free models).</p>
+              )}
+              {cloud && (
+                <div className="mt-2">
+                  <p className="text-xs text-white/60">Runs on</p>
+                  <div className="mt-1 grid grid-cols-3 gap-1.5">
+                    {([["auto", "Auto", "Claude, and free models when Claude runs out"], ["claude", "Claude only", "Waits when your plan is used up"], ["free", "Free models", "Never touches your Claude plan"]] as const).map(([k, label, hint]) => (
+                      <button type="button" key={k} onClick={() => setEngine(k)} title={hint}
+                        className={cn("rounded-lg border px-2 py-1.5 text-left", engine === k ? "border-[#6b8afd]/70 bg-[#6b8afd]/15" : "border-white/10 hover:bg-white/5")}>
+                        <span className="block text-xs font-semibold">{label}</span><span className="block text-[10px] text-white/50 leading-tight">{hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
             <div>
@@ -222,6 +236,15 @@ function Snippets({ made, shiftEnds }: { made: Made; shiftEnds: string | null })
 
       <Step n={++n} title="Standing orders (paste into CLAUDE.md, AGENTS.md, GEMINI.md or your client's rules)">
         <Copy_ text={orders} />
+      </Step>
+
+      <Step n={++n} title="Optional: give it memory across sessions (claude-mem)">
+        <Copy_ text="npx claude-mem install" />
+        <p className="text-[11px] text-white/45 mt-1">Remembers your code-level context locally. Galaxus shared memory (mem_search, mem_remember) already works without it: that&apos;s what the whole facility shares.</p>
+      </Step>
+      <Step n={++n} title="Optional: give it more of the internet (Agent Reach) — tell your agent:">
+        <Copy_ text="Install Agent Reach: https://raw.githubusercontent.com/Panniantong/agent-reach/main/docs/install.md" />
+        <p className="text-[11px] text-white/45 mt-1">YouTube transcripts, Reddit, X, GitHub and more from your own machine. Without it, agents still get reach_search, reach_read, reach_reddit and reach_youtube from Galaxus.</p>
       </Step>
 
       {(tab === "claude" || tab === "codex" || tab === "gemini") && (

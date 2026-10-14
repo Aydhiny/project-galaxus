@@ -1,0 +1,89 @@
+// Round 3 rules: who runs a cloud mission (Claude or free models), free-model
+// quota maths, the Reach parsers, and how deliverables are squeezed into memory.
+
+import { describe, expect, it } from "vitest";
+import { cloudRoute, parseCloudReply } from "@/lib/ops";
+import { cooldownMs, pickOrder, readRateHeaders, remainingToday, usable, type FreeKeyState } from "@/lib/free-llm";
+import { htmlToText, parseExa } from "@/lib/services/reach";
+import { compress } from "@/lib/services/ops-memory";
+
+const T = "2026-10-14";
+const key = (o: Partial<FreeKeyState> = {}): FreeKeyState => ({
+  provider: "groq", enabled: true, priority: 0, day: T, requests: 0, tokens: 0,
+  remainingRequests: null, limitRequests: null, remainingTokens: null, headersAt: null, cooldownUntil: null, ...o,
+});
+
+describe("cloudRoute: Claude or free models", () => {
+  const base = { engine: "auto", effort: "normal", claudeBlocked: false, freeReady: true, freeFirst: false, freeFallback: true };
+  it("auto uses Claude while it can", () => expect(cloudRoute(base)).toBe("claude"));
+  it("auto switches to free models when Claude runs out (fallback on)", () => expect(cloudRoute({ ...base, claudeBlocked: true })).toBe("free"));
+  it("…and waits when fallback is off or nothing free is left", () => {
+    expect(cloudRoute({ ...base, claudeBlocked: true, freeFallback: false })).toBe("none");
+    expect(cloudRoute({ ...base, claudeBlocked: true, freeReady: false })).toBe("none");
+  });
+  it("free-first sends only quick missions to free models", () => {
+    expect(cloudRoute({ ...base, freeFirst: true, effort: "quick" })).toBe("free");
+    expect(cloudRoute({ ...base, freeFirst: true, effort: "deep" })).toBe("claude");
+  });
+  it("claude-only and free-only agents stick to their engine", () => {
+    expect(cloudRoute({ ...base, engine: "claude", claudeBlocked: true })).toBe("none");
+    expect(cloudRoute({ ...base, engine: "free" })).toBe("free");
+    expect(cloudRoute({ ...base, engine: "free", freeReady: false })).toBe("none");
+  });
+});
+
+describe("free model quotas", () => {
+  it("estimates what's left from the published daily limit", () => {
+    expect(remainingToday(key({ requests: 40 }), T)).toMatchObject({ requests: 960, limit: 1000, exact: false });
+    // A new day starts from zero.
+    expect(remainingToday(key({ requests: 40, day: "2026-10-13" }), T).requests).toBe(1000);
+  });
+  it("prefers the provider's own fresh numbers", () => {
+    const now = Date.parse(`${T}T12:00:00Z`);
+    expect(remainingToday(key({ requests: 1, remainingRequests: 12, limitRequests: 1000, headersAt: new Date(now - 60_000) }), T, now))
+      .toMatchObject({ requests: 12, exact: true });
+    // Stale (over an hour): back to the estimate.
+    expect(remainingToday(key({ requests: 1, remainingRequests: 12, headersAt: new Date(now - 2 * 3_600_000) }), T, now).exact).toBe(false);
+  });
+  it("skips keys that are off, cooling down, or used up — then orders by your priority", () => {
+    const now = Date.parse(`${T}T12:00:00Z`);
+    expect(usable(key({ enabled: false }), T, now)).toBe(false);
+    expect(usable(key({ cooldownUntil: new Date(now + 60_000) }), T, now)).toBe(false);
+    expect(usable(key({ requests: 1000 }), T, now)).toBe(false);
+    expect(usable(key({ tokens: 100_000 }), T, now)).toBe(false); // Groq's daily token cap
+    const order = pickOrder([key({ provider: "gemini", priority: 1 }), key({ provider: "groq", priority: 0 }), key({ provider: "mistral", priority: 2, enabled: false })], T, now);
+    expect(order.map((k) => k.provider)).toEqual(["groq", "gemini"]);
+  });
+  it("reads rate-limit headers and rests providers sensibly", () => {
+    const h = new Headers({ "x-ratelimit-remaining-requests": "998", "x-ratelimit-limit-requests": "1000" });
+    expect(readRateHeaders(h)).toEqual({ remainingRequests: 998, limitRequests: 1000, remainingTokens: null });
+    expect(cooldownMs(429, "", "20")).toBe(20_000);
+    expect(cooldownMs(429, "slow down", null)).toBe(60_000);
+    expect(cooldownMs(429, "daily quota exceeded", null)).toBe(6 * 3_600_000);
+    expect(cooldownMs(401, "bad key", null)).toBe(6 * 3_600_000);
+  });
+});
+
+describe("Reach parsers", () => {
+  it("reads Exa's result blocks", () => {
+    const text = "Title: Fiverr fees 2026\nURL: https://example.com/fees\nPublished: 2026-09-01T00:00:00Z\nHighlights:\nFiverr keeps 20% of every order.\n\nTitle: No url here\n\nTitle: Second\nURL: https://example.org/b\nText:\nBody text";
+    expect(parseExa(text)).toEqual([
+      { title: "Fiverr fees 2026", url: "https://example.com/fees", published: "2026-09-01T00:00:00Z", snippet: "Fiverr keeps 20% of every order." },
+      { title: "Second", url: "https://example.org/b", published: null, snippet: "Body text" },
+    ]);
+  });
+  it("turns HTML into readable text without scripts", () => {
+    expect(htmlToText("<html><script>alert(1)</script><h1>Hi &amp; bye</h1><p>One</p><p>Two</p></html>")).toBe("Hi & bye\n One\n Two");
+  });
+  it("cloud replies can ask the user a question", () => {
+    expect(parseCloudReply("QUESTION: Which city should I focus on?\nOPTIONS: Sarajevo | Mostar")).toEqual({ question: "Which city should I focus on?", options: ["Sarajevo", "Mostar"] });
+    expect(parseCloudReply("# Result\nNo question here")).toBeNull();
+  });
+});
+
+describe("memory compression", () => {
+  it("keeps the lead and the first bullets of a deliverable", () => {
+    const md = "# Gigs\n\nThree good gigs this week.\n\n- Logo for a café, 50 KM\n- Video edit, 80 KM\n\n## Notes\nLong notes…";
+    expect(compress(md)).toBe("Three good gigs this week. Long notes…\n- Logo for a café, 50 KM\n- Video edit, 80 KM");
+  });
+});

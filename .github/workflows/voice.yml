@@ -99,6 +99,11 @@ jobs:
             system=$(jq -r '.system' job.json)
             tools=$(jq -r '.tools // false' job.json)
             web=$(jq -r '.web // false' job.json)
+            # Cost control (Galaxus decides per job): the model, and a hard cap for this one run.
+            model=$(jq -r '.model // "sonnet"' job.json)
+            cap=$(jq -r '.max_budget_usd // empty' job.json)
+            budget_args=()
+            if [ -n "$cap" ]; then budget_args=(--max-budget-usd "$cap"); fi
 
             # Only voice commands get the Galaxus tools. Jobs that read text
             # from the internet (news, comments, commits) get none at all, so
@@ -119,7 +124,8 @@ jobs:
               --tools "$builtin" \
               "${tool_args[@]}" \
               --permission-mode dontAsk \
-              --model sonnet \
+              --model "$model" \
+              "${budget_args[@]}" \
               --output-format json \
               --no-session-persistence \
               < prompt.txt > out.json 2> err.log

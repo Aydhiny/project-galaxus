@@ -156,7 +156,13 @@ export async function claimNextFor(userId: number) {
     // from fresh data. A job whose data vanished fails cleanly.
     try {
       const built = await buildJobPrompt({ userId, kind: String(row.kind), payload: row.payload as Record<string, unknown> });
-      return { id: Number(row.id), tools: jobUsesTools(String(row.kind)), web: jobUsesWeb(String(row.kind)), ...built };
+      const pl = (row.payload ?? {}) as { model?: string; capCents?: number };
+      return {
+        id: Number(row.id), tools: jobUsesTools(String(row.kind)), web: jobUsesWeb(String(row.kind)), ...built,
+        // Cost control for the runner: which model, and a hard cap per run (Claude Code's --max-budget-usd).
+        model: ["haiku", "sonnet", "opus"].includes(String(pl.model)) ? String(pl.model) : null,
+        max_budget_usd: typeof pl.capCents === "number" && pl.capCents > 0 ? pl.capCents / 100 : null,
+      };
     } catch (e) {
       await completeFor(userId, Number(row.id), { ok: false, error: e instanceof Error ? e.message : "Couldn't prepare this job." });
       return claimNextFor(userId);
@@ -166,6 +172,8 @@ export async function claimNextFor(userId: number) {
     id: Number(row.id),
     tools: true,
     web: false,
+    model: null,
+    max_budget_usd: null,
     system: VOICE_SYSTEM,
     prompt: buildVoicePrompt({
       transcript: String(row.transcript),
@@ -217,9 +225,14 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   }
   const [row] = await db
     .update(voiceCommands)
-    .set({ status: ok ? "done" : "failed", summary, result: full, error, finishedAt: new Date() })
+    .set({ status: ok ? "done" : "failed", summary, result: full, error, finishedAt: new Date(), costCents: result.costCents ?? null })
     .where(eq(voiceCommands.id, id))
     .returning();
+  // Claude said your plan's limit is reached: pause cloud agents until it resets.
+  if (!ok) {
+    const { noteJobErrorFor } = await import("@/lib/services/ops-inbox");
+    await noteJobErrorFor(userId, error).catch(() => {});
+  }
   await notifyDone(userId, row, result.costCents ?? null);
   return row;
 }
@@ -233,7 +246,7 @@ async function notifyDone(userId: number, c: VoiceCommand, costCents: number | n
   if (c.kind === "gigs" && c.status === "failed") return;
   // A cloud agent's mission goes back on the board; the facility shows why.
   // Its success is announced by the facility itself (the deliverable push), so only failures are handled here.
-  if (c.kind === "ops_mission" || c.kind === "ops_debrief" || c.kind === "ops_standup") {
+  if (c.kind.startsWith("ops_")) {
     if (c.kind === "ops_mission" && c.status === "failed") {
       const { cloudMissionFailedFor } = await import("@/lib/services/ops");
       await cloudMissionFailedFor(userId, Number((c.payload ?? {}).missionId), c.error, costCents);
