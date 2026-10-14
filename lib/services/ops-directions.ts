@@ -11,7 +11,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import { opsAgents, opsMemories, opsMessages } from "@/lib/db/schema";
+import { opsAgents, opsMemories, opsMessages, opsProjects } from "@/lib/db/schema";
 import { redact } from "@/lib/ops";
 
 export const MAX_DIRECTIONS = 20; // standing orders at once: remove old ones to add more
@@ -51,10 +51,12 @@ export async function addDirectionFor(userId: number, raw: string) {
   const chief = await chiefFor(userId);
   // To the Chief by name; with no Chief yet, to the command team (whoever joins it hears it).
   await db.insert(opsMessages).values({ userId, fromAgentId: null, toAgentId: chief?.id ?? null, toTeam: chief ? null : "command", body: `Direction: ${text}` });
-  if (chief) {
-    const ack = () => acknowledge(userId, chief.id, text);
-    try { after(ack); } catch { await ack(); } // outside a request (scripts/tests) there's no after()
-  }
+  // An order should change what happens now, not just be noted: re-plan idle projects with it, then reply.
+  const work = async () => {
+    const replanned = await replanIdleProjects(userId);
+    if (chief) await acknowledge(userId, chief.id, text, replanned);
+  };
+  try { after(work); } catch { await work(); } // outside a request (scripts/tests) there's no after()
   return { id: memory.id, chief: chief?.name ?? null };
 }
 
@@ -66,14 +68,25 @@ export async function removeDirectionFor(userId: number, id: number) {
 export const notedLine = (text: string) => `Noted: ${clip(text.replace(/\s+/g, " "), 180)}. I'll plan around it.`;
 
 /** The Chief's one-line reply on the radio, to everyone (so the crew hears the new order too). Never throws. */
-async function acknowledge(userId: number, chiefId: number, text: string) {
-  let line = notedLine(text);
+async function acknowledge(userId: number, chiefId: number, text: string, replanned: string[] = []) {
+  let line = replanned.length ? `${notedLine(text).replace(/ I'll plan around it\.$/, "")} Re-planning now: ${replanned.join(", ")}.` : notedLine(text);
   try {
     const { freeStatusFor, askFree } = await import("@/lib/services/free-llm");
     if ((await freeStatusFor(userId)).usableCount > 0) {
+      // Grounded: what the facility is actually doing, so the reply can't invent work ("integration and testing"…).
+      const { projectsFor } = await import("@/lib/services/ops-projects");
+      const [projects, crew] = await Promise.all([
+        projectsFor(userId).catch(() => []),
+        db.select({ name: opsAgents.name, role: opsAgents.role }).from(opsAgents).where(eq(opsAgents.userId, userId)),
+      ]);
+      const facts = [
+        projects.filter((p) => p.status === "active").map((p) => `Project "${p.title.slice(0, 120)}": ${p.done} done, ${p.active} in progress${p.sheetRows ? `, ${p.sheetRows} rows found` : ""}.`).join(" ") || "No active project.",
+        `Crew: ${crew.map((c) => `${c.name} (${c.role})`).join(", ")}.`,
+        replanned.length ? `You are re-planning these projects right now: ${replanned.join(", ")}.` : "",
+      ].filter(Boolean).join("\n");
       const r = await askFree(userId, {
-        system: "You are the Chief of staff of a small AI agent crew. The user just gave you a standing order. Acknowledge it in ONE short sentence (max 25 words), say concretely how the crew's work will change. No greeting, no questions, no quotes.",
-        prompt: `The user's direction: ${text}`,
+        system: "You are the Chief of staff of a small AI agent crew. The user just gave you a standing order. Reply in ONE short sentence (max 30 words): what you will do next, using ONLY the facts given (real project and crew names). Never mention work that isn't in the facts. No greeting, no questions, no quotes.",
+        prompt: `FACTS:\n${facts}\n\nThe user's order: ${text}`,
         maxTokens: 300,
       });
       const one = r.text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/\s+/g, " ").replace(/^["'“]|["'”]$/g, "").trim();
@@ -81,4 +94,22 @@ async function acknowledge(userId: number, chiefId: number, text: string) {
     }
   } catch { /* the plain line will do */ }
   await db.insert(opsMessages).values({ userId, fromAgentId: chiefId, toAgentId: null, toTeam: null, body: redact(line) }).catch(() => {});
+}
+
+/**
+ * After a new order: every active project with nothing in progress gets planned again right now
+ * (the order is in the lead's prompt). Returns the project titles it re-planned. Never throws.
+ */
+async function replanIdleProjects(userId: number) {
+  try {
+    const { projectsFor, planProjectDayFor } = await import("@/lib/services/ops-projects");
+    const out: string[] = [];
+    for (const p of await projectsFor(userId)) {
+      if (p.status !== "active" || p.active > 0 || p.finishing) continue;
+      await db.update(opsProjects).set({ lastPlannedDay: null, planStartedAt: null }).where(and(eq(opsProjects.id, p.id), eq(opsProjects.userId, userId)));
+      const [fresh] = await db.select().from(opsProjects).where(eq(opsProjects.id, p.id)).limit(1);
+      if (fresh && (await planProjectDayFor(userId, fresh))) out.push(`"${p.title.length > 60 ? `${p.title.slice(0, 58)}…` : p.title}"`);
+    }
+    return out;
+  } catch { return []; }
 }

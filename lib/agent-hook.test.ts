@@ -115,3 +115,15 @@ describe("normalize", () => {
     expect(reply("codex", "UserPromptSubmit")).toBe("");
   });
 });
+
+describe("--dir: only the agent's own sessions report", () => {
+  it("matches the folder and its subfolders, on Windows paths too, and nothing else", () => {
+    expect(hook.insideDir("C:\\User\\Reuf\\src", "c:/user/reuf")).toBe(true);
+    expect(hook.insideDir("C:\\User\\Reuf", "C:\\User\\Reuf\\")).toBe(true);
+    expect(hook.insideDir("/home/a/reuf/app", "/home/a/reuf")).toBe(true);
+    // Your other sessions (e.g. working on Galaxus itself) are not the agent.
+    expect(hook.insideDir("C:\\User\\Programming\\project-galaxus", "C:\\User\\Reuf")).toBe(false);
+    expect(hook.insideDir("C:/User/Reufx", "C:/User/Reuf")).toBe(false); // a sibling with a longer name
+    expect(hook.insideDir("", "C:/User/Reuf")).toBe(false);
+  });
+});

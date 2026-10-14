@@ -202,7 +202,10 @@ function Snippets({ made, shiftEnds }: { made: Made; shiftEnds: string | null })
       {tab === "claude" && (
         <>
           <Step n={++n} title="Connect it to Galaxus"><Copy_ text={s.claudeMcp} /></Step>
-          <Step n={++n} title="Turn on live activity: merge into ~/.claude/settings.json"><Copy_ text={s.claudeHooks} /></Step>
+          <Step n={++n} title="Turn on live activity: merge into .claude/settings.json in the agent's own folder">
+            <Copy_ text={s.claudeHooks} />
+            <p className="text-[11px] text-amber-200/80 mt-1">Not in ~/.claude/settings.json: hooks there fire for every Claude Code session on your computer, so your own unrelated work would show up as this agent. If you must install it globally, add <code className="font-mono">--dir &quot;C:\path\to\agent-folder&quot;</code> to the command so only sessions in that folder report.</p>
+          </Step>
         </>
       )}
       {tab === "codex" && (

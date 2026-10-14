@@ -13,12 +13,19 @@ import type { Place } from "./places";
 const UA = "Galaxus/1.0 (personal lead finder; https://project-galaxus.vercel.app)";
 
 export async function cityBox(city: string): Promise<[number, number, number, number]> {
-  const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q: city, countrycodes: "ba", format: "json", limit: "1" })}`;
-  const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(15_000), cache: "no-store" });
-  const [hit] = (await res.json().catch(() => [])) as { boundingbox?: string[] }[];
-  if (!hit?.boundingbox) throw new Error(`OpenStreetMap couldn't find "${city}".`);
-  const [south, north, west, east] = hit.boundingbox.map(Number);
-  return [south, west, north, east];
+  // Try the name as given, then without trailing words ("Ilidža Sarajevo" → "Ilidža"), then the last word.
+  const words = city.trim().split(/\s+/);
+  const tries = [...new Set([city.trim(), ...words.slice(0, -1).map((_, i) => words.slice(0, words.length - 1 - i).join(" ")), words[words.length - 1]].filter((t) => t.length >= 2))].slice(0, 4);
+  for (const q of tries) {
+    const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q, countrycodes: "ba", format: "json", limit: "1" })}`;
+    const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(15_000), cache: "no-store" });
+    const [hit] = (await res.json().catch(() => [])) as { boundingbox?: string[] }[];
+    if (hit?.boundingbox) {
+      const [south, north, west, east] = hit.boundingbox.map(Number);
+      return [south, west, north, east];
+    }
+  }
+  throw new Error(`OpenStreetMap couldn't find "${city}".`);
 }
 
 type OsmElement = { type: string; id: number; tags?: Record<string, string> };

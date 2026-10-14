@@ -7,7 +7,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import { opsAgents, opsMissions, type OpsAgent, type OpsMission, type VoiceCommand } from "@/lib/db/schema";
+import { opsAgents, opsEvents, opsMissions, type OpsAgent, type OpsMission, type VoiceCommand } from "@/lib/db/schema";
 import { ROLES, parseCloudReply, roleOf } from "@/lib/ops";
 
 export const FREE_JOB = 0; // ops_missions.job_id while a free model works on it (no runner job)
@@ -168,8 +168,23 @@ export async function runFindMission(userId: number, missionId: number, agentId:
     ].join("\n\n");
     await ops.submitDeliverableForAgent(a, { missionId: m.id, title: `${r.rows.length} × ${find.type.replace(/_/g, " ")} · ${find.city}`, markdown: md, costCents: 0, measured: true });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "error";
+    // Log on the mission first (while this agent still holds it, so the event is linked), then release it.
+    await ops.recordEventForAgent(a, { kind: "status", label: `Map search failed: ${msg.slice(0, 140)}`, url: null, status: "error" }, { missionId: m.id }).catch(() => {});
     await db.update(opsMissions).set({ status: "open", claimedAt: null, jobId: null, agentId: m.role ? null : m.agentId }).where(and(eq(opsMissions.id, m.id), eq(opsMissions.status, "claimed")));
-    await ops.recordEventForAgent(a, { kind: "status", label: `Map search failed: ${e instanceof Error ? e.message.slice(0, 140) : "error"}`, url: null, status: "error" }, { missionId: m.id }).catch(() => {});
+    // A city the map doesn't know won't fix itself: on the second miss, ask you instead of retrying every beat.
+    // (Busy map servers are temporary, so those just retry on the next beat.)
+    if (/couldn't find|No FIND line/.test(msg)) {
+      const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(opsEvents)
+        .where(and(eq(opsEvents.missionId, m.id), sql`${opsEvents.label} like 'Map search failed:%'`));
+      if (n >= 2) {
+        const { askUserForAgent } = await import("@/lib/services/ops-inbox");
+        await askUserForAgent(a, {
+          question: `Which city should "${m.title}" search? The map couldn't find "${find?.city ?? "the city in the brief"}".`,
+          options: ["Sarajevo", "Banja Luka", "Mostar", "Tuzla"], missionId: m.id, blocking: true,
+        }).catch(() => null);
+      }
+    }
   }
 }
 

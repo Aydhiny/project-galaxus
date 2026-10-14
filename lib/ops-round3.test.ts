@@ -201,3 +201,24 @@ describe("presence: you can always see what an agent is doing", () => {
     expect(Object.keys(PRESENCE_LOOK).sort()).toEqual(["error", "idle", "offline", "stuck", "waiting", "working"]);
   });
 });
+
+describe("FIND lines: the city is just the city", () => {
+  it("strips counts and notes the planner adds, and fixes common spellings", async () => {
+    const { cleanCity, parseFindLine } = await import("@/lib/services/business-finder");
+    expect(parseFindLine("FIND: dentist @ Banja Luka 30 rows")).toEqual({ type: "dentist", city: "Banja Luka" });
+    expect(cleanCity("Mostar (60 leads)")).toBe("Mostar");
+    expect(cleanCity("Tuzla, first 40")).toBe("Tuzla");
+    expect(cleanCity("Sarajevo – dentists only")).toBe("Sarajevo");
+    expect(cleanCity("Zenica: 25 businesses")).toBe("Zenica");
+    expect(cleanCity("Banjaluka")).toBe("Banja Luka");
+    expect(cleanCity("Bosanska Krupa")).toBe("Bosanska Krupa");
+    expect(cleanCity("Novi Grad Sarajevo 50")).toBe("Novi Grad Sarajevo");
+    expect(cleanCity("**Bihać**")).toBe("Bihać");
+    expect(cleanCity("40 rows")).toBe("");
+  });
+  it("your answer to 'which city?' wins over what the planner wrote", async () => {
+    const { parseFindLine } = await import("@/lib/services/business-finder");
+    const brief = "FIND: lawyer @ Banjja Lukka\n30 rows\n\nYou asked: Which city should \"Lawyers\" search? The map couldn't find \"Banjja Lukka\".\nThe user answered: Banja Luka";
+    expect(parseFindLine(brief)).toEqual({ type: "lawyer", city: "Banja Luka" });
+  });
+});

@@ -125,6 +125,33 @@ export function businessTable(rows: BusinessRow[]) {
 
 /** "FIND: dentist @ Sarajevo" in a mission brief → the finder's input (the planner writes this line). */
 export function parseFindLine(brief: string | null | undefined) {
-  const m = String(brief ?? "").match(/^FIND:\s*([a-z_]+)\s*@\s*([^\n]{2,60})$/im);
-  return m && osmType(m[1].toLowerCase()) ? { type: m[1].toLowerCase(), city: m[2].trim() } : null;
+  const text = String(brief ?? "");
+  const m = text.match(/^\s*FIND:\s*([a-z_]+)\s*@\s*([^\n]{2,80})$/im);
+  if (!m || !osmType(m[1].toLowerCase())) return null;
+  // You answered "which city?": that wins over whatever the planner wrote.
+  const answered = text.match(/You asked: Which city[^\n]*\nThe user answered: ([^\n]{2,60})/i)?.[1];
+  const city = cleanCity(answered ?? m[2]);
+  return city ? { type: m[1].toLowerCase(), city } : null;
+}
+
+// Common BiH spellings → the name OpenStreetMap knows.
+const CITY_ALIASES: Record<string, string> = {
+  banjaluka: "Banja Luka", "banja-luka": "Banja Luka", "istocno sarajevo": "Istočno Sarajevo", "istočno sarajevo": "Istočno Sarajevo",
+  "bijeljna": "Bijeljina", "zenica-doboj": "Zenica", "sarajevu": "Sarajevo", "mostaru": "Mostar", "tuzli": "Tuzla", "banjoj luci": "Banja Luka",
+};
+
+/**
+ * "Banja Luka 30 rows" → "Banja Luka"; "Mostar (60 leads)" → "Mostar"; "Tuzla, first 40" → "Tuzla";
+ * "Sarajevo – dentists only" → "Sarajevo". Keeps real multi-word names ("Novi Grad Sarajevo", "Bosanska Krupa").
+ */
+export function cleanCity(raw: string) {
+  let c = String(raw ?? "")
+    .split(/\s*(?:[,;|(\[{]|\s[-–—]\s|:)\s*/)[0] // anything after a comma, bracket, dash or colon is a note
+    .replace(/\b\d[\d.,]*\s*(?:rows?|businesses|leads?|results?|places?|entries|items?|kom|komada)?\b.*$/i, "") // "30 rows", "60", "200 leads ..."
+    .replace(/\b(?:first|then|only|at least|min(?:imum)?|up to|max(?:imum)?|top|around|approx\.?)\b.*$/i, "")
+    .replace(/[*_`"']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  c = CITY_ALIASES[c.toLowerCase()] ?? c;
+  return c.length >= 2 ? c : "";
 }

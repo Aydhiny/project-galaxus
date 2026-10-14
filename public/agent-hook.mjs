@@ -70,6 +70,13 @@ export function reply(client, event) {
   return ""; // Claude Code / Codex: plain stdout on a prompt hook becomes model context, so say nothing
 }
 
+/** Is `cwd` the folder `dir` or inside it? (Windows: case-insensitive, either slash.) */
+export function insideDir(cwd, dir) {
+  const norm = (s) => String(s).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  const c = norm(cwd), d = norm(dir);
+  return !!c && !!d && (c === d || c.startsWith(`${d}/`));
+}
+
 function arg(name) {
   const k = process.argv.indexOf(`--${name}`);
   return k > 0 ? process.argv[k + 1] : undefined;
@@ -85,7 +92,11 @@ async function main() {
     for await (const c of process.stdin) chunks.push(c);
     const p = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     event = p?.hook_event_name;
-    const body = token && base ? normalize(client, p) : null;
+    // --dir <folder>: report only sessions working inside the agent's own folder. Hooks in ~/.claude
+    // fire for EVERY session on the computer; without this, your own unrelated sessions show up as the agent.
+    const dir = arg("dir") || process.env.GALAXUS_AGENT_DIR;
+    const inDir = !dir || insideDir(String(p?.cwd ?? p?.workspace_roots?.[0] ?? ""), dir);
+    const body = token && base && inDir ? normalize(client, p) : null;
     if (body) {
       await fetch(`${base}/api/agents/event`, {
         method: "POST",
