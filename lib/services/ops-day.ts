@@ -148,6 +148,8 @@ export async function debriefMarkdown(userId: number, day: string) {
     db.select().from(opsRecurring).where(and(eq(opsRecurring.userId, userId), eq(opsRecurring.active, true))),
   ]);
   const name = (id: number | null) => agents.find((a) => a.id === id)?.name ?? "—";
+  const { nightDoneOn } = await import("@/lib/services/ops-night");
+  const nightDone = await nightDoneOn(userId, day);
   const todays = missions.filter((m) => String(m.day) === day);
   const done = todays.filter((m) => m.status === "done"), review = missions.filter((m) => m.status === "submitted");
   const doing = missions.filter((m) => m.status === "claimed"), open = missions.filter((m) => m.status === "open");
@@ -159,6 +161,7 @@ export async function debriefMarkdown(userId: number, day: string) {
     `# Debrief · ${day}`,
     `${done.length} accepted · ${review.length} waiting for your review · ${doing.length} in progress · ${open.length} open`,
     `Spent ${cents(spent)}${budget ? ` of ${cents(budget)} budgeted` : ""} (${cents(measured)} measured from real runs, the rest reported by agents).`,
+    ...(nightDone ? [`Night shift: ${nightDone} mission${nightDone === 1 ? "" : "s"} done on free models while you slept ($0 of your Claude plan).`] : []),
     `## Done`, list(done, (m) => `${m.title} (${name(m.submittedBy)}, ${cents(m.spentCents)})`),
     `## Waiting for your review`, list(review, (m) => `${m.title} (${name(m.submittedBy ?? m.agentId)})`),
     `## Blocked or still running`, list(doing, (m) => `${m.title} (${name(m.agentId)})`),
@@ -221,12 +224,15 @@ export async function opsTickFor(userId: number) {
   if (standupDue(today ?? null, now)) standup = (await standupFor(userId)).done;
   if (shiftEnded(today ?? null, now, "today") && (await debriefFor(userId, today))) debriefs++;
   if (shiftEnded(yesterday ?? null, now, "yesterday") && (await debriefFor(userId, yesterday))) debriefs++;
+  // Night shift: notes the night, says when a project's next day may be planned early (free models only), and posts the morning summary.
+  const { nightTickFor } = await import("@/lib/services/ops-night");
+  const night = await nightTickFor(userId, today ? shiftStatus(today, now).state : "none");
   // Projects: plan each day while the shift is on (or from 08:00 with no shift); report when it ends (or at 21:00).
   const on = today ? shiftStatus(today, now).state === "on" : now >= "08:00" && now < "21:00";
   const ended = today ? shiftEnded({ ...today, debriefAt: null }, now, "today") : now >= "21:00";
   const { projectsTickFor } = await import("@/lib/services/ops-projects");
-  const projects = await projectsTickFor(userId, { shiftOn: on, shiftEnded: ended });
+  const projects = await projectsTickFor(userId, { shiftOn: on || night.planDue, shiftEnded: ended, night: night.active });
   const { dispatchCloudFor } = await import("@/lib/services/ops");
   const dispatch = await dispatchCloudFor(userId);
-  return { posted, standup, debriefs, projects, ...dispatch };
+  return { posted, standup, debriefs, projects, ...(night.active ? { night: true } : {}), ...dispatch };
 }

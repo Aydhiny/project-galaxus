@@ -83,7 +83,7 @@ export async function budgetFor(userId: number) {
   return {
     monthlyBudgetCents: s.monthlyBudgetCents, spentMonthCents: row?.month ?? 0, spentTodayCents: row?.today ?? 0, runsToday: row?.runsToday ?? 0,
     ...a, model: s.cloudModel as CloudModel, notify: s.notify as NotifyLevel, maxPushesPerDay: s.maxPushesPerDay, paused,
-    freeFallback: s.freeFallback, freeFirst: s.freeFirst,
+    freeFallback: s.freeFallback, freeFirst: s.freeFirst, nightShift: s.nightShift,
   };
 }
 export type OpsBudget = Awaited<ReturnType<typeof budgetFor>>;

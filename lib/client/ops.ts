@@ -8,6 +8,7 @@ import {
   answerQuestion, createProject, markInboxRead, respondRequest, resumeCloud, saveOpsSettings, setProjectStatus,
   addMemory, extendProject, forgetMemory, moveFreeKey, pinMemory, reachDoctorNow, refreshAboutMemory, removeFreeKey, saveFreeKey, testFreeKey,
 } from "@/lib/actions/ops";
+import { saveNightShift } from "@/lib/actions/ops"; // Free-model ops
 
 export const createAgentC = unwrapped(createAgent);
 export const updateAgentC = unwrapped(updateAgent);
@@ -54,3 +55,6 @@ export const refreshAboutMemoryC = unwrapped(refreshAboutMemory);
 export const reachDoctorNowC = unwrapped(reachDoctorNow);
 export { getFreeStatus, getMemories } from "@/lib/actions/ops";
 export type { OpsOverview } from "@/lib/actions/ops";
+
+// ── Free-model ops: the night shift toggle ──
+export const saveNightShiftC = unwrapped(saveNightShift);

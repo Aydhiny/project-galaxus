@@ -7,11 +7,12 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ExternalLink, Gift, Loader2, PlugZap, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, Gift, HeartPulse, Loader2, PlugZap, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DIRECTORY_URL, FREE_PROVIDERS, freeProvider } from "@/lib/free-llm";
+import { DIRECTORY_URL, FREE_PROVIDERS, UNHEALTHY_AFTER, freeProvider } from "@/lib/free-llm";
+import { healthLabel } from "@/lib/free-health";
 import { Dialog, btnGhost, btnPrimary, field } from "@/components/ops/ops-dialog";
-import { moveFreeKeyC, removeFreeKeyC, saveFreeKeyC, saveOpsSettingsC, testFreeKeyC, type OpsOverview } from "@/lib/client/ops";
+import { moveFreeKeyC, removeFreeKeyC, saveFreeKeyC, saveNightShiftC, saveOpsSettingsC, testFreeKeyC, type OpsOverview } from "@/lib/client/ops";
 
 type Free = OpsOverview["free"];
 
@@ -49,6 +50,11 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
           label="When Claude runs out, keep going on free models" hint="Paused by a usage limit, today's budget used, or Claude not connected." />
         <Toggle on={data.budget.freeFirst} disabled={busy} onChange={(v) => setting({ freeFirst: v })}
           label="Quick missions use free models first" hint="Saves your Claude plan for deep work." />
+        <div className="sm:col-span-2 grid">
+          <Toggle on={data.budget.nightShift} disabled={busy} onChange={(v) => run(() => saveNightShiftC(v), v ? "Night shift on: the crew works on free models while you sleep." : "Night shift off.")}
+            label="Night shift: while I sleep, the crew keeps working on free models only"
+            hint="Between your bedtime and wake time (Settings → Sleep Guardian, else 23:00–07:00). Claude is never used at night, so your plan's budget is untouched. You get a one-line summary in the morning." />
+        </div>
       </div>
 
       <div className="mt-4 flex items-baseline justify-between">
@@ -64,6 +70,10 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
             <li key={p.id} className={cn("rounded-xl border px-3 py-2", p.enabled ? "border-white/10 bg-white/[0.03]" : "border-white/5 opacity-60")}>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{p.name}</span>
+                {p.unhealthy && (
+                  <span title={`Failed ${p.healthFails} health checks in a row (${UNHEALTHY_AFTER}+ = unhealthy). Tried last until it passes again.`}
+                    className="inline-flex items-center gap-1 rounded-md border border-rose-300/40 bg-rose-300/10 px-1.5 text-[10px] text-rose-200"><HeartPulse className="w-3 h-3" />unhealthy</span>
+                )}
                 <span className="text-[11px] font-mono text-white/50 truncate">{p.model}</span>
                 <span className="ml-auto flex items-center gap-0.5">
                   <IconBtn label="Up" disabled={busy || i === 0} onClick={() => run(() => moveFreeKeyC(p.id, -1))}><ArrowUp className="w-3.5 h-3.5" /></IconBtn>
@@ -87,9 +97,11 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
                       <span className="text-white/40">{p.left.exact ? "(reported by provider)" : "(estimate)"}</span>
                     </>}
                 {p.left.usedTokens > 0 && <span className="text-white/40">· {p.left.usedTokens.toLocaleString("en-GB")} tokens used</span>}
+                {p.healthChecksToday > 0 && <span className="text-white/40" title="Hourly health checks are real requests: they count in today's usage.">· {p.left.used} used today, {healthLabel(p.healthChecksToday)}</span>}
               </div>
               {cooling && <p className="mt-1 text-[11px] text-amber-200">Resting until {cooling.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}{p.lastError ? ` · ${p.lastError}` : ""} — the next provider takes over.</p>}
-              {!cooling && p.lastError && <p className="mt-1 text-[11px] text-white/45">Last error: {p.lastError}</p>}
+              {!cooling && p.lastError && <p className={cn("mt-1 text-[11px]", p.unhealthy ? "text-rose-200/90" : "text-white/45")}>Last error: {p.lastError}</p>}
+              {p.unhealthy && <p className="mt-0.5 text-[10px] text-white/45">Unhealthy: {p.healthFails} health checks failed in a row, so it&apos;s tried last. Hit Test after fixing the key or model.</p>}
             </li>
           );
         })}

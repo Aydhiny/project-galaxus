@@ -214,3 +214,12 @@ export async function reachDoctorNow() {
 export async function extendProject(id: number, days: number) {
   return toResult(async () => { await extendProjectFor(await requireUserId(), id, days); done(); });
 }
+
+// ── Free-model ops: the night shift toggle ──
+export async function saveNightShift(on: boolean) {
+  return toResult(async () => {
+    const { setNightShiftFor } = await import("@/lib/services/ops-night");
+    await setNightShiftFor(await requireUserId(), !!on);
+    done();
+  });
+}
