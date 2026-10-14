@@ -54,3 +54,7 @@ export const refreshAboutMemoryC = unwrapped(refreshAboutMemory);
 export const reachDoctorNowC = unwrapped(reachDoctorNow);
 export { getFreeStatus, getMemories } from "@/lib/actions/ops";
 export type { OpsOverview } from "@/lib/actions/ops";
+
+// ─── Replies & friends ────────────────────────────────────────────────────────
+import { setLinkLeads } from "@/lib/actions/ops";
+export const setLinkLeadsC = unwrapped(setLinkLeads);

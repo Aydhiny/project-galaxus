@@ -50,11 +50,12 @@ export function LeadDetail({ lead, onPatch }: { lead: Lead; onPatch: (p: LeadPat
           </div>
         </div>
 
-        {(lead.gaps.length > 0 || lead.skipReason) && (
+        {(lead.gaps.length > 0 || lead.skipReason || lead.partnerNote) && (
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">What&apos;s missing</p>
             <GapChips gaps={lead.gaps} />
-            {lead.skipReason && <p className="text-xs text-muted-foreground mt-1.5">Skipped: {lead.skipReason.replace(/_/g, " ")}</p>}
+            {lead.skipReason && <p className="text-xs text-muted-foreground mt-1.5">Skipped: {lead.partnerNote ?? lead.skipReason.replace(/_/g, " ")}</p>}
+            {!lead.skipReason && lead.partnerNote && <p className="text-xs text-amber-700 dark:text-amber-300 mt-1.5">{lead.partnerNote}</p>}
           </div>
         )}
 
@@ -113,6 +114,7 @@ export function LeadDetail({ lead, onPatch }: { lead: Lead; onPatch: (p: LeadPat
 
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground">Message</span>
+          {lead.tags.includes("reply_ready") && lead.status === "replied" && <span className="block text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">Your reply to them, drafted by your Chief. Read it, then send it on WhatsApp yourself.</span>}
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}

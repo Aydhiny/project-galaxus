@@ -271,6 +271,9 @@ async function insertLeads(userId: number, places: Place[], ctx: { searchId: num
     };
   });
   if (rows.length === 0) return 0;
+  // Shared lead pool: a business your linked partner already contacted goes in skipped, with who and when.
+  const { tagPartnerContacted } = await import("@/lib/services/lead-pool");
+  await tagPartnerContacted(userId, rows);
   const inserted = await db.insert(leads).values(rows).onConflictDoNothing({ target: [leads.userId, leads.placeId] }).returning({ id: leads.id });
   return inserted.length;
 }
@@ -442,13 +445,16 @@ export async function releaseBatchFor(userId: number, count: number, day: string
     .from(leads)
     .where(and(eq(leads.userId, userId), eq(leads.status, "ready")))
     .orderBy(sql`(${leads.channel} = 'whatsapp') desc`, desc(leads.score))
-    .limit(count);
-  if (picked.length === 0) return 0;
+    .limit(count * 2 + 5); // spare ones, in case the shared lead pool skips some
+  // Shared lead pool: never queue a business a linked partner already contacted.
+  const { skipPartnerContacted } = await import("@/lib/services/lead-pool");
+  const ids = (await skipPartnerContacted(userId, picked.map((p) => p.id))).slice(0, count);
+  if (ids.length === 0) return 0;
   await db
     .update(leads)
     .set({ status: "queued", queuedFor: day, batch, updatedAt: new Date() })
-    .where(inArray(leads.id, picked.map((p) => p.id)));
-  return picked.length;
+    .where(inArray(leads.id, ids));
+  return ids.length;
 }
 
 async function getOrPlanDay(userId: number, settings: { batches: number; windowStart: number; windowEnd: number }, local: ReturnType<typeof localNow>) {
@@ -526,6 +532,13 @@ export async function updateLeadFor(userId: number, id: number, patch: LeadPatch
 
   if (patch.status !== undefined) {
     if (!isLeadStatus(patch.status)) throw new Error("Unknown status.");
+    // Shared lead pool: refuse to queue what a partner has; a send that already happened is kept, with the note.
+    if ((patch.status === "queued" || patch.status === "sent") && lead.status !== patch.status) {
+      const { partnerHitFor } = await import("@/lib/services/lead-pool");
+      const hit = await partnerHitFor(userId, lead);
+      if (hit && patch.status === "queued") throw new Error(`${hit.note}. Skip it so you don't both message them.`);
+      if (hit) set.partnerNote = hit.note;
+    }
     set.status = patch.status;
     if (patch.status === "sent" && !lead.sentAt) set.sentAt = new Date();
     if ((REPLIED_STATUSES as string[]).includes(patch.status) && !lead.repliedAt) set.repliedAt = new Date();
@@ -547,6 +560,11 @@ export async function updateLeadFor(userId: number, id: number, patch: LeadPatch
     set.score = scoreLead({ ...lead, revenueKm: rev });
   }
   const [row] = await db.update(leads).set(set).where(eq(leads.id, id)).returning();
+  // Reply watch: they answered → the Chief drafts your reply and a quote (in the background; never sends).
+  if (patch.status === "replied" && lead.status !== "replied") {
+    const { onLeadReplied } = await import("@/lib/services/reply-watch");
+    await onLeadReplied(userId, id);
+  }
   return row;
 }
 

@@ -135,6 +135,10 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       const { buildReviewPrompt } = await import("@/lib/services/ops-review");
       return buildReviewPrompt(row.userId, Number(p.missionId), Number(p.chiefId));
     }
+    case "ops_lead_reply": {
+      const { buildLeadReplyPrompt } = await import("@/lib/services/reply-watch");
+      return buildLeadReplyPrompt(row.userId, Number(p.replyId));
+    }
     case "scout":
       return buildScoutPrompt(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger));
     case "digest": {
@@ -213,6 +217,10 @@ export async function applyJobResult(row: VoiceCommand, text: string, costCents:
     case "ops_review": {
       const { applyReviewResult } = await import("@/lib/services/ops-review");
       return applyReviewResult(row.userId, Number(p.missionId), Number(p.chiefId), text);
+    }
+    case "ops_lead_reply": {
+      const { applyLeadReplyResult } = await import("@/lib/services/reply-watch");
+      return applyLeadReplyResult(row.userId, Number(p.replyId), text);
     }
     case "scout":
       return applyScoutResult(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger), text);

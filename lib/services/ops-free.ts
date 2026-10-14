@@ -87,7 +87,7 @@ export async function healFreeRuns(userId: number) {
     .where(and(eq(opsMissions.userId, userId), eq(opsMissions.status, "claimed"), eq(opsMissions.jobId, FREE_JOB), sql`${opsMissions.claimedAt} < now() - interval '10 minutes'`));
 }
 
-type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_project_final" | "ops_review";
+type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_project_final" | "ops_review" | "ops_lead_reply";
 
 /**
  * The lead's thinking jobs (stand-up plan, debrief notes, a project's day plan / final solution).
@@ -172,6 +172,10 @@ export async function plannerJobFailed(userId: number, kind: string, payload: Re
   if (kind === "ops_project_day" || kind === "ops_project_final") {
     const { planFailedFor } = await import("@/lib/services/ops-projects");
     await planFailedFor(userId, Number(payload.projectId), kind === "ops_project_final", why).catch(() => {});
+  } else if (kind === "ops_lead_reply") {
+    // Reply watch: no engine could draft it, so the template asks the user instead.
+    const { leadReplyFailed } = await import("@/lib/services/reply-watch");
+    await leadReplyFailed(userId, Number(payload.replyId));
   } else if (kind === "ops_review") {
     await db.update(opsMissions).set({ chiefNote: `The review failed (${why.slice(0, 120)}): it's yours to check.` })
       .where(and(eq(opsMissions.id, Number(payload.missionId)), eq(opsMissions.userId, userId)));

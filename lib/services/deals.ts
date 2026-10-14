@@ -131,6 +131,11 @@ export async function logTheirReplyFor(userId: number, key: string, text: string
     : ruleReply(clean, { senderName: s.senderName ?? "", portfolioUrl: s.portfolioUrl, bookingUrl: s.bookingUrl, websiteMinKm: s.websiteMinKm, video: /video|edit|short|reel/i.test(clean) });
   const rate = await usdRate(userId);
   await upsertOverride(userId, key, { stage, theirReply: clean, theirReplyAt: new Date(), suggestion, ...(priceToKm(clean, rate) ? { valueKm: priceToKm(clean, rate) } : {}) });
+  // Reply watch: their reply to an outreach lead → the Chief drafts your answer and a quote.
+  if (key.startsWith("lead:")) {
+    const { onLeadReplyText } = await import("@/lib/services/reply-watch");
+    await onLeadReplyText(userId, parseKey(key).id, clean).catch(() => null);
+  }
   if (agreed) await notifyUser(userId, { title: "🎯 Deal ready — your turn", body: clean.slice(0, 140), url: "/deals", tag: `deal-${key}` }).catch(() => {});
   return { stage, suggestion, category };
 }

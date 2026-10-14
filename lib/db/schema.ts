@@ -591,6 +591,7 @@ export const leads = pgTable(
     siteDownSince: timestamp("site_down_since"),
     clientSiteUrl: text("client_site_url"), // the site you built them (uptime-monitored)
     retainerKm: integer("retainer_km"), // monthly maintenance fee
+    partnerNote: varchar("partner_note", { length: 160 }), // shared lead pool: "Faruk contacted this on 12 Oct"
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -1414,6 +1415,9 @@ export const opsLinks = pgTable(
     status: varchar("status", { length: 10 }).notNull().default("pending"), // pending | active
     shareFrom: boolean("share_from").notNull().default(true), // inviter shows their crew list to the partner
     shareTo: boolean("share_to").notNull().default(false), // invitee shows theirs (decided when accepting)
+    // Shared lead pool: on only when BOTH sides opt in (lib/services/lead-pool.ts).
+    shareLeadsFrom: boolean("share_leads_from").notNull().default(false),
+    shareLeadsTo: boolean("share_leads_to").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [uniqueIndex("uq_ops_links_pair").on(t.fromUserId, t.toUserId), index("idx_ops_links_to").on(t.toUserId)]
@@ -1628,3 +1632,26 @@ export const gigModels = pgTable("gig_models", {
   model: jsonb("model").$type<import("@/lib/gig-learning").GigModel>().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Reply watch: a lead answered → the Chief's draft reply + quote, waiting for your call in the Ops inbox.
+// drafting → asked → used | repricing → used | dismissed. message_id links the inbox question back here.
+export const leadReplies = pgTable(
+  "lead_replies",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    leadId: integer("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    messageId: integer("message_id").references(() => opsMessages.id, { onDelete: "set null" }),
+    status: varchar("status", { length: 12 }).notNull().default("drafting"),
+    lang: varchar("lang", { length: 4 }),
+    theirText: text("their_text"),
+    reply: text("reply"),
+    quoteKm: integer("quote_km"),
+    basis: varchar("basis", { length: 200 }),
+    engine: varchar("engine", { length: 10 }), // free | claude | template
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("idx_lead_replies_user").on(t.userId, t.createdAt), index("idx_lead_replies_message").on(t.messageId), index("idx_lead_replies_lead").on(t.leadId)]
+);
+export type LeadReply = typeof leadReplies.$inferSelect;

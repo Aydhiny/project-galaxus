@@ -15,7 +15,7 @@ import { ProviderIcon } from "@/components/ops/provider-logos";
 import { Copy_ } from "@/components/ops/ops-connect";
 import { timeAgo } from "@/components/ops/ops-feed";
 import { ConfirmDialog, Dialog, btnPrimary, field } from "@/components/ops/ops-dialog";
-import { dispatchNowC, inviteLinkC, removeLinkC, respondLinkC, setLinkShareC, type OpsOverview } from "@/lib/client/ops";
+import { dispatchNowC, inviteLinkC, removeLinkC, respondLinkC, setLinkLeadsC, setLinkShareC, type OpsOverview } from "@/lib/client/ops";
 
 const DOT = { working: "bg-emerald-400", idle: "bg-amber-400", waiting: "bg-rose-400 animate-pulse", offline: "bg-slate-500", stuck: "bg-purple-400 animate-pulse", error: "bg-orange-400 animate-pulse" } as const;
 const MODE = {
@@ -153,6 +153,11 @@ function LinkedFacilities({ data, onChanged }: { data: OpsOverview; onChanged: (
               <span className="text-white/45">{l.status === "active" ? (l.theyShare ? "shares their crew" : "crew private") : "invite sent, waiting"}</span>
               <label className="ml-auto flex items-center gap-1 text-white/60" title="Whether they can see your crew list">
                 <input type="checkbox" checked={l.youShare} disabled={busy} onChange={(e) => run(() => setLinkShareC(l.id, e.target.checked), e.target.checked ? "They can see your crew." : "Your crew is private.")} className="accent-[#6b8afd]" /> share my crew
+              </label>
+              {/* Shared lead pool: on only when both opt in. Only the business and the date cross over. */}
+              <label className="flex items-center gap-1 text-white/60" title="Neither of you contacts the same business twice. Only which business and when is shared, never notes or messages. Works when both of you turn it on.">
+                <input type="checkbox" checked={l.youShareLeads} disabled={busy} onChange={(e) => run(() => setLinkLeadsC(l.id, e.target.checked), e.target.checked ? (l.theyShareLeads ? "Lead pool on: you won't contact the same businesses." : `Lead pool on your side. It starts when ${l.partner} turns it on too.`) : "Lead pool off.")} className="accent-[#6b8afd]" /> share leads
+                {l.youShareLeads && <span className={l.theyShareLeads ? "text-emerald-300/90" : "text-white/40"}>{l.theyShareLeads ? "· pooled" : "· waiting for them"}</span>}
               </label>
               <button onClick={() => setUnlink(l)} className="h-7 w-7 rounded-md text-white/45 hover:text-rose-300 hover:bg-rose-400/10 inline-flex items-center justify-center" aria-label={`Unlink ${l.partner}`}><Unlink className="w-3.5 h-3.5" /></button>
             </li>

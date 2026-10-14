@@ -214,3 +214,12 @@ export async function reachDoctorNow() {
 export async function extendProject(id: number, days: number) {
   return toResult(async () => { await extendProjectFor(await requireUserId(), id, days); done(); });
 }
+
+// ─── Replies & friends: the shared lead pool switch on a linked facility ─────
+export async function setLinkLeads(id: number, share: boolean) {
+  return toResult(async () => {
+    const { setLinkLeadsFor } = await import("@/lib/services/lead-pool");
+    await setLinkLeadsFor(await requireUserId(), id, share);
+    done();
+  });
+}
