@@ -76,7 +76,9 @@ export async function publicEmpireFor(viewerId: number, userId: number) {
       ...w,
       goals: w.goals.map((g, i) => ({ ...g, title: `Project ${i + 1}`, emoji: null })),
       events: [], airships: [], gold: Math.round(w.gold * 4) / 4, // coarse: no money amounts leak
-      weather: { kind: w.weather.kind, score: 0, why: "" }, distracted: false,
+      // Never the real sky: it would tell visitors roughly where you live. Visitors see your week's mood as weather instead.
+      weather: { kind: w.week.kind, intensity: w.week.kind === "rain" ? 0.5 : 0, tempC: null, label: "", place: "", isDay: null, live: false },
+      week: { kind: w.week.kind, score: 0, why: "" }, ops: null, distracted: false,
       citizens: w.citizens.map((c, i) => ({ ...c, name: `Citizen ${i + 1}` })), // routine names stay private
     },
   };

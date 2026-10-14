@@ -363,6 +363,10 @@ export const userSettings = pgTable("user_settings", {
   empirePublic: boolean("empire_public").default(false), // others may visit your city (aggregates only)
   cityName: varchar("city_name", { length: 40 }),
   empireStyle: jsonb("empire_style").$type<{ palette: string; ground: string; flag: string }>(), // palette, ground, flag colour
+  // Where the city's sky comes from (real weather, Open-Meteo). null = Sarajevo.
+  weatherLat: real("weather_lat"),
+  weatherLon: real("weather_lon"),
+  weatherPlace: varchar("weather_place", { length: 80 }),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -1240,6 +1244,122 @@ export const scoutThreads = pgTable(
   ]
 );
 export type ScoutThread = typeof scoutThreads.$inferSelect;
+
+// Ops: the agent facility. An agent IS its API token (scope "agent"), so every MCP call
+// and hook event arrives already knowing who sent it. Rules live in lib/ops.ts.
+export const opsAgents = pgTable(
+  "ops_agents",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    tokenId: integer("token_id").references(() => apiTokens.id, { onDelete: "set null" }),
+    name: varchar("name", { length: 40 }).notNull(),
+    role: varchar("role", { length: 16 }).notNull(), // lib/ops.ts ROLE_KEYS
+    provider: varchar("provider", { length: 12 }).notNull().default("other"), // lib/ops.ts PROVIDER_KEYS
+    cloud: boolean("cloud").notNull().default(false), // runs on your Claude runner (no token, no client to connect)
+    skills: jsonb("skills").$type<string[]>().notNull().default([]), // skill keys: "b:<builtin>" or "c:<ops_skills.id>"
+    status: varchar("status", { length: 10 }).notNull().default("idle"), // working | idle | waiting (offline is derived from lastSeenAt)
+    activity: varchar("activity", { length: 200 }), // what it is doing right now
+    activityKind: varchar("activity_kind", { length: 10 }),
+    activityUrl: text("activity_url"),
+    lastSeenAt: timestamp("last_seen_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_ops_agents_user_name").on(t.userId, t.name), index("idx_ops_agents_token").on(t.tokenId)]
+);
+
+export const opsMissions = pgTable(
+  "ops_missions",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    day: date("day").notNull(), // the day the mission is for
+    title: varchar("title", { length: 200 }).notNull(),
+    brief: text("brief"),
+    kind: varchar("kind", { length: 10 }).notNull().default("other"),
+    agentId: integer("agent_id").references(() => opsAgents.id, { onDelete: "set null" }), // aimed at one agent…
+    role: varchar("role", { length: 16 }), // …or at whoever has this role (both null = anyone)
+    parentId: integer("parent_id"), // a sub-mission an agent delegated from this one
+    createdByAgentId: integer("created_by_agent_id"), // null = you posted it
+    jobId: integer("job_id"), // voice_commands row while a cloud agent works on it
+    budgetCents: integer("budget_cents"),
+    spentCents: integer("spent_cents").notNull().default(0), // as REPORTED by the agent; not enforced for external agents
+    status: varchar("status", { length: 10 }).notNull().default("open"), // open | claimed | submitted | done | cancelled
+    deliverableTitle: varchar("deliverable_title", { length: 200 }),
+    deliverable: text("deliverable"), // markdown, written by the agent: untrusted, render as text
+    claimedAt: timestamp("claimed_at"),
+    submittedAt: timestamp("submitted_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_ops_missions_user_day").on(t.userId, t.day), index("idx_ops_missions_user_status").on(t.userId, t.status)]
+);
+
+export const opsEvents = pgTable(
+  "ops_events",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    agentId: integer("agent_id").notNull().references(() => opsAgents.id, { onDelete: "cascade" }),
+    missionId: integer("mission_id").references(() => opsMissions.id, { onDelete: "set null" }),
+    kind: varchar("kind", { length: 10 }).notNull(), // lib/ops.ts EVENT_KINDS
+    label: varchar("label", { length: 200 }).notNull(),
+    url: text("url"),
+    at: timestamp("at").defaultNow().notNull(),
+  },
+  (t) => [index("idx_ops_events_user_at").on(t.userId, t.at), index("idx_ops_events_agent").on(t.agentId)]
+);
+// Radio: you → agent, agent → agent (or a whole team). Bodies are untrusted text.
+export const opsMessages = pgTable(
+  "ops_messages",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    fromAgentId: integer("from_agent_id").references(() => opsAgents.id, { onDelete: "cascade" }), // null = you
+    toAgentId: integer("to_agent_id").references(() => opsAgents.id, { onDelete: "cascade" }), // null = a team (or everyone)
+    toTeam: varchar("to_team", { length: 16 }),
+    missionId: integer("mission_id").references(() => opsMissions.id, { onDelete: "set null" }),
+    body: text("body").notNull(),
+    readAt: timestamp("read_at"),
+    at: timestamp("at").defaultNow().notNull(),
+  },
+  (t) => [index("idx_ops_messages_user_at").on(t.userId, t.at), index("idx_ops_messages_to").on(t.toAgentId)]
+);
+
+// Your own skills (the built-ins live in lib/ops.ts). Instructions are handed to agents at check-in.
+export const opsSkills = pgTable(
+  "ops_skills",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    name: varchar("name", { length: 60 }).notNull(),
+    blurb: varchar("blurb", { length: 160 }),
+    instructions: text("instructions").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_ops_skills_user").on(t.userId)]
+);
+
+// One working day: shift hours and the day's focus. Agents keep pulling missions until the shift ends.
+export const opsDays = pgTable(
+  "ops_days",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    day: date("day").notNull(),
+    startsAt: varchar("starts_at", { length: 5 }).notNull().default("09:00"), // HH:MM, your timezone
+    endsAt: varchar("ends_at", { length: 5 }).notNull().default("17:00"),
+    focus: text("focus"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_ops_days_user_day").on(t.userId, t.day)]
+);
+
+export type OpsAgent = typeof opsAgents.$inferSelect;
+export type OpsMessage = typeof opsMessages.$inferSelect;
+export type OpsSkill = typeof opsSkills.$inferSelect;
+export type OpsDay = typeof opsDays.$inferSelect;
+export type OpsMission = typeof opsMissions.$inferSelect;
+export type OpsEvent = typeof opsEvents.$inferSelect;
 
 // Diary — title and text encrypted at rest (lib/crypto-box). Imported entries keep their source id.
 export const diaryEntries = pgTable(

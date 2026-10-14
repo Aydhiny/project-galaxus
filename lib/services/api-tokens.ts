@@ -6,10 +6,11 @@
 import { createHash, randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { apiTokens } from "@/lib/db/schema";
-import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, ne, or, sql } from "drizzle-orm";
 
 const PREFIX = "glx_";
-const MAX_ACTIVE = 10;
+const MAX_ACTIVE = 10; // integrations (everything except agents)
+const MAX_AGENTS = 12; // agent tokens are counted separately so a crew does not use up the integration limit
 const LAST_USED_THROTTLE_MS = 5 * 60 * 1000;
 
 export function hashApiToken(raw: string): string {
@@ -18,11 +19,13 @@ export function hashApiToken(raw: string): string {
 
 export async function createApiTokenFor(userId: number, name: string, scope: TokenScope = "full") {
   const label = String(name ?? "").trim().slice(0, 100) || "MCP client";
+  const isAgent = scope === "agent";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(apiTokens)
-    .where(and(eq(apiTokens.userId, userId), isNull(apiTokens.revokedAt)));
-  if (count >= MAX_ACTIVE) throw new Error(`You can have up to ${MAX_ACTIVE} active tokens. Revoke one first.`);
+    .where(and(eq(apiTokens.userId, userId), isNull(apiTokens.revokedAt), isAgent ? eq(apiTokens.scope, "agent") : ne(apiTokens.scope, "agent")));
+  const max = isAgent ? MAX_AGENTS : MAX_ACTIVE;
+  if (count >= max) throw new Error(isAgent ? `You can have up to ${max} agents. Remove one first.` : `You can have up to ${max} active tokens. Revoke one first.`);
 
   const raw = PREFIX + randomBytes(32).toString("base64url");
   const [row] = await db
@@ -56,7 +59,7 @@ export async function revokeApiTokenFor(userId: number, id: number): Promise<boo
 }
 
 /** Resolve a raw bearer token to its user, or null if unknown/revoked. */
-export type TokenScope = "full" | "voice" | "game" | "shorts";
+export type TokenScope = "full" | "voice" | "game" | "shorts" | "agent";
 
 export async function verifyApiToken(raw: string | undefined): Promise<{ userId: number; tokenId: number; scope: TokenScope } | null> {
   if (!raw || !raw.startsWith(PREFIX) || raw.length > 100) return null;
@@ -73,6 +76,6 @@ export async function verifyApiToken(raw: string | undefined): Promise<{ userId:
     .update(apiTokens)
     .set({ lastUsedAt: new Date() })
     .where(and(eq(apiTokens.id, row.id), or(isNull(apiTokens.lastUsedAt), lt(apiTokens.lastUsedAt, cutoff))));
-  const scope: TokenScope = row.scope === "voice" || row.scope === "game" || row.scope === "shorts" ? row.scope : "full";
+  const scope: TokenScope = row.scope === "voice" || row.scope === "game" || row.scope === "shorts" || row.scope === "agent" ? row.scope : "full";
   return { userId: row.userId, tokenId: row.id, scope };
 }

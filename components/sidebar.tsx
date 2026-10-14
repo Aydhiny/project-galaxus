@@ -9,7 +9,7 @@ import {
   Music2, LogOut, HeartPulse, Sparkles,
   Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
   Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet, Users, Handshake, Shield, BookHeart, Castle, Award,
+  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet, Users, Handshake, Shield, BookHeart, Castle, Award, Bot,
 } from "lucide-react";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -42,6 +42,7 @@ const TONE: Record<string, string> = {
   "/community":    "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400",
   "/opportunities": "bg-amber-500/12 text-amber-600 dark:text-amber-400",
   "/scout":        "bg-yellow-500/12 text-yellow-600 dark:text-yellow-400",
+  "/ops":          "bg-teal-500/12 text-teal-600 dark:text-teal-400",
   "/youtube":      "bg-red-500/12 text-red-600 dark:text-red-400",
   "/game":         "bg-violet-500/12 text-violet-600 dark:text-violet-400",
   "/dashboard":    "bg-cyan-500/12 text-cyan-600 dark:text-cyan-400",
@@ -90,6 +91,7 @@ const GROUPS: { label: string; icon: React.ComponentType<{ className?: string }>
       { href: "/outreach",  icon: Send,   label: "Outreach"  },
       { href: "/opportunities", icon: Award, label: "Opportunities" },
       { href: "/scout",     icon: Lightbulb, label: "Scout"     },
+      { href: "/ops",       icon: Bot,       label: "Ops"       },
       { href: "/community", icon: Users,  label: "Community" },
       { href: "/money",     icon: Wallet, label: "Money"     },
     ],

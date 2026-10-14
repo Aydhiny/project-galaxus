@@ -1,4 +1,4 @@
-// Real-life signals that bring the city to life: weather from your week,
+// Real-life signals that bring the city to life: the real sky (Open-Meteo), your week's mood,
 // construction for goals, ruins for neglect, and live events (emails, replies,
 // payments, hot gigs, Claude jobs) that become trucks, pings and beams.
 
@@ -9,6 +9,8 @@ import {
 } from "@/lib/db/schema";
 import { isNeglected, jobTarget, seasonFor, weatherFor, type World, type WorldEvent } from "@/lib/empire-world";
 import { citizensFor } from "@/lib/services/empire-extras";
+import { skyFor } from "@/lib/services/weather";
+import { opsCountsFor } from "@/lib/services/ops";
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -54,9 +56,9 @@ export async function worldFor(userId: number, hud: { streak: number; monthKm: n
     db.select({ at: taskRuns.lastRunAt }).from(taskRuns).where(and(eq(taskRuns.userId, userId), eq(taskRuns.task, "gigs"))).limit(1),
   ]);
 
-  // Weather
+  // Your week (a mood chip — the sky is real weather)
   const active = new Set([...doneDays.filter((d) => n(d.n) > 0).map((d) => d.d), ...checkins.filter((c) => n(c.prayers) > 0).map((c) => String(c.date))]);
-  const weather = weatherFor({
+  const week = weatherFor({
     tasksDone: doneDays.reduce((s, d) => s + n(d.n), 0),
     prayers: checkins.reduce((s, c) => s + n(c.prayers), 0),
     tracksPrayers: n(prayed30[0]?.n) > 0,
@@ -87,8 +89,9 @@ export async function worldFor(userId: number, hud: { streak: number; monthKm: n
 
   const gold = hud.goalKm ? Math.min(1, hud.monthKm / hud.goalKm) : Math.min(1, Math.log10(hud.monthKm + 1) / 4);
   const lastScan = gigsRun[0]?.at;
+  const [weather, ops] = await Promise.all([skyFor(userId), opsCountsFor(userId).catch(() => null)]);
   return {
-    weather, streak: hud.streak, gold, goals: sites, neglected, events,
+    weather, week, ops, streak: hud.streak, gold, goals: sites, neglected, events,
     airships: airships.map((a) => ({ ...a, deadline: a.deadline?.toISOString() ?? null })),
     radarScanning: !!lastScan && now.getTime() - lastScan.getTime() < 12 * 60_000,
     distracted: false, // set by empireFor from live activity

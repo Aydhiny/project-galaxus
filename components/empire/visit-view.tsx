@@ -33,7 +33,7 @@ export function VisitView({ userId }: { userId: number }) {
     return () => { disposed = true; engine.current?.dispose(); engine.current = null; };
   }, [userId]);
 
-  const Icon = city ? ICON[city.world.weather.kind] : Sun;
+  const Icon = city ? ICON[city.world.week.kind] : Sun;
   return (
     <div className="absolute inset-0 z-20 overflow-hidden bg-[#bfdcf0]">
       <div ref={mount} className="absolute inset-0" />
@@ -44,7 +44,7 @@ export function VisitView({ userId }: { userId: number }) {
           <p className="mt-1.5 text-[11px] text-white/70 flex flex-wrap items-center gap-2">
             <span>LV {city.level} · {city.rank}</span>
             <span className="inline-flex items-center gap-1"><Flame className="w-3 h-3" />{city.world.streak}</span>
-            <span className="inline-flex items-center gap-1"><Icon className="w-3 h-3" />{city.world.weather.kind === "sun" ? "sunny" : city.world.weather.kind === "clouds" ? "cloudy" : "rainy"} week</span>
+            <span className="inline-flex items-center gap-1"><Icon className="w-3 h-3" />{city.world.week.kind === "sun" ? "sunny" : city.world.week.kind === "clouds" ? "cloudy" : "rainy"} week</span>
           </p>
         )}
         {error && <p className="mt-1 text-xs text-white/70">{error}</p>}

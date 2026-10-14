@@ -1,6 +1,9 @@
-// Pure rules for the living city (weather, ruins, contest score) — no DB, easy to reason about.
+// Pure rules for the living city (week mood, ruins, contest score) — no DB, easy to reason about.
+// The sky itself is REAL weather now (lib/weather.ts); your week is a separate mood.
 
-export type Weather = "sun" | "clouds" | "rain";
+import type { SkyNow } from "@/lib/weather";
+export type { SkyNow, Weather } from "@/lib/weather";
+export type WeekMood = "sun" | "clouds" | "rain";
 
 export type WorldEvent = {
   id: string; // stable, so the client animates each real event exactly once
@@ -16,7 +19,9 @@ export type Airship = { id: number; title: string; kind: string; deadline: strin
 export type GoalSite = { id: number; title: string; emoji: string | null; progress: number; done: boolean };
 
 export type World = {
-  weather: { kind: Weather; score: number; why: string };
+  weather: SkyNow; // the real sky over your city (Open-Meteo)
+  week: { kind: WeekMood; score: number; why: string }; // how your week went (habits) — shown as a chip, not as rain
+  ops: { agents: number; working: number; waiting: number } | null; // the agent facility outside town
   streak: number;
   gold: number; // 0–1, how full the vault is this month
   goals: GoalSite[];
@@ -66,7 +71,7 @@ export function routineStreak(days: string, doneDates: Set<string>, today: Date)
 }
 
 /**
- * Your week as weather. Only the habits you actually track count (someone who
+ * Your week as a mood (it used to drive the sky; the sky is real weather now). Only the habits you actually track count (someone who
  * never logs prayers isn't punished for it). Empty days pull hardest: 3+ days
  * without anything done means rain.
  */
@@ -76,7 +81,7 @@ export function weatherFor(week: { tasksDone: number; prayers: number; tracksPra
   parts.push(week.activeDays / week.days);
   const score = Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 100);
   const missed = week.days - week.activeDays;
-  const kind: Weather = missed >= 3 || score < 35 ? "rain" : score < 65 ? "clouds" : "sun";
+  const kind: WeekMood = missed >= 3 || score < 35 ? "rain" : score < 65 ? "clouds" : "sun";
   const why = kind === "sun" ? `Strong week — ${week.tasksDone} tasks done` : kind === "clouds" ? `Mixed week — ${week.tasksDone} tasks, ${missed} quiet day${missed === 1 ? "" : "s"}` : `${missed} days without progress — one small win clears the sky`;
   return { kind, score, why };
 }

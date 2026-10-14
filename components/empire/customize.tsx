@@ -9,10 +9,11 @@ import { Check, Loader2, Paintbrush, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FLAG_COLORS, GROUNDS, PALETTES, type EmpireStyle, type GroundKey, type PaletteKey } from "@/lib/empire-world";
 import { saveEmpireStyleC } from "@/lib/client/empire";
+import { WeatherPlace } from "./weather-place";
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 
-export function CustomizePanel({ value, onPreview, onClose }: { value: EmpireStyle; onPreview: (s: EmpireStyle) => void; onClose: (saved: EmpireStyle | null) => void }) {
+export function CustomizePanel({ value, onPreview, onClose, onSkyChanged }: { value: EmpireStyle; onPreview: (s: EmpireStyle) => void; onClose: (saved: EmpireStyle | null) => void; onSkyChanged?: () => void }) {
   const [style, setStyle] = useState(value);
   const [busy, start] = useTransition();
   const pick = (patch: Partial<EmpireStyle>) => { const next = { ...style, ...patch }; setStyle(next); onPreview(next); };
@@ -64,6 +65,8 @@ export function CustomizePanel({ value, onPreview, onClose }: { value: EmpireSty
             className={cn("w-9 h-9 rounded-full border-2 transition-transform", style.flag === c ? "border-foreground scale-110" : "border-border")} style={{ background: c }} />
         ))}
       </div>
+
+      <WeatherPlace onChanged={() => onSkyChanged?.()} />
 
       <button disabled={busy} onClick={() => start(async () => {
         try { const saved = await saveEmpireStyleC(style); toast.success("Your city's new look is saved."); onClose(saved); }

@@ -11,6 +11,7 @@
 //  • the loop stops completely when paused (another page is open) or the tab is hidden
 
 import * as THREE from "three";
+import { OpsSite, OPS_SITE_ID } from "./ops-site";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Building, World, WorldEvent } from "@/lib/client/empire";
@@ -87,6 +88,7 @@ export class EmpireEngine {
   private lastFrame = 0;
   private trees: { trunks: THREE.InstancedMesh; crowns: THREE.InstancedMesh; spots: THREE.Vector3[] } | null = null;
   private radarSpin: { obj: THREE.Object3D; speed: number; axis: "y" | "z" } | null = null;
+  private opsSite: OpsSite | null = null; // the agent facility outside town
   private workingIds = new Set<string>();
   private lastSound = 0;
   private buildingsGroup = new THREE.Group();
@@ -210,6 +212,9 @@ export class EmpireEngine {
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
+
+    this.opsSite = new OpsSite();
+    this.scene.add(this.opsSite.group, this.opsSite.road());
 
     // Plaza around HQ, two ring roads with dashed centre lines, and four radial avenues.
     const plaza = new THREE.Mesh(new THREE.CircleGeometry(RING_INNER - 2, 48), new THREE.MeshLambertMaterial({ color: PALETTE.plaza }));
@@ -570,6 +575,7 @@ export class EmpireEngine {
         this.prayerGlow = glow;
       }
     });
+    if (this.opsSite) this.anchors.push({ id: OPS_SITE_ID, obj: this.opsSite.group, top: this.opsSite.top });
     this.workingIds = new Set(list.filter((b) => b.working).map((b) => b.id));
     this.life.relayout();
     // Workers only turn up while an automation is running: a few per busy building, shuttling to HQ.
@@ -639,7 +645,8 @@ export class EmpireEngine {
   private worldStreak: number | null = null;
   /** Weather, streak lights, vault gold, goal sites, airships, runner glow, radar sweep. Returns goals that just completed. */
   setWorld(w: World, previousStreak: number | null): number[] {
-    this.life.setWeather(w.weather.kind);
+    this.life.setWeather(w.weather.kind, w.weather.intensity);
+    this.setOps(w.ops);
     if (this.worldStreak !== w.streak) { this.life.setStreak(w.streak, this.worldStreak ?? previousStreak); this.worldStreak = w.streak; }
     this.life.setGold(w.gold);
     this.life.setAirships(w.airships);
@@ -676,6 +683,9 @@ export class EmpireEngine {
   canvas() { return this.renderer.domElement; }
   /** Cap the frame rate (wallpaper mode: 30 fps is plenty and saves the GPU). */
   setMaxFps(fps: number) { this.maxFps = Math.max(0, fps); }
+
+  /** The agent facility mirrors your crew: lights, radar speed, agents in the yard. */
+  setOps(ops: World["ops"] | undefined) { this.opsSite?.set(ops); }
 
   /** Doomscrolling → fog rolls in (eased). */
   private distracted = 0;
@@ -775,6 +785,7 @@ export class EmpireEngine {
     for (const s of this.spinners) s.obj.rotation[s.axis] += s.speed * dt * pace + (s.speed === 0 ? Math.sin(t * 3) * 0.004 : 0);
     this.tickWorkers(dt * pace, t);
     this.life.tick(dt, t, this.night);
+    this.opsSite?.tick(t, dt);
     this.extras.tick(dt, t, this.night);
     if (this.eid && this.night > 0.5 && t - this.lastFireworks > 25) { this.lastFireworks = t; this.life.fireworks(new THREE.Vector3(0, 0, 0)); }
     if (this.onSound && t - this.lastSound > 0.12) { this.lastSound = t; this.onSound(this.soundMix()); }
@@ -817,16 +828,18 @@ export class EmpireEngine {
     const n = this.night;
     const oc = this.life?.overcast ?? 0;
     this.distracted += (this.distractTarget - this.distracted) * 0.02;
-    const fogd = this.distracted;
+    const fogd = Math.max(this.distracted, this.life?.fog ?? 0); // doomscrolling or real fog
+    const bolt = this.life?.flash ?? 0;
     const sky = new THREE.Color(0xbfdcf0).lerp(new THREE.Color(0x9aa6b2), oc * 0.75).lerp(new THREE.Color(0xb7bcc2), fogd * 0.8).lerp(new THREE.Color(0x0d1426), n);
     const f = this.scene.fog as THREE.Fog;
     f.near = (this.homeDist + 10) * (1 - 0.8 * fogd);
     f.far = (this.homeDist + 150) * (1 - 0.6 * fogd);
+    if (bolt > 0) sky.lerp(new THREE.Color(0xe8eeff), bolt * 0.6);
     this.scene.background = sky;
     (this.scene.fog as THREE.Fog).color.copy(sky);
     this.sun.intensity = (2.2 * (1 - n) + 0.35 * n) * (1 - oc * 0.45); // moonlight keeps the city readable; clouds dim it
     this.sun.color.setHex(n > 0.5 ? 0xaabbee : 0xffffff);
-    this.hemi.intensity = 1.1 * (1 - n * 0.6);
+    this.hemi.intensity = 1.1 * (1 - n * 0.6) + bolt * 1.6;
     (this.stars.material as THREE.PointsMaterial).opacity = Math.max(0, n - 0.3) * 1.2;
     this.groundMat.color.set(0xffffff).lerp(new THREE.Color(0x8e9a92), oc * 0.35).lerp(new THREE.Color(0x34443c), n); // rain darkens the grass
     if (this.groundMat.userData.season === "winter") this.groundMat.color.lerp(new THREE.Color(0xf4f7fb), 0.55 * (1 - n * 0.5)); // snow cover
@@ -966,7 +979,9 @@ export class EmpireEngine {
     if (ship?.object.userData.airshipId != null) return `airship:${ship.object.userData.airshipId}`;
     const hit = this.ray.intersectObjects(this.pickables, true)[0];
     if (hit?.object.userData.goalId != null) return `goal:${hit.object.userData.goalId}`;
-    return (hit?.object.userData.buildingId as string | undefined) ?? null;
+    if (hit) return (hit.object.userData.buildingId as string | undefined) ?? null;
+    if (this.opsSite && this.ray.intersectObject(this.opsSite.group, true).some((h) => h.object.userData.buildingId === OPS_SITE_ID)) return OPS_SITE_ID;
+    return null;
   }
 
   private onDown = (e: PointerEvent) => { this.down = { x: e.clientX, y: e.clientY, t: performance.now() }; };
@@ -1090,6 +1105,7 @@ export class EmpireEngine {
     this.resizeObs?.disconnect();
     document.removeEventListener("visibilitychange", this.onVisibility);
     this.controls.dispose();
+    this.opsSite?.dispose(); // also frees its canvas texture
     this.disposeGroup(this.scene);
     this.renderer.dispose();
     el.remove();

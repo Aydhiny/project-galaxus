@@ -6,6 +6,7 @@
 import { Cloud, CloudRain, Flame, HardHat, Sun } from "lucide-react";
 import { BrandIcon, type Brand } from "@/components/brand-icon";
 import { cn } from "@/lib/utils";
+import { SkyIcon, skyText } from "@/components/empire/sky-icon";
 import type { Building, EmpireState } from "@/lib/client/empire";
 
 const BRAND: Partial<Record<string, Brand>> = {
@@ -15,14 +16,15 @@ const WEATHER = { sun: Sun, clouds: Cloud, rain: CloudRain } as const;
 
 export function SimpleView({ state, buildings, onOpen }: { state: EmpireState | null; buildings: Building[]; onOpen: (id: string) => void }) {
   const w = state?.world;
-  const Weather = w ? WEATHER[w.weather.kind] : Sun;
+  const Weather = w ? WEATHER[w.week.kind] : Sun;
   return (
     <div className="absolute inset-0 z-[15] overflow-y-auto bg-background">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-28">
         {w && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-5">
             <Tile label="Level" value={`LV ${state?.level} · ${state?.rank}`} />
-            <Tile label="This week" value={<span className="inline-flex items-center gap-1.5"><Weather className="w-4 h-4" />{w.weather.kind === "sun" ? "Sunny" : w.weather.kind === "clouds" ? "Cloudy" : "Rainy"}</span>} sub={w.weather.why} />
+            <Tile label="Sky" value={<span className="inline-flex items-center gap-1.5"><SkyIcon kind={w.weather.kind} className="w-4 h-4" />{w.weather.tempC != null ? `${w.weather.tempC}°` : "—"}</span>} sub={skyText(w.weather)} />
+            <Tile label="This week" value={<span className="inline-flex items-center gap-1.5"><Weather className="w-4 h-4" />{w.week.kind === "sun" ? "Strong" : w.week.kind === "clouds" ? "Mixed" : "Quiet"}</span>} sub={w.week.why} />
             <Tile label="Streak" value={<span className="inline-flex items-center gap-1.5"><Flame className="w-4 h-4 text-orange-500" />{w.streak} days</span>} />
             <Tile label="Goals" value={`${w.goals.filter((g) => g.done).length}/${w.goals.length} built`} />
           </div>

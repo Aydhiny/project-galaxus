@@ -34,7 +34,8 @@ const handler = createMcpHandler(
     serverInfo: { name: "galaxus", version: "1.0.0" },
     instructions:
       "Galaxus is the user's personal productivity app: tasks, routines and monthly goals. Call get_overview first. " +
-      "To help with a goal, design a phased beginner→pro plan and save it with create_goal_plan. Dates are YYYY-MM-DD, months YYYY-MM.",
+      "To help with a goal, design a phased beginner→pro plan and save it with create_goal_plan. Dates are YYYY-MM-DD, months YYYY-MM. " +
+      "If you are an Ops agent (your token was made in Galaxus → Ops), use only the ops_* tools: ops_checkin first (it returns your skills, shift, crew and missions), then ops_claim_mission, ops_log_activity, ops_submit_deliverable; work with teammates via ops_list_crew, ops_send_message, ops_get_messages and ops_create_mission.",
   }
 );
 
@@ -49,7 +50,7 @@ const authed = withMcpAuth(
       token: bearerToken!,
       clientId: `galaxus-token-${hit.tokenId}`,
       scopes: ["tasks:read", "tasks:write"],
-      extra: { userId: hit.userId, scope: hit.scope },
+      extra: { userId: hit.userId, scope: hit.scope, tokenId: hit.tokenId },
     };
   },
   { required: true }

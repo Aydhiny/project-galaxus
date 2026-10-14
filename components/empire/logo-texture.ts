@@ -1,7 +1,7 @@
 import * as THREE from "three";
 
 /** A round logo badge drawn from the brand's official SVG path (simple-icons, CC0). `mono` = graphite badge, white mark. */
-export function logoTexture(path: string, hex: string, mono = false) {
+export function logoTexture(path: string, hex: string, mono = false, evenodd = false) {
   const c = document.createElement("canvas");
   c.width = c.height = 128;
   const g = c.getContext("2d")!;
@@ -12,7 +12,7 @@ export function logoTexture(path: string, hex: string, mono = false) {
   g.translate(64 - 36, 64 - 36);
   g.scale(3, 3); // simple-icons paths live in a 24×24 box → 72 px
   g.fillStyle = "#ffffff";
-  g.fill(new Path2D(path));
+  g.fill(new Path2D(path), evenodd ? "evenodd" : "nonzero");
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;

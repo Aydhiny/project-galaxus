@@ -16,6 +16,8 @@ import { describeDays, isPastRoutine } from "@/lib/tasks";
 import { goalPace, goalProgress, groupByPhase, monthKey, monthLabel, PACE_LABEL } from "@/lib/goals";
 import type { Task } from "@/lib/db/schema";
 import { VOICE_BLOCKED_TOOLS } from "@/lib/voice";
+import { AGENT_TOOLS } from "@/lib/ops";
+import { registerOpsTools } from "@/lib/mcp/ops-tools";
 
 type Ctx = { http?: { authInfo?: { extra?: Record<string, unknown> } } };
 
@@ -32,8 +34,9 @@ type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean
 
 /**
  * Wraps registerTool so every tool gets the same two guarantees:
- *  1. Tokens with scope "voice" can't run destructive tools — enforced here,
- *     on the server, whatever the client was told it may call.
+ *  1. Tokens with scope "voice" can't run destructive tools, and tokens with
+ *     scope "agent" can only run the ops_* tools — enforced here, on the
+ *     server, whatever the client was told it may call.
  *  2. Successful calls are reported to hooks.onToolResult.
  */
 function instrument(server: McpServer, hooks: McpHooks): McpServer {
@@ -43,6 +46,9 @@ function instrument(server: McpServer, hooks: McpHooks): McpServer {
       const scope = String(ctx.http?.authInfo?.extra?.scope ?? "full");
       if (scope === "voice" && VOICE_BLOCKED_TOOLS.has(name)) {
         return fail(new Error(`"${name}" isn't available to voice commands. Ask the user to do it in the app.`));
+      }
+      if (scope === "agent" && !AGENT_TOOLS.has(name)) {
+        return fail(new Error(`"${name}" isn't available to agents. Agents can use: ${[...AGENT_TOOLS].join(", ")}.`));
       }
       const result = await handler(args, ctx);
       if (!result.isError && hooks.onToolResult) {
@@ -138,6 +144,7 @@ const goalShape = z.object({
 
 export function registerGalaxusTools(rawServer: McpServer, hooks: McpHooks = {}) {
   const server = instrument(rawServer, hooks);
+  registerOpsTools(server);
   const written = () => hooks.onWrite?.();
   const today = (given?: string) => given ?? hooks.today?.() ?? new Date().toISOString().slice(0, 10);
 

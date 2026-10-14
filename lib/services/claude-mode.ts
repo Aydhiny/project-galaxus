@@ -38,7 +38,9 @@ export async function runJobViaApi(userId: number, id: number) {
   try {
     if (!apiKey) throw new Error(NOT_CONNECTED);
     const { system, prompt } = await buildJobPrompt(job);
-    const text = await askClaude({ apiKey, system, prompt, effort: "medium", maxTokens: 6000 });
+    const { jobUsesWeb } = await import("@/lib/claude-jobs");
+    const web = jobUsesWeb(job.kind);
+    const text = await askClaude({ apiKey, system, prompt, effort: "medium", maxTokens: web ? 12_000 : 6000, web });
     await completeFor(userId, id, text ? { ok: true, summary: text } : { ok: false, error: "Claude declined this one." });
   } catch (e) {
     await completeFor(userId, id, { ok: false, error: e instanceof Error ? e.message : "Claude call failed." });

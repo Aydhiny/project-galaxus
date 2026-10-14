@@ -23,6 +23,7 @@ import { play as sfxPlay, setSfxSettings, sfxSettings, type Sfx } from "@/lib/sf
 import { tauriInvoke } from "@/components/desktop-bridge";
 import { InteriorView } from "./interior";
 import { BuildingCard } from "./building-card";
+import { SkyIcon, skyText } from "./sky-icon";
 import { CustomizePanel } from "./customize";
 import { SimpleView } from "./simple-view";
 import { AirshipCard } from "./airship-card";
@@ -41,7 +42,7 @@ const sfxGate = { quiet: false };
 const play = (n: Sfx) => { if (!sfxGate.quiet) sfxPlay(n); };
 
 const FRESH_MS = 20 * 60_000; // events newer than this play when you open the empire
-const WEATHER_ICON = { sun: Sun, clouds: Cloud, rain: CloudRain } as const;
+const WEEK_ICON = { sun: Sun, clouds: Cloud, rain: CloudRain } as const;
 
 /** Real logos for buildings that run on a known service (emoji for the rest). */
 const BRAND: Partial<Record<string, Brand>> = {
@@ -254,9 +255,11 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
   const goals = state?.world.goals ?? [];
   const selGoal = selected?.startsWith("goal:") ? goals.find((g) => `goal:${g.id}` === selected) ?? null : null;
   const weather = state?.world.weather;
-  const WeatherIcon = weather ? WEATHER_ICON[weather.kind] : Sun;
+  const week = state?.world.week;
+  const WeekIcon = week ? WEEK_ICON[week.kind] : Sun;
+  const ops = state?.world.ops;
   // Phones: the panel is a bottom sheet over ~60% of the screen, so lift the city above it.
-  const hasSel = !!sel || !!selGoal;
+  const hasSel = !!sel || !!selGoal || selected === "ops";
   useEffect(() => {
     const apply = () => engine.current?.setBottomInset(hasSel && window.innerWidth < 640 ? 0.6 : 0);
     apply();
@@ -285,6 +288,15 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
             </button>
           </div>
         ))}
+        <div ref={(el) => engine.current?.bindLabel("ops", el)} className="absolute left-0 top-0 will-change-transform transition-opacity duration-200">
+          <button onClick={() => { play("pop"); setSelected("ops"); engine.current?.focus("ops"); }} aria-label="Agent facility"
+            className={cn("pointer-events-auto inline-flex items-center gap-1 rounded-full bg-[#1e1f22]/85 text-[#c7d2ff] px-2 py-0.5 text-[11px] backdrop-blur-sm border border-[#6b8afd]/40 transition-transform",
+              (hovered === "ops" || selected === "ops") && "scale-110")}>
+            <span className={cn("w-1.5 h-1.5 rounded-full", ops?.waiting ? "bg-rose-400 animate-pulse" : ops?.working ? "bg-emerald-400 animate-pulse" : "bg-slate-400")} />
+            <span className="font-semibold tracking-wide">OPS</span>
+            <span className={cn(selected === "ops" ? "inline" : "hidden md:inline", "text-white/70")}>{ops?.agents ? `${ops.working}/${ops.agents} agents` : "agent facility"}</span>
+          </button>
+        </div>
         {buildings.map((b) => (
           <div key={b.id} ref={(el) => engine.current?.bindLabel(b.id, el)} className="absolute left-0 top-0 will-change-transform transition-opacity duration-200">
             <div className="flex flex-col items-center gap-1">
@@ -323,7 +335,14 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
         <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-white/60 flex flex-wrap items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · updated {ago < 10 ? "just now" : `${ago}s ago`}
           {mood !== "normal" && <span className="ml-1 rounded-full bg-white/15 px-1.5">{mood === "disco" ? "🪩 disco" : "💤 hibernate"}</span>}
-          {weather && <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5" title={weather.why}><WeatherIcon className="w-3 h-3" />{weather.kind === "sun" ? "sunny week" : weather.kind === "clouds" ? "cloudy week" : "rainy week"}</span>}
+          {weather && <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5" title={weather.live ? `Live weather in ${weather.place} (Open-Meteo)` : "Couldn't reach the weather service"}><SkyIcon kind={weather.kind} className="w-3 h-3" />{skyText(weather)}</span>}
+          {week && <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5" title={week.why}><WeekIcon className="w-3 h-3" />{week.kind === "sun" ? "strong week" : week.kind === "clouds" ? "mixed week" : "quiet week"}</span>}
+          {ops && ops.agents > 0 && (
+            <Link href="/ops" onClick={() => play("whoosh")} title="Enter the agent facility" className="inline-flex items-center gap-1 rounded-full bg-[#6b8afd]/25 px-1.5 hover:bg-[#6b8afd]/40">
+              <span className={cn("w-1.5 h-1.5 rounded-full", ops.waiting ? "bg-rose-400 animate-pulse" : ops.working ? "bg-emerald-400 animate-pulse" : "bg-white/40")} />
+              Ops · {ops.working}/{ops.agents} working{ops.waiting ? ` · ${ops.waiting} need you` : ""}
+            </Link>
+          )}
           <button onClick={() => { play("tick"); void load(); }} className="ml-1 hover:text-white" aria-label="Refresh"><RefreshCw className="w-3 h-3" /></button>
         </p>
       </div>
@@ -379,13 +398,30 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
       </div>
 
       {/* Building panel */}
+      {selected === "ops" && (
+        <div className="absolute z-30 left-3 right-3 bottom-3 sm:left-auto sm:right-4 sm:bottom-4 sm:w-80 rounded-2xl bg-[#26272b]/95 text-white backdrop-blur-md border border-white/10 p-4 pointer-events-auto">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#8ea6ff]">Restricted area</p>
+              <p className="text-lg font-bold leading-tight">Agent facility</p>
+            </div>
+            <button onClick={close} className="h-8 w-8 rounded-lg hover:bg-white/10 inline-flex items-center justify-center" aria-label="Close"><X className="w-4 h-4" /></button>
+          </div>
+          <p className="mt-2 text-sm text-white/70">
+            {ops?.agents ? <>{ops.working} of {ops.agents} agents working{ops.waiting ? <>, <b className="text-rose-300">{ops.waiting} waiting for you</b></> : null}.</> : "No agents yet. Hire your first one and hand it a mission."}
+          </p>
+          <button onClick={() => { play("whoosh"); router.push("/ops"); }} className="mt-3 w-full h-10 rounded-xl bg-[#6b8afd] text-[#0f1222] text-sm font-semibold inline-flex items-center justify-center gap-1.5">
+            Enter the facility <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       {sel && <BuildingCard b={sel} onClose={close} onNavigate={(href) => { play("whoosh"); router.push(href); }} onEnter={() => { play("whoosh"); setInterior(sel.id); }} />}
       {selShip && (
         <AirshipCard a={selShip} busy={shipBusy} onClose={() => { play("close"); setShip(null); }}
           onAccept={() => void acceptShip(selShip.id)} onDismiss={() => void dismissShip(selShip.id)} />
       )}
       {customizing && state && (
-        <CustomizePanel value={state.style} onPreview={(st) => engine.current?.setStyle(st)}
+        <CustomizePanel value={state.style} onPreview={(st) => engine.current?.setStyle(st)} onSkyChanged={() => void load()}
           onClose={(saved) => { setCustomizing(false); if (saved) setState((s) => (s ? { ...s, style: saved } : s)); }} />
       )}
       {selGoal && <GoalPanel g={selGoal} onClose={close} onOpen={() => { play("whoosh"); router.push("/tasks"); }} />}

@@ -23,6 +23,7 @@ import { applyDigestResult } from "@/lib/services/digest";
 import { applyEmailReplyResult, buildEmailReplyPrompt } from "@/lib/services/autopilot";
 import { applyRedditPostResult, buildRedditPostPrompt } from "@/lib/services/reddit";
 import { applyScoutResult, buildScoutPrompt } from "@/lib/services/scout";
+import { applyCloudMissionResult, buildCloudMissionPrompt } from "@/lib/services/ops";
 
 export async function enqueueJobFor(userId: number, kind: Exclude<JobKind, "voice">, label: string, payload: Record<string, unknown>) {
   if (!checkRateLimit(`voice:${userId}`, VOICE_RATE.max, VOICE_RATE.windowMs).allowed) {
@@ -112,6 +113,8 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       return buildEmailReplyPrompt(row.userId, Number(p.gigEmailId));
     case "reddit_post":
       return buildRedditPostPrompt(row.userId, Number(p.postId));
+    case "ops_mission":
+      return buildCloudMissionPrompt(row.userId, Number(p.missionId));
     case "scout":
       return buildScoutPrompt(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger));
     case "digest": {
@@ -169,6 +172,8 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
       return applyEmailReplyResult(row.userId, Number(p.gigEmailId), text);
     case "reddit_post":
       return applyRedditPostResult(row.userId, Number(p.postId), text);
+    case "ops_mission":
+      return applyCloudMissionResult(row.userId, Number(p.missionId), text);
     case "scout":
       return applyScoutResult(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger), text);
     case "gigs": {

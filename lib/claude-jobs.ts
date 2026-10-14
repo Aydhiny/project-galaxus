@@ -4,7 +4,7 @@
 
 import type { PlaytestTheme } from "@/lib/db/schema";
 
-export const JOB_KINDS = ["voice", "devlog", "hooks", "comment_replies", "playtest", "digest", "gigs", "email_reply", "reddit_post", "scout"] as const;
+export const JOB_KINDS = ["voice", "devlog", "hooks", "comment_replies", "playtest", "digest", "gigs", "email_reply", "reddit_post", "scout", "ops_mission"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const JOB_LABEL: Record<JobKind, string> = {
@@ -18,11 +18,17 @@ export const JOB_LABEL: Record<JobKind, string> = {
   email_reply: "Client reply",
   reddit_post: "Reddit post",
   scout: "Scout",
+  ops_mission: "Ops mission",
 };
 
 /** Only voice commands may use Galaxus tools. Everything else reads untrusted
  *  text (news, comments, commits) and runs with no tools at all. */
 export const jobUsesTools = (kind: string) => kind === "voice";
+
+/** Ops missions may search and read the web (WebSearch/WebFetch only: no
+ *  Galaxus tools, no shell, no files), so a hostile page can at worst spoil
+ *  the deliverable text, which is shown as plain text. */
+export const jobUsesWeb = (kind: string) => kind === "ops_mission";
 
 /** Every non-voice job answers with JSON only — no tools, no prose. */
 const JSON_ONLY = "Do not call any tools. Reply with ONLY the JSON object, no other text.";

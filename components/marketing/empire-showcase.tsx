@@ -19,7 +19,8 @@ const DEMO: Building[] = ([
 ] as const).map(([id, kind, label, emoji, level]) => ({ id, kind, label, emoji, level, active: true, working: ["radar", "autopilot", "outreach", "runner"].includes(id), route: "/", status: "", bubbles: [], stats: [] }) as Building);
 
 const DEMO_WORLD: World = {
-  weather: { kind: "sun", score: 82, why: "" }, streak: 21, gold: 0.6, neglected: [], events: [], radarScanning: true, distracted: false,
+  weather: { kind: "sun", intensity: 0, tempC: 21, label: "Clear", place: "", isDay: true, live: false }, week: { kind: "sun", score: 82, why: "" },
+  ops: { agents: 5, working: 3, waiting: 0 }, streak: 21, gold: 0.6, neglected: [], events: [], radarScanning: true, distracted: false,
   citizens: [
     { id: 1, name: "Fajr", streak: 32, doneToday: true, sad: false }, { id: 2, name: "Workout", streak: 15, doneToday: true, sad: false },
     { id: 3, name: "Read 10 pages", streak: 8, doneToday: false, sad: false }, { id: 4, name: "Devlog", streak: 0, doneToday: false, sad: true },

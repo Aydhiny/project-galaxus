@@ -19,7 +19,7 @@ import { getSecret, setSecret } from "@/lib/services/secrets";
 import { notifyUser } from "@/lib/services/outreach/push";
 import { buildJobPrompt, applyJobResult } from "@/lib/services/claude-jobs";
 import { notifyBrief } from "@/lib/services/digest";
-import { JOB_LABEL, jobUsesTools, type JobKind } from "@/lib/claude-jobs";
+import { JOB_LABEL, jobUsesTools, jobUsesWeb, type JobKind } from "@/lib/claude-jobs";
 
 export const VOICE_REPO = process.env.GALAXUS_VOICE_REPO ?? "Aydhiny/project-galaxus";
 export const VOICE_WORKFLOW = "voice.yml";
@@ -156,7 +156,7 @@ export async function claimNextFor(userId: number) {
     // from fresh data. A job whose data vanished fails cleanly.
     try {
       const built = await buildJobPrompt({ userId, kind: String(row.kind), payload: row.payload as Record<string, unknown> });
-      return { id: Number(row.id), tools: jobUsesTools(String(row.kind)), ...built };
+      return { id: Number(row.id), tools: jobUsesTools(String(row.kind)), web: jobUsesWeb(String(row.kind)), ...built };
     } catch (e) {
       await completeFor(userId, Number(row.id), { ok: false, error: e instanceof Error ? e.message : "Couldn't prepare this job." });
       return claimNextFor(userId);
@@ -223,13 +223,18 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   return row;
 }
 
-const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs", email_reply: "/gigs", reddit_post: "/game/reddit", scout: "/scout" };
+const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs", email_reply: "/gigs", reddit_post: "/game/reddit", scout: "/scout", ops_mission: "/ops" };
 
 async function notifyDone(userId: number, c: VoiceCommand) {
   // The brief sends its own notification (with an image) — and if Claude
   // couldn't write it, the plain headlines are still worth announcing.
   // Background scoring failing isn't news — the free scores already cover it.
   if (c.kind === "gigs" && c.status === "failed") return;
+  // A cloud agent's mission goes back on the board; the facility shows why.
+  if (c.kind === "ops_mission" && c.status === "failed") {
+    const { cloudMissionFailedFor } = await import("@/lib/services/ops");
+    await cloudMissionFailedFor(userId, Number((c.payload ?? {}).missionId), c.error);
+  }
   // A client reply Claude couldn't handle → it's yours (the push already went out on arrival).
   if (c.kind === "email_reply") {
     if (c.status === "failed") {

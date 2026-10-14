@@ -11,6 +11,9 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GROUNDS, type Airship, type GoalSite, type GroundKey, type Weather } from "@/lib/empire-world";
 
+/** How cloudy each real-weather kind makes the sky (0 clear … 1 storm). */
+const OVERCAST: Record<Weather, number> = { sun: 0, partly: 0.2, clouds: 0.6, fog: 0.5, rain: 0.85, snow: 0.7, storm: 1 };
+
 export const RING_INNER = 13;
 export const RING_OUTER = 31;
 export const SITE_RADIUS = 41;
@@ -60,7 +63,11 @@ export class CityLife {
 
   // Weather
   private weather: Weather = "sun";
+  private intensity = 0; // 0–1 from the real forecast: drizzle vs downpour
   overcast = 0; // eased 0 (clear) … 1 (storm); the engine tints sky and sun with it
+  fog = 0; // eased 0 … 1, real fog; the engine pulls the fog in
+  flash = 0; // lightning, 0 … 1, decays fast; the engine brightens the sky with it
+  private nextBolt = 4;
   private clouds!: THREE.InstancedMesh;
   private cloudState: { a: number; r: number; y: number; s: number; v: number }[] = [];
   private cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92, emissive: 0x9aa8b8, emissiveIntensity: 0.25 });
@@ -186,20 +193,21 @@ export class CityLife {
     this.rainPos.set([x, y, z, x + 0.15, y + 1.1, z], i * 6);
   }
 
-  setWeather(w: Weather) { this.weather = w; }
+  setWeather(w: Weather, intensity = 0.6) { this.weather = w; this.intensity = Math.max(0.2, Math.min(1, intensity)); }
 
   /** Lite mode: no rain, a few clouds, small fireworks — for laptops and calm. */
   lite = false;
   setLite(on: boolean) { this.lite = on; if (on) this.rain.visible = false; }
 
   private tickWeather(dt: number, night: number) {
-    const target = this.weather === "rain" ? 0.9 : this.weather === "clouds" ? 0.35 : 0;
-    this.overcast += (target - this.overcast) * Math.min(1, dt * 0.8);
-    const visible = this.lite ? Math.min(3, this.cloudState.length) : Math.round(lerp(4, this.cloudState.length, Math.min(1, this.overcast * 1.2)));
+    const w = this.weather;
+    this.overcast += (OVERCAST[w] - this.overcast) * Math.min(1, dt * 0.8);
+    this.fog += ((w === "fog" ? 0.75 : 0) - this.fog) * Math.min(1, dt * 0.5);
+    const visible = this.lite ? Math.min(3, this.cloudState.length) : Math.round(lerp(2, this.cloudState.length, Math.min(1, this.overcast * 1.2)));
     this.cloudMat.color.setRGB(1, 1, 1).lerp(new THREE.Color(0x8a939d), this.overcast * 0.8).lerp(new THREE.Color(0x2a3140), night * 0.7);
     const o = new THREE.Object3D();
     this.cloudState.forEach((c, i) => {
-      c.a += c.v * dt;
+      c.a += c.v * dt * (w === "storm" ? 2.5 : 1);
       const show = i < visible;
       o.position.set(Math.cos(c.a) * c.r, c.y - this.overcast * 6, Math.sin(c.a) * c.r);
       o.rotation.set(0, c.a, 0);
@@ -209,20 +217,40 @@ export class CityLife {
     });
     this.clouds.instanceMatrix.needsUpdate = true;
 
-    const raining = this.overcast > 0.85 && !this.lite;
-    this.rain.visible = raining;
-    if (raining) {
-      const fall = 38 * dt;
-      for (let i = 0; i < this.rainPos.length / 6; i++) {
+    // Lightning: a sharp flash every few seconds in a storm.
+    this.flash = Math.max(0, this.flash - dt * 5);
+    if (w === "storm" && !this.lite) {
+      this.nextBolt -= dt;
+      if (this.nextBolt <= 0) { this.flash = 1; this.nextBolt = 3 + Math.random() * 7; }
+    }
+
+    // Rain and snow share the particle buffer: snow falls slowly, short and white, and drifts.
+    const falling = (w === "rain" || w === "storm" || w === "snow") && this.overcast > 0.5 && !this.lite;
+    this.rain.visible = falling;
+    if (falling) {
+      const snow = w === "snow";
+      const mat = this.rain.material as THREE.LineBasicMaterial;
+      mat.color.setHex(snow ? 0xffffff : 0xc9d6e2);
+      mat.opacity = snow ? 0.85 : 0.18 + 0.22 * this.intensity;
+      const n = this.rainPos.length / 6;
+      const shown = Math.round(n * (snow ? 0.6 + 0.4 * this.intensity : 0.35 + 0.65 * this.intensity));
+      const len = snow ? 0.18 : 1.1;
+      const fall = (snow ? 4.5 : 38 + 14 * this.intensity) * dt;
+      const t = performance.now() / 1000;
+      for (let i = 0; i < n; i++) {
+        if (i >= shown) { this.rainPos[i * 6 + 1] = -5; this.rainPos[i * 6 + 4] = -5; continue; }
         const y = this.rainPos[i * 6 + 1] - fall;
-        if (y < 0) this.resetDrop(i, 40 + Math.random() * 10);
-        else { this.rainPos[i * 6 + 1] = y; this.rainPos[i * 6 + 4] = y + 1.1; this.rainPos[i * 6] -= 0.15 * dt; this.rainPos[i * 6 + 3] -= 0.15 * dt; }
+        if (y < 0) { this.resetDrop(i, 40 + Math.random() * 10); continue; }
+        const drift = snow ? Math.sin(t * 1.3 + i) * 0.6 * dt : -0.15 * dt * (w === "storm" ? 4 : 1);
+        this.rainPos[i * 6] += drift; this.rainPos[i * 6 + 3] = this.rainPos[i * 6] + (snow ? 0.06 : 0.15);
+        this.rainPos[i * 6 + 1] = y; this.rainPos[i * 6 + 4] = y + len;
       }
       (this.rain.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
     }
   }
 
-  isRaining() { return this.overcast > 0.75; }
+  /** Real rain/storm right now (snow is quiet). Drives the rain sound. */
+  isRaining() { return (this.weather === "rain" || this.weather === "storm") && this.overcast > 0.6; }
 
   // ─── Streak lights ─────────────────────────────────────────────────────────
 

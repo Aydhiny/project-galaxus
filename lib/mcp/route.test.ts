@@ -97,7 +97,9 @@ describe("MCP endpoint", () => {
     expect(names).toEqual([
       "add_tasks", "complete_task", "create_goal_plan", "create_routine", "delete_goal", "delete_routine", "delete_task",
       "draft_reddit_post", "get_goal", "get_overview", "get_reddit_drafts", "list_goals", "list_reddit_communities", "list_routines",
-      "list_tasks", "update_goal", "update_routine", "update_task",
+      "list_tasks", "ops_checkin", "ops_claim_mission", "ops_create_mission", "ops_get_messages", "ops_get_missions", "ops_list_crew",
+      "ops_log_activity", "ops_send_message", "ops_submit_deliverable",
+      "update_goal", "update_routine", "update_task",
     ]);
     const plan = tools.find((t) => t.name === "create_goal_plan")!;
     expect(JSON.stringify(plan.inputSchema)).toContain("phases");
