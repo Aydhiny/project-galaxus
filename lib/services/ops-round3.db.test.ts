@@ -444,6 +444,42 @@ describe("you can see the lead think, and a failed plan is never silent", () => 
   });
 });
 
+describe("the heartbeat keeps the crew moving", () => {
+  it("one beat a minute at most; the beat URL needs its key; missions stuck on an agent on your computer go to a cloud agent", async () => {
+    const zana = (await testDb.insert(users).values({ name: "Zana", email: "zana@example.test" }).returning())[0].id;
+    const beat = await import("@/lib/services/ops-beat");
+    // A wrong or missing key never runs anything.
+    expect(await beat.beatByKey(zana, "nope")).toEqual({ ok: false, status: 401 });
+    const key = await beat.beatKeyFor(zana);
+    expect(key).toMatch(/^[\w-]{20,}$/);
+    expect(await beat.beatKeyFor(zana)).toBe(key); // stable until you rotate it
+    // A local agent (on the PC, only works while you run it) and a cloud scout.
+    await ops.createAgentFor(zana, { name: "Reuf", role: "scout", provider: "claude" });
+    const reuf = (await testDb.select().from(opsAgents).where(and(eq(opsAgents.userId, zana), eq(opsAgents.name, "Reuf"))))[0];
+    const { agent: testy } = await ops.createAgentFor(zana, { name: "Testy", role: "scout", provider: "claude", cloud: true, engine: "free" });
+    // Exactly the production case: aimed at Reuf, 31 minutes old, nobody took it.
+    const [m] = await testDb.insert(opsMissions).values({
+      userId: zana, day: today(), title: "Dentists in Sarajevo", kind: "research", agentId: reuf.id,
+      brief: "FIND: dentist @ Sarajevo 70 rows\nCollect Name, Phone", createdAt: new Date(Date.now() - 31 * 60_000),
+    }).returning();
+    h.web = (url) => url.startsWith("https://nominatim") ? Response.json([{ boundingbox: ["43.8", "43.9", "18.3", "18.45"] }]) : url.includes("overpass") ? Response.json({ elements: [{ type: "node", id: 7, tags: { name: "Zubar Zana" } }] }) : null;
+
+    const first = await beat.beatByKey(zana, key);
+    expect(first.ok && first.result).not.toBeNull(); // it ran
+    await settle();
+    const done = await mission(m.id);
+    expect(done).toMatchObject({ status: "submitted", agentId: testy.id });
+    expect(done.deliverable).toContain("| Zubar Zana |"); // "Sarajevo 70 rows" was searched as Sarajevo
+    // A second beat within the minute is skipped (one beat per user per minute, claimed in the database).
+    expect(await beat.beatFor(zana)).toBeNull();
+    // Missions for an agent on your computer are left alone for their first 30 minutes.
+    const [fresh] = await testDb.insert(opsMissions).values({ userId: zana, day: today(), title: "Lawyers", kind: "research", agentId: reuf.id, brief: "FIND: lawyer @ Sarajevo" }).returning();
+    await ops.dispatchCloudFor(zana);
+    expect((await mission(fresh.id)).status).toBe("open");
+    h.web = () => null;
+  });
+});
+
 describe("projects and work requests", () => {
   it("a project with a cloud lead is planned through the runner, and its goal is remembered", async () => {
     await tokens.createApiTokenFor(faruk, "Runner", "voice");

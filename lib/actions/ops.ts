@@ -259,3 +259,20 @@ export async function saveNightShift(on: boolean) {
     done();
   });
 }
+
+// ─── Heartbeat: the page beats while open; a 24/7 beat URL for a free cron service ─
+export async function opsBeat() {
+  const userId = await requireUserId();
+  const { beatFor } = await import("@/lib/services/ops-beat");
+  const r = await beatFor(userId);
+  if (r) done();
+  return { ran: r !== null };
+}
+export async function getBeatUrl(rotate = false) {
+  return toResult(async () => {
+    const userId = await requireUserId();
+    const { beatKeyFor, lastBeatFor } = await import("@/lib/services/ops-beat");
+    const key = await beatKeyFor(userId, rotate);
+    return { path: `/api/ops/beat?u=${userId}&k=${key}`, lastBeatAt: (await lastBeatFor(userId))?.toISOString() ?? null };
+  });
+}

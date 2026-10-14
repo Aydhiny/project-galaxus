@@ -716,7 +716,10 @@ export async function dispatchCloudFor(userId: number) {
       .where(sql`${opsMissions.id} = (
         select id from ${opsMissions}
         where user_id = ${userId} and status = 'open' and day <= ${today()}
-          and (agent_id is null or agent_id = ${a.id}) and (role is null or role = ${a.role})
+          and (agent_id is null or agent_id = ${a.id}
+               -- aimed at an agent on your computer that hasn't taken it in 30 minutes: a cloud agent steps in
+               or (agent_id in (select id from ops_agents where user_id = ${userId} and cloud = false) and created_at < now() - interval '30 minutes'))
+          and (role is null or role = ${a.role})
           and (budget_cents is null or spent_cents < budget_cents)
           and waiting_on is null
         order by (agent_id is null), id limit 1 for update skip locked

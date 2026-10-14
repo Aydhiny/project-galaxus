@@ -5,6 +5,7 @@
 // and when it last signalled, the cloud runner, and the endpoints.
 
 import { ReachDoctor } from "@/components/ops/ops-reach";
+import { BeatSetup } from "@/components/ops/ops-beat";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Check, Cloud, ExternalLink, Link2, Loader2, Play, Plus, Unlink } from "lucide-react";
@@ -103,6 +104,7 @@ export function Connectors({ data, now, onClose, onConnect, onChanged }: {
           })}
         </div>
 
+        <div className="mt-4"><BeatSetup now={now} /></div>
         <div className="mt-4"><ReachDoctor /></div>
 
         {/* Endpoints */}

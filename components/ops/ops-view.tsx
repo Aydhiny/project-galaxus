@@ -28,7 +28,7 @@ import { MemoryDialog } from "@/components/ops/ops-memory";
 import { Replay } from "@/components/ops/ops-replay";
 import { ChiefOrders, ChiefOrdersDialog } from "@/components/ops/ops-chief";
 import type { AgentView, OpsEngine, OpsView as ViewKey } from "@/components/ops/ops-engine";
-import { removeAgentC, updateAgentC, type OpsOverview } from "@/lib/client/ops";
+import { opsBeat, removeAgentC, updateAgentC, type OpsOverview } from "@/lib/client/ops";
 
 const REFRESH_MS = 5000;
 const VIEWS: { key: ViewKey; label: string }[] = [{ key: "overview", label: "Floor" }, { key: "wall", label: "Mission wall" }, { key: "table", label: "Table" }];
@@ -70,6 +70,15 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
   }, []);
   const [hint, setHint] = useState(true);
   useEffect(() => { const t = setTimeout(() => setHint(false), 7000); return () => clearTimeout(t); }, []);
+
+  // The crew's heartbeat while you watch: once a minute (the server lets one beat per minute through).
+  // GitHub's scheduled beat only fired every few hours; without this the crew sat idle.
+  useEffect(() => {
+    const beat = () => { if (!document.hidden) opsBeat().catch(() => {}); };
+    const first = setTimeout(beat, 1500);
+    const id = setInterval(beat, 60_000);
+    return () => { clearTimeout(first); clearInterval(id); };
+  }, []);
 
   // Keep the page live: re-render the server data every few seconds while the tab is visible.
   useEffect(() => {

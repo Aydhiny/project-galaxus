@@ -129,7 +129,7 @@ async function projectBrief(userId: number, p: OpsProject) {
       answers.length ? `\nTHE USER ANSWERED:\n${answers.map((x) => `- Q: ${x.q} → A: ${x.a}`).join("\n")}` : "",
       memory ? `\nWHAT WE KNOW ABOUT THE USER (shared memory):\n${memory}` : "",
       learned ? `\nLEARNED FROM THE USER'S DECISIONS (find more of what they move forward, less of what they skip):\n${learned}` : "",
-      `\nCREW: ${crew.map((c) => `${c.name} (${ROLES[roleOf(c.role)].label}, ${c.cloud ? "cloud" : c.provider})`).join("; ")}`,
+      `\nCREW: ${crew.map((c) => `${c.name} (${ROLES[roleOf(c.role)].label}, ${c.cloud ? "cloud: always on" : `${c.provider} on the user's computer: only works while the user runs it`})`).join("; ")}`,
     ].filter(Boolean).join("\n"),
   };
 }
@@ -223,6 +223,7 @@ Plan TODAY's work only. Reply with ONLY a JSON object:
 Rules:
 - Missions DO the work (find, check, collect, write). Never post a mission that only explains to the user how they could do it themselves.
 - Use the whole crew: give each crew member work that fits their role, split so nobody overlaps (by category, area or source). Name them in "agent".
+  Prefer cloud agents (always on). Give work to an agent "on the user's computer" only if the user asked for it: it waits until they run it.
 - If the goal is a list of LOCAL BUSINESSES (leads): use the business finder. Give each mission ONE category and city, and make the brief's FIRST line exactly
   "FIND: <type> @ <city>" with <type> one of: ${OSM_TYPES.map((t) => t.key).join(", ")} — and NOTHING else on that line (just the city name, e.g. "FIND: dentist @ Banja Luka"). Put "<N> rows" for the target on the NEXT line. The finder returns the table (Name, Category, Address, Phone, WhatsApp, Email, Website, Website status, Source) from map data and the businesses' own pages — split categories and cities across the crew; several cities if one city can't reach the target.
 - If the goal is any other list: fix the columns on day 1 (put them in the plan) and make EVERY mission deliver its rows as ONE markdown table with exactly those columns, plus a target row count per mission. Rows must be real and checked (a source link per row); never invent contact details — leave a cell empty when unknown.

@@ -1470,6 +1470,8 @@ export const opsSettings = pgTable("ops_settings", {
   freeFirst: boolean("free_first").notNull().default(true), // quick missions use free models first (saves Claude for deep work)
   nightShift: boolean("night_shift").notNull().default(false), // while you sleep, cloud agents keep working on free models only (lib/ops-night.ts)
   nightStartedAt: timestamp("night_started_at"), // the night shift running now started then (cleared by the morning summary)
+  lastBeatAt: timestamp("last_beat_at"), // the crew's heartbeat: at most one beat a minute (lib/services/ops-beat.ts)
+  beatKey: varchar("beat_key", { length: 40 }), // the private key in your 24/7 beat URL (can only trigger a beat)
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

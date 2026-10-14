@@ -1092,6 +1092,10 @@ const STATEMENTS = [
   `ALTER TABLE "free_llm_keys" ADD COLUMN IF NOT EXISTS "health_fails" integer DEFAULT 0 NOT NULL`,
   `ALTER TABLE "free_llm_keys" ADD COLUMN IF NOT EXISTS "health_checks" integer DEFAULT 0 NOT NULL`,
 
+  // Heartbeat: the /ops page and a 24/7 beat URL keep the crew moving (GitHub's cron only fired every few hours).
+  `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "last_beat_at" timestamp`,
+  `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "beat_key" varchar(40)`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];

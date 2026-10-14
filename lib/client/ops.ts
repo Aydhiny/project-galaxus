@@ -70,3 +70,7 @@ import { setLinkLeads } from "@/lib/actions/ops";
 export const setLinkLeadsC = unwrapped(setLinkLeads);
 // ── Free-model ops: the night shift toggle ──
 export const saveNightShiftC = unwrapped(saveNightShift);
+// ─── Heartbeat ───
+import { getBeatUrl, opsBeat } from "@/lib/actions/ops";
+export const getBeatUrlC = unwrapped(getBeatUrl);
+export { opsBeat };
