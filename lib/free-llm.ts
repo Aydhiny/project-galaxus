@@ -76,7 +76,12 @@ export type FreeKeyState = {
   provider: string; enabled: boolean; priority: number; day: string | null; requests: number; tokens: number;
   remainingRequests: number | null; limitRequests: number | null; remainingTokens: number | null; headersAt: Date | string | null;
   cooldownUntil: Date | string | null;
+  healthFails?: number; // failed health checks in a row (lib/free-health.ts)
 };
+
+/** Failed this many hourly health checks in a row: shown as "unhealthy" and tried last, until it passes again. */
+export const UNHEALTHY_AFTER = 3;
+export const isUnhealthy = (k: Pick<FreeKeyState, "healthFails">) => (k.healthFails ?? 0) >= UNHEALTHY_AFTER;
 
 /** What's left today: exact (from the provider's headers, if recent) or estimated (published limit − what we used). */
 export function remainingToday(k: FreeKeyState, today: string, now = Date.now()) {
@@ -101,9 +106,9 @@ export function usable(k: FreeKeyState, today: string, now = Date.now()) {
   return !(tpd != null && r.usedTokens >= tpd);
 }
 
-/** Usable keys, best first: your priority order, then the most headroom. */
+/** Usable keys, best first: healthy before unhealthy, then your priority order, then the most headroom. */
 export function pickOrder<T extends FreeKeyState>(keys: T[], today: string, now = Date.now()): T[] {
-  return keys.filter((k) => usable(k, today, now)).sort((a, b) => a.priority - b.priority || (remainingToday(b, today, now).requests ?? 1e9) - (remainingToday(a, today, now).requests ?? 1e9));
+  return keys.filter((k) => usable(k, today, now)).sort((a, b) => Number(isUnhealthy(a)) - Number(isUnhealthy(b)) || a.priority - b.priority || (remainingToday(b, today, now).requests ?? 1e9) - (remainingToday(a, today, now).requests ?? 1e9));
 }
 
 /** Rate-limit headers (Groq, Cerebras, OpenAI-style) → remaining/limit, if the provider sends them. */
