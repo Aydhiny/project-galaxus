@@ -12,7 +12,7 @@
 import { and, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opsAgents, opsDays, opsMessages, opsMissions, opsSettings, outreachSettings, userSettings } from "@/lib/db/schema";
-import { shiftStatus } from "@/lib/ops";
+import { inQuietHours, shiftStatus } from "@/lib/ops";
 import { opsSettingsFor, pushFor } from "@/lib/services/ops-inbox";
 import { clockIn, nightPlanDue, nightShiftNow, nightSummary, sleepWindow } from "@/lib/ops-night";
 
@@ -39,6 +39,19 @@ export async function nightShiftActiveFor(userId: number, shiftState?: ShiftStat
   const { s, window, clock } = await nightInputs(userId);
   if (!s.nightShift) return false;
   return nightShiftNow({ enabled: true, hhmm: clock.hhmm, ...window, shiftState: shiftState ?? (await shiftStateFor(userId, clock.hhmm)) });
+}
+
+/**
+ * Are you asleep right now (your sleep window), whatever the toggle says? With the night shift OFF,
+ * nothing runs then unless you set a shift that covers the night — the runner beats at night now
+ * (for the night shift), and without this Claude agents would quietly start working while you sleep.
+ */
+export async function inSleepWindowFor(userId: number) {
+  // Only with a bedtime you set (Sleep Guardian): without one, agents keep the hours they always had.
+  const [sleep] = await db.select({ on: userSettings.sleepEnabled, bed: userSettings.bedTime, wake: userSettings.wakeTime }).from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
+  if (!sleep?.on || !sleep.bed || !sleep.wake) return false;
+  const { window, clock } = await nightInputs(userId);
+  return inQuietHours(clock.hhmm, window.bed, window.wake);
 }
 
 export async function setNightShiftFor(userId: number, on: boolean) {

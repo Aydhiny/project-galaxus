@@ -693,6 +693,7 @@ export async function dispatchCloudFor(userId: number) {
   const { nightShiftActiveFor } = await import("@/lib/services/ops-night");
   const night = await nightShiftActiveFor(userId, shift.state);
   if (shift.state === "off" && !night) return { dispatched: 0, reason: "off shift" };
+  if (!night && shift.state !== "on" && (await import("@/lib/services/ops-night").then((n) => n.inSleepWindowFor(userId)))) return { dispatched: 0, reason: "you're asleep (night shift is off)" };
   const { claudeHealthy, enqueueJobFor } = await import("@/lib/services/claude-jobs");
   const { budgetFor, opsSettingsFor } = await import("@/lib/services/ops-inbox");
   const { freeStatusFor } = await import("@/lib/services/free-llm");
