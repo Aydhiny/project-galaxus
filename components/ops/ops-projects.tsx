@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { CalendarRange, FileSpreadsheet, FileText, Loader2, Pause, Play, Plus, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRESENCE_LOOK, ROLES, formatUsd, presence, roleOf } from "@/lib/ops";
+import { progressLine } from "@/lib/ops-progress";
 import { ConfirmDialog, btnPrimary, field } from "@/components/ops/ops-dialog";
 import { createProjectC, extendProjectC, setProjectStatusC, type OpsOverview } from "@/lib/client/ops";
 
@@ -32,6 +33,9 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
   const lead = p.leadAgentId ? data.agents.find((a) => a.id === p.leadAgentId) : null;
   const leadP = lead ? presence(lead, data.now) : null;
   const pct = Math.round((Math.min(p.dayNo, p.totalDays) / p.totalDays) * 100);
+  // Live counter from the merged sheet against the goal's number (older payloads may not carry it).
+  const count = p.progress ? progressLine(p.progress) : "";
+  const toTarget = p.progress?.target ? Math.round((Math.min(p.progress.rows, p.progress.target) / p.progress.target) * 100) : null;
   const run = (fn: () => Promise<unknown>, ok: string) => start(async () => { try { await fn(); toast.success(ok); onChanged(); } catch (e) { toast.error((e as Error).message); } });
   return (
     <div className={cn("rounded-xl border p-3", p.status === "done" ? "border-emerald-300/30 bg-emerald-400/[0.06]" : "border-white/10 bg-white/[0.04]")}>
@@ -63,8 +67,9 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
         );
       })()}
       <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full", p.status === "done" ? "bg-emerald-400" : "bg-[#6b8afd]")} style={{ width: `${p.status === "done" ? 100 : pct}%` }} /></div>
+      {toTarget != null && <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden" title="Toward the goal's number"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${toTarget}%` }} /></div>}
       <p className="mt-1.5 text-[11px] text-white/60 flex flex-wrap gap-x-2">
-        {p.sheetRows > 0 && <span className="text-emerald-300">{p.sheetRows} rows</span>}
+        {count && <span className="text-emerald-300 tabular-nums" title={toTarget != null ? `${toTarget}% of the goal's number` : "Rows in the merged sheet"}>{count}</span>}
         <span>{p.done} done</span>{p.review > 0 && <span className="text-amber-300">{p.review} to review</span>}<span>{p.active} in progress</span>
         {p.late > 0 && <span className="text-rose-300">{p.late} late</span>}
         <span className="font-mono">{formatUsd(p.spentCents)}{p.budgetCents ? ` / ${formatUsd(p.budgetCents)}` : ""}</span>

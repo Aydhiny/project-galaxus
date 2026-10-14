@@ -1052,6 +1052,8 @@ const STATEMENTS = [
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_lat" real`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_lon" real`,
   `ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "weather_place" varchar(80)`,
+  // Learning & progress: free-model runs per mission (cost per lead on the scoreboard).
+  `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "free_calls" integer`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,

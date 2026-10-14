@@ -19,6 +19,8 @@ import {
   EFFORTS, MAX_PROJECT_MISSIONS_PER_DAY, MISSION_KINDS, MISSION_KIND_INFO, ROLES, ROLE_KEYS, addDays, formatUsd, isLate, mergeTables, parseProjectInput, projectDay, projectStep, roleOf,
   type Effort, type MissionKind, type RoleKey,
 } from "@/lib/ops";
+import { preferenceSummary } from "@/lib/ops-learning";
+import { goalProgress, progressForPrompt } from "@/lib/ops-progress";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -63,6 +65,7 @@ export async function projectsFor(userId: number) {
   const t = today();
   return rows.map((p) => {
     const ms = missions.filter((m) => m.projectId === p.id);
+    const sheet = mergeTables(ms.filter((m) => (m.status === "done" || m.status === "submitted") && m.deliverable).map((m) => m.deliverable!));
     return {
       ...p, ...projectDay({ startDay: String(p.startDay), deadline: String(p.deadline) }, t),
       done: ms.filter((m) => m.status === "done").length,
@@ -71,7 +74,9 @@ export async function projectsFor(userId: number) {
       late: ms.filter((m) => isLate({ status: m.status, dueDay: m.dueDay ? String(m.dueDay) : null }, t)).length,
       spentCents: ms.reduce((s, m) => s + m.spentCents, 0),
       // Rows in the merged sheet so far (0 = not a list project, or nothing yet).
-      sheetRows: Math.max(0, mergeTables(ms.filter((m) => (m.status === "done" || m.status === "submitted") && m.deliverable).map((m) => m.deliverable!)).length - 1),
+      sheetRows: Math.max(0, sheet.length - 1),
+      // Live counter toward the goal's number: "87 / 200 leads · 41 WhatsApp · 12 emails".
+      progress: goalProgress(p.goal, sheet),
       finishing: p.status === "active" && !!p.finalAt,
     };
   });
@@ -100,6 +105,11 @@ async function projectBrief(userId: number, p: OpsProject) {
   ]);
   const spent = ms.reduce((s, m) => s + m.spentCents, 0);
   const results = ms.filter((m) => (m.status === "done" || m.status === "submitted") && m.deliverable);
+  const progress = progressForPrompt(goalProgress(p.goal, mergeTables(results.map((m) => m.deliverable!))));
+  // What you've taught Ops by skipping / advancing leads and accepting / sending back work. It's in shared
+  // memory too, but there it only surfaces when the goal's words match; stated here so every plan sees it.
+  const { preferencesFor } = await import("@/lib/services/ops-learning");
+  const learned = preferenceSummary(await preferencesFor(userId).catch(() => []));
   return {
     d, spent, ms,
     text: [
@@ -108,12 +118,14 @@ async function projectBrief(userId: number, p: OpsProject) {
       `Today is ${t}: day ${d.dayNo} of ${d.totalDays}. Deadline ${String(p.deadline)} (${d.daysLeft} day${d.daysLeft === 1 ? "" : "s"} after today).`,
       p.budgetCents ? `Budget: ${formatUsd(p.budgetCents)}, spent ${formatUsd(spent)}.` : "",
       p.plan ? `\nPLAN SO FAR:\n${p.plan.slice(0, 3000)}` : "",
+      progress ? `\n${progress}` : "",
       results.length ? `\nRESULTS SO FAR:\n${results.slice(-8).map((m) => `- "${m.title}" (${m.status === "done" ? "accepted" : "waiting for review"}): ${(m.deliverable ?? "").replace(/\s+/g, " ").slice(0, 400)}`).join("\n")}` : "\nRESULTS SO FAR: none yet.",
       ms.some((m) => isLate({ status: m.status, dueDay: m.dueDay ? String(m.dueDay) : null }, t))
         ? `\nLATE (carry over or replace):\n${ms.filter((m) => isLate({ status: m.status, dueDay: m.dueDay ? String(m.dueDay) : null }, t)).map((m) => `- ${m.title} (was due ${String(m.dueDay)})`).join("\n")}` : "",
       ms.some((m) => m.status === "open" || m.status === "claimed") ? `\nSTILL IN PROGRESS:\n${ms.filter((m) => m.status === "open" || m.status === "claimed").map((m) => `- ${m.title}`).join("\n")}` : "",
       answers.length ? `\nTHE USER ANSWERED:\n${answers.map((x) => `- Q: ${x.q} → A: ${x.a}`).join("\n")}` : "",
       memory ? `\nWHAT WE KNOW ABOUT THE USER (shared memory):\n${memory}` : "",
+      learned ? `\nLEARNED FROM THE USER'S DECISIONS (find more of what they move forward, less of what they skip):\n${learned}` : "",
       `\nCREW: ${crew.map((c) => `${c.name} (${ROLES[roleOf(c.role)].label}, ${c.cloud ? "cloud" : c.provider})`).join("; ")}`,
     ].filter(Boolean).join("\n"),
   };

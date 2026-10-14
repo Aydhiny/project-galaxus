@@ -1301,6 +1301,7 @@ export const opsMissions = pgTable(
     chiefNote: text("chief_note"), // the Chief's review of the result, for you
     budgetCents: integer("budget_cents"),
     spentCents: integer("spent_cents").notNull().default(0), // as REPORTED by the agent; not enforced for external agents
+    freeCalls: integer("free_calls"), // free-model / finder runs on it ($0 of Claude) — cost per lead on the scoreboard
     status: varchar("status", { length: 10 }).notNull().default("open"), // open | claimed | submitted | done | cancelled
     deliverableTitle: varchar("deliverable_title", { length: 200 }),
     deliverable: text("deliverable"), // markdown, written by the agent: untrusted, render as text

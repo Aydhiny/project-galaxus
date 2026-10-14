@@ -10,6 +10,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opsAgents, opsMessages, opsMissions, opsProjects, type OpsAgent, type OpsMission } from "@/lib/db/schema";
 import { MAX_REVIEW_ROUNDS, ROLES, parseReview, roleOf } from "@/lib/ops";
+import { goalProgress, progressForPrompt } from "@/lib/ops-progress";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -69,10 +70,20 @@ export async function buildReviewPrompt(userId: number, missionId: number, chief
   const { memoryBrief } = await import("@/lib/services/ops-memory");
   const memory = await memoryBrief(userId, `${m.title} ${project?.goal ?? ""}`, 1200).catch(() => "");
   const root = chain[0] ?? m;
+  // A list goal with a number ("200 leads"): judge "continue" against where the merged sheet stands.
+  let progress = "";
+  if (project) {
+    const { projectSheetFor } = await import("@/lib/services/ops-projects");
+    const sheet = await projectSheetFor(userId, project.id).then((s) => s.rows, () => [] as string[][]);
+    const p = goalProgress(project.goal, sheet);
+    progress = progressForPrompt(p);
+    if (progress && p.target != null && p.rows < p.target) progress += ` This result is already counted. Below the target, "accept" only if agents truly can't add more; otherwise "continue" with a step that adds the missing rows (other categories or cities, no repeats).`;
+  }
   const goal = project ? `PROJECT GOAL: ${project.goal} (deadline ${String(project.deadline)})` : `GOAL (what the user asked for): ${root.title}${root.brief ? ` — ${root.brief.slice(0, 1500)}` : ""}`;
   const prompt = [
     `You are ${chief?.name ?? "the Chief"}. Today is ${today()}.`,
     goal,
+    progress,
     memory ? `\nWHAT WE KNOW ABOUT THE USER:\n${memory}` : "",
     chain.length > 1 ? `\nSTEPS SO FAR ON THIS LINE OF WORK:\n${chain.slice(0, -1).map((c, i) => `${i + 1}. "${c.title}"${c.chiefNote ? ` — your note: ${c.chiefNote}` : ""}`).join("\n")}` : "",
     `\nTHIS STEP: "${m.title}" (round ${m.reviewRound + 1} of ${MAX_REVIEW_ROUNDS}), by ${agent?.name ?? "an agent"} (${agent ? ROLES[roleOf(agent.role)].label : "agent"}).`,
