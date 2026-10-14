@@ -137,7 +137,7 @@ export async function removeLink(id: number) {
 
 // ─── Round 3: the inbox, budget & alerts, projects, work requests ────────────
 import { answerFor, markReadFor, resumeCloudFor, saveOpsSettingsFor } from "@/lib/services/ops-inbox";
-import { createProjectFor, setProjectStatusFor } from "@/lib/services/ops-projects";
+import { createProjectFor, extendProjectFor, setProjectStatusFor } from "@/lib/services/ops-projects";
 import { respondRequestFor } from "@/lib/services/ops-links";
 
 export async function answerQuestion(id: number, answer: string) {
@@ -209,4 +209,8 @@ export async function reachDoctorNow() {
     const key = (await getSecret(userId, "youtube")) ?? (await getSecret(userId, "google"));
     return (await reachDoctor(key)).map((r) => ({ channel: r.channel, ok: r.ok, route: r.route, error: r.error ?? null }));
   });
+}
+
+export async function extendProject(id: number, days: number) {
+  return toResult(async () => { await extendProjectFor(await requireUserId(), id, days); done(); });
 }

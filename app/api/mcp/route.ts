@@ -14,7 +14,7 @@ import { verifyApiToken } from "@/lib/services/api-tokens";
 import { checkRateLimit } from "@/lib/ratelimit";
 import { recordToolResultFor } from "@/lib/services/voice";
 
-export const maxDuration = 60;
+export const maxDuration = 300; // a submit can start the next agent mission, which finishes in after() within this limit
 
 const handler = createMcpHandler(
   (server) => {

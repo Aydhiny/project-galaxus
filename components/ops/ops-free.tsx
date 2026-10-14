@@ -112,8 +112,16 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
               {prov.limits.rpd != null && <span className="text-white/45"> · ~{prov.limits.rpd.toLocaleString("en-GB")} requests/day</span>}
               {prov.limits.rpm != null && <span className="text-white/45"> · {prov.limits.rpm}/min</span>}
             </p>
-            {prov.key === "custom" && (
-              <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="Base URL, e.g. https://api.provider.com/v1" className={field} />
+            {prov.key === "omniroute" && (
+              <ol className="list-decimal pl-4 text-[11px] text-white/60 space-y-0.5">
+                <li>Install and start OmniRoute on your PC or a VPS (npm, Docker or the desktop app; see its README) and connect a few free providers in its Dashboard.</li>
+                <li>Give it an https address Galaxus can reach, e.g. <code className="font-mono text-white/80">cloudflared tunnel --url http://localhost:20128</code> (a named tunnel keeps the same address after restarts).</li>
+                <li>Paste <code className="font-mono text-white/80">https://your-address/v1</code> and the key from Dashboard → Endpoints, keep the model <code className="font-mono text-white/80">auto</code>, then hit Test.</li>
+                <li className="text-amber-200/80">Don&apos;t route your Claude Pro or ChatGPT subscriptions through it: that can break their terms. Keep it to free and API-key tiers.</li>
+              </ol>
+            )}
+            {!prov.baseUrl && (
+              <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={prov.key === "omniroute" ? "https://your-omniroute-address/v1" : "Base URL, e.g. https://api.provider.com/v1"} className={field} />
             )}
             <div className="grid sm:grid-cols-2 gap-2">
               <input value={key} onChange={(e) => setKey(e.target.value)} type="password" autoComplete="off"

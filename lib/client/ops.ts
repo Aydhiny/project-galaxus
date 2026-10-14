@@ -6,7 +6,7 @@ import {
   debriefNow, inviteLink, missionToLead, missionToPage, missionToReddit, missionToTasks, redditSubs, removeLink, removeRecurring, respondLink,
   setLinkShare, standupNow,
   answerQuestion, createProject, markInboxRead, respondRequest, resumeCloud, saveOpsSettings, setProjectStatus,
-  addMemory, forgetMemory, moveFreeKey, pinMemory, reachDoctorNow, refreshAboutMemory, removeFreeKey, saveFreeKey, testFreeKey,
+  addMemory, extendProject, forgetMemory, moveFreeKey, pinMemory, reachDoctorNow, refreshAboutMemory, removeFreeKey, saveFreeKey, testFreeKey,
 } from "@/lib/actions/ops";
 
 export const createAgentC = unwrapped(createAgent);
@@ -43,6 +43,7 @@ export const createProjectC = unwrapped(createProject);
 export const setProjectStatusC = unwrapped(setProjectStatus);
 export const respondRequestC = unwrapped(respondRequest);
 export const saveFreeKeyC = unwrapped(saveFreeKey);
+export const extendProjectC = unwrapped(extendProject);
 export const removeFreeKeyC = unwrapped(removeFreeKey);
 export const moveFreeKeyC = unwrapped(moveFreeKey);
 export const testFreeKeyC = unwrapped(testFreeKey);

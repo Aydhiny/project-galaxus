@@ -310,6 +310,14 @@ export const osmType = (key: string) => OSM_TYPES.find((t) => t.key === key) ?? 
  * Best phone number on a web page: tel: links first (they're deliberate),
  * then anything that looks like a Bosnian number. Mobiles win (WhatsApp).
  */
+/** A contact email on a web page: mailto: links first, then plain addresses (not image names or tracking ids). */
+export function extractEmail(html: string): string | null {
+  const ok = (e: string) => /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(e) && !/\.(png|jpe?g|gif|svg|webp)$/i.test(e) && !/sentry|wixpress|example\.|domain\.com/i.test(e);
+  for (const m of html.matchAll(/href=["']mailto:([^"'?]+)/gi)) { const e = decodeURIComponent(m[1]).trim().toLowerCase(); if (ok(e)) return e; }
+  for (const m of html.replace(/<[^>]+>/g, " ").matchAll(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)) { const e = m[0].toLowerCase(); if (ok(e)) return e; }
+  return null;
+}
+
 export function extractPhone(html: string): string | null {
   const found: string[] = [];
   for (const m of html.matchAll(/href=["']tel:([^"']+)["']/gi)) {

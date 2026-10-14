@@ -7,11 +7,11 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CalendarRange, FileText, Loader2, Pause, Play, Plus, Target, X } from "lucide-react";
+import { CalendarRange, FileSpreadsheet, FileText, Loader2, Pause, Play, Plus, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROLES, formatUsd, roleOf } from "@/lib/ops";
 import { ConfirmDialog, btnPrimary, field } from "@/components/ops/ops-dialog";
-import { createProjectC, setProjectStatusC, type OpsOverview } from "@/lib/client/ops";
+import { createProjectC, extendProjectC, setProjectStatusC, type OpsOverview } from "@/lib/client/ops";
 
 type Project = OpsOverview["projects"][number];
 
@@ -39,13 +39,16 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-tight">{p.title}</p>
           <p className="text-[11px] text-white/55 mt-0.5">
-            {p.status === "done" ? "Done: final solution on the page" : p.status === "paused" ? "Paused" : p.phase === "final" ? "Deadline today: final solution" : `Day ${p.dayNo} of ${p.totalDays} · ${p.daysLeft} day${p.daysLeft === 1 ? "" : "s"} left`}
+            {p.status === "done" ? "Done: final result on the page" : p.status === "paused" ? "Paused" : p.finishing ? "Finishing: the lead is writing the final result"
+              : p.phase === "over" ? "Overdue: keeps working until it has results" : p.phase === "final" ? "Deadline today: the crew works, the final result comes tonight"
+              : `Day ${p.dayNo} of ${p.totalDays} · ${p.daysLeft} day${p.daysLeft === 1 ? "" : "s"} left`}
             {lead ? ` · lead ${lead.name}${lead.cloud ? " (cloud)" : ""}` : " · no lead: any Chief"}
           </p>
         </div>
       </div>
       <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full", p.status === "done" ? "bg-emerald-400" : "bg-[#6b8afd]")} style={{ width: `${p.status === "done" ? 100 : pct}%` }} /></div>
       <p className="mt-1.5 text-[11px] text-white/60 flex flex-wrap gap-x-2">
+        {p.sheetRows > 0 && <span className="text-emerald-300">{p.sheetRows} rows</span>}
         <span>{p.done} done</span>{p.review > 0 && <span className="text-amber-300">{p.review} to review</span>}<span>{p.active} in progress</span>
         {p.late > 0 && <span className="text-rose-300">{p.late} late</span>}
         <span className="font-mono">{formatUsd(p.spentCents)}{p.budgetCents ? ` / ${formatUsd(p.budgetCents)}` : ""}</span>
@@ -54,6 +57,13 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
         {p.pageId && <Link href={`/pages/${p.pageId}`} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/85 hover:bg-white/10 inline-flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Project page</Link>}
         {p.status === "active" && <button disabled={busy} onClick={() => run(() => setProjectStatusC(p.id, "paused"), "Paused.")} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/80 inline-flex items-center gap-1"><Pause className="w-3.5 h-3.5" /> Pause</button>}
         {p.status === "paused" && <button disabled={busy} onClick={() => run(() => setProjectStatusC(p.id, "active"), "Resumed.")} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/80 inline-flex items-center gap-1"><Play className="w-3.5 h-3.5" /> Resume</button>}
+        {p.sheetRows > 0 && <a href={`/api/ops/xlsx?project=${p.id}`} className="h-7 px-2.5 rounded-lg border border-emerald-300/40 text-xs text-emerald-100 hover:bg-emerald-400/10 inline-flex items-center gap-1"><FileSpreadsheet className="w-3.5 h-3.5" /> Excel ({p.sheetRows})</a>}
+        {(p.status === "done" || p.phase === "over") && (
+          <select disabled={busy} value="" aria-label="Keep going" onChange={(e) => { const n = Number(e.target.value); if (n) run(() => extendProjectC(p.id, n), `Keeps going for ${n} more day${n === 1 ? "" : "s"}: the lead plans today.`); }}
+            className="h-7 px-2 rounded-lg border border-[#6b8afd]/50 bg-[#6b8afd]/10 text-xs text-white [&>option]:text-black">
+            <option value="">Keep going…</option><option value="1">+1 day</option><option value="3">+3 days</option><option value="7">+1 week</option>
+          </select>
+        )}
         {p.status !== "done" && <button onClick={() => setCancelling(true)} className="ml-auto h-7 px-2.5 rounded-lg text-xs text-rose-300 hover:bg-rose-400/10 inline-flex items-center gap-1"><X className="w-3.5 h-3.5" /> Cancel</button>}
       </div>
       {cancelling && (

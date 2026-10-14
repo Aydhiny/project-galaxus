@@ -76,7 +76,7 @@ export const AGENT_TOOLS = new Set([
   "ops_list_crew", "ops_send_message", "ops_get_messages", "ops_create_mission", "ops_search_library",
   "ops_ask_user", "ops_notify_user", "ops_get_project", "ops_request_partner",
   // Shared memory (claude-mem style) and the internet (Reach).
-  "mem_search", "mem_timeline", "mem_get", "mem_remember", "reach_search", "reach_read", "reach_reddit", "reach_youtube",
+  "mem_search", "mem_timeline", "mem_get", "mem_remember", "reach_search", "reach_read", "reach_reddit", "reach_youtube", "reach_businesses",
 ]);
 
 export const EVENT_KINDS = ["browse", "search", "read", "edit", "shell", "tool", "think", "status", "message", "delegate", "waiting"] as const;
@@ -959,4 +959,53 @@ export function parseReview(raw: unknown): ChiefReview | null {
   if (verdict !== "accept" && feedback.length < 5 && !next) return null;
   const p = Number(r.progress);
   return { verdict, note: s(r.note, 800) || feedback.slice(0, 800), feedback, next, progress: Number.isFinite(p) ? Math.max(0, Math.min(100, Math.round(p))) : null };
+}
+
+// ─── Data results: tables across a project's results → one sheet ──────────────
+
+const normHead = (h: string) => h.toLowerCase().replace(/[*_`]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const plainCell = (c: string) => c.replace(/\*\*|__|`/g, "").replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1 ($2)").trim();
+
+/**
+ * Every markdown table in the results, merged under the most common header
+ * (columns matched by name, so agents may order them differently), with
+ * duplicate rows (same first column) dropped. Returns [header, ...rows] or [].
+ */
+export function mergeTables(mds: string[]): string[][] {
+  const tables = mds.flatMap((md) => mdToBlocks(md, { inline: true }).filter((b) => b.type === "table" && (b.rows?.length ?? 0) >= 2).map((b) => b.rows!));
+  if (!tables.length) return [];
+  const count = new Map<string, number>();
+  for (const t of tables) { const k = t[0].map(normHead).join("|"); count.set(k, (count.get(k) ?? 0) + t.length - 1); }
+  const bestKey = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const header = tables.find((t) => t[0].map(normHead).join("|") === bestKey)![0].map(plainCell);
+  const keys = header.map(normHead);
+  const seen = new Set<string>();
+  const rows: string[][] = [header];
+  for (const t of tables) {
+    const idx = keys.map((k) => t[0].map(normHead).indexOf(k));
+    if (idx.filter((i) => i >= 0).length < Math.min(2, keys.length)) continue; // a different kind of table
+    for (const r of t.slice(1)) {
+      const row = idx.map((i) => (i >= 0 ? plainCell(r[i] ?? "") : ""));
+      const id = row[0].toLowerCase().replace(/\s+/g, " ");
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+/**
+ * What a project does on a beat:
+ *   plan   — the lead plans today's missions (every day, the deadline day too);
+ *   finish — write the final result: at the deadline's end of day (or after it),
+ *            or earlier on the deadline day once nothing is left in progress;
+ *   wait   — nothing to do now.
+ * Never "finish" with no results: an overdue project with nothing delivered keeps working.
+ */
+export function projectStep(o: { phase: "not started" | "working" | "final" | "over"; plannedToday: boolean; results: number; inProgress: number; dayEnded: boolean }): "plan" | "finish" | "wait" {
+  if (o.phase === "not started") return "wait";
+  const canFinish = o.results > 0 && (o.phase === "over" || (o.phase === "final" && (o.dayEnded || (o.plannedToday && o.inProgress === 0))));
+  if (canFinish) return "finish";
+  return o.plannedToday ? "wait" : "plan";
 }

@@ -161,7 +161,7 @@ export async function deleteSearchFor(userId: number, id: number) {
 const FREE_TIER_HINT = "Google's free allowance is 1,000 requests a month; Galaxus stops below your cap so you're never billed.";
 
 /** Count a Places request against this month's cap, or refuse if it would pass it. */
-async function takePlacesCall(userId: number) {
+export async function takePlacesCall(userId: number) {
   const { settings } = await getConfigFor(userId);
   const month = localNow(settings.timezone).day.slice(0, 7);
   const used = settings.placesMonth === month ? settings.placesCalls : 0;

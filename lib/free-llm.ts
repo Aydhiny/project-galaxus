@@ -57,6 +57,13 @@ export const FREE_PROVIDERS: FreeProvider[] = [
     limits: { rpm: null, rpd: null, tpd: null }, note: "Small monthly free credit.", logo: "huggingface",
   },
   {
+    // github.com/diegosouzapw/OmniRoute: a gateway YOU run (PC or VPS) that routes "auto" across 150+ free tiers
+    // with its own fallback. Galaxus is on Vercel, so it must be reachable over https (e.g. a Cloudflare tunnel).
+    key: "omniroute", name: "OmniRoute (your gateway)", baseUrl: "", keyUrl: "https://github.com/diegosouzapw/OmniRoute", card: "none",
+    models: [{ id: "auto", ctx: 128_000 }], limits: { rpm: null, rpd: null, tpd: null },
+    note: "Your own gateway over 150+ free tiers, with its own automatic fallback. Runs on your PC or a VPS; paste its https URL (…/v1) and the key from its Dashboard → Endpoints.",
+  },
+  {
     key: "custom", name: "Custom (any OpenAI-compatible)", baseUrl: "", keyUrl: "https://freellm.net", card: "registration",
     models: [], limits: { rpm: null, rpd: null, tpd: null }, note: "Any provider from the directory: paste its base URL and model id.",
   },

@@ -38,7 +38,7 @@ export async function saveFreeKeyFor(userId: number, raw: { provider: string; ke
   const model = String(raw.model ?? p.models[0]?.id ?? "").trim().slice(0, 120);
   if (!model) throw new Error("Pick a model id.");
   let baseUrl: string | null = null;
-  if (p.key === "custom") {
+  if (!p.baseUrl) { // custom and OmniRoute: you give the address
     try {
       const u = new URL(String(raw.baseUrl ?? "").trim());
       if (u.protocol !== "https:") throw new Error();

@@ -1,8 +1,11 @@
 // Projects: a goal with a real deadline ("in 14 days, a plan to earn 500 KM a
 // month from video editing"). Every shift day the lead agent looks at what's
 // done, what's late and what you answered, and plans that day's missions with
-// due dates; the crew works, delivers and logs off. Each evening the day goes
-// on the project page; on the deadline the lead writes the final solution.
+// due dates (to crew members by name); the crew works, the lead reviews, and
+// each evening the day goes on the project page. The final result is written
+// at the end of the deadline day (or as soon as nothing is left in progress on
+// it), never from zero results. For "find me N things" goals, missions return
+// table rows and the final is the merged sheet (downloadable as Excel).
 //
 // A cloud lead does this on your Claude runner (counted against your budget).
 // A lead on your computer gets a "plan today" mission instead and does the
@@ -10,9 +13,10 @@
 
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { OSM_TYPES } from "@/lib/outreach";
 import { opsAgents, opsMessages, opsMissions, opsProjects, type OpsProject } from "@/lib/db/schema";
 import {
-  EFFORTS, MAX_PROJECT_MISSIONS_PER_DAY, MISSION_KINDS, MISSION_KIND_INFO, ROLES, ROLE_KEYS, addDays, formatUsd, isLate, parseProjectInput, projectDay, roleOf,
+  EFFORTS, MAX_PROJECT_MISSIONS_PER_DAY, MISSION_KINDS, MISSION_KIND_INFO, ROLES, ROLE_KEYS, addDays, formatUsd, isLate, mergeTables, parseProjectInput, projectDay, projectStep, roleOf,
   type Effort, type MissionKind, type RoleKey,
 } from "@/lib/ops";
 
@@ -54,7 +58,7 @@ export async function setProjectStatusFor(userId: number, id: number, status: "a
 export async function projectsFor(userId: number) {
   const rows = await db.select().from(opsProjects).where(and(eq(opsProjects.userId, userId), inArray(opsProjects.status, ["active", "paused", "done"]))).orderBy(desc(opsProjects.id)).limit(12);
   if (!rows.length) return [];
-  const missions = await db.select({ projectId: opsMissions.projectId, status: opsMissions.status, dueDay: opsMissions.dueDay, spentCents: opsMissions.spentCents })
+  const missions = await db.select({ projectId: opsMissions.projectId, status: opsMissions.status, dueDay: opsMissions.dueDay, spentCents: opsMissions.spentCents, deliverable: opsMissions.deliverable })
     .from(opsMissions).where(and(eq(opsMissions.userId, userId), inArray(opsMissions.projectId, rows.map((r) => r.id))));
   const t = today();
   return rows.map((p) => {
@@ -66,6 +70,9 @@ export async function projectsFor(userId: number) {
       active: ms.filter((m) => m.status === "open" || m.status === "claimed").length,
       late: ms.filter((m) => isLate({ status: m.status, dueDay: m.dueDay ? String(m.dueDay) : null }, t)).length,
       spentCents: ms.reduce((s, m) => s + m.spentCents, 0),
+      // Rows in the merged sheet so far (0 = not a list project, or nothing yet).
+      sheetRows: Math.max(0, mergeTables(ms.filter((m) => (m.status === "done" || m.status === "submitted") && m.deliverable).map((m) => m.deliverable!)).length - 1),
+      finishing: p.status === "active" && !!p.finalAt,
     };
   });
 }
@@ -112,11 +119,6 @@ async function projectBrief(userId: number, p: OpsProject) {
   };
 }
 
-/**
- * Plan today for a project (once per day). With a cloud lead and room in the
- * budget, Claude plans it; otherwise the lead gets a "plan today" mission.
- * On the deadline day, it's the final solution instead.
- */
 /** For ops_get_project: one project or all active ones, as text an agent can plan from. */
 export async function projectBriefsFor(userId: number, projectId?: number) {
   const rows = await db.select().from(opsProjects)
@@ -125,17 +127,39 @@ export async function projectBriefsFor(userId: number, projectId?: number) {
   return Promise.all(rows.map(async (p) => ({ project_id: p.id, brief: (await projectBrief(userId, p)).text })));
 }
 
-export async function planProjectDayFor(userId: number, p: OpsProject) {
+/** Results delivered, and work still going (a result the Chief is still reviewing counts as in progress). Planning missions don't count. */
+async function projectProgress(userId: number, projectId: number) {
+  const ms = await db.select({ status: opsMissions.status, deliverable: opsMissions.deliverable, title: opsMissions.title, chiefNote: opsMissions.chiefNote })
+    .from(opsMissions).where(and(eq(opsMissions.userId, userId), eq(opsMissions.projectId, projectId)));
+  const work = ms.filter((m) => !/^(Plan day \d+\/\d+|Write the final solution):/.test(m.title));
+  return {
+    results: work.filter((m) => (m.status === "done" || m.status === "submitted") && m.deliverable).length,
+    inProgress: work.filter((m) => m.status === "open" || m.status === "claimed" || (m.status === "submitted" && m.chiefNote?.startsWith("⋯"))).length,
+  };
+}
+
+/**
+ * One project beat: plan today's work (every day, the deadline day too), or
+ * write the final result when it's time (see projectStep). Returns what it did.
+ */
+export async function planProjectDayFor(userId: number, p: OpsProject, o: { dayEnded?: boolean } = {}) {
   const t = today();
-  if (p.status !== "active" || String(p.lastPlannedDay ?? "") === t) return false;
+  if (p.status !== "active") return false;
+  // A final that never came back (job failed): try again after 6 hours.
+  if (p.finalAt && Date.now() - p.finalAt.getTime() > 6 * 3_600_000) {
+    await db.update(opsProjects).set({ finalAt: null }).where(eq(opsProjects.id, p.id));
+    p = { ...p, finalAt: null };
+  } else if (p.finalAt) return false;
   const d = projectDay({ startDay: String(p.startDay), deadline: String(p.deadline) }, t);
-  if (d.phase === "not started") return false;
-  // Claim the day first, so two beats can't both plan it.
-  const [won] = await db.update(opsProjects).set({ lastPlannedDay: t })
-    .where(and(eq(opsProjects.id, p.id), sql`(${opsProjects.lastPlannedDay} is null or ${opsProjects.lastPlannedDay} <> ${t})`)).returning();
+  const step = projectStep({ phase: d.phase, plannedToday: String(p.lastPlannedDay ?? "") === t, dayEnded: !!o.dayEnded, ...(await projectProgress(userId, p.id)) });
+  if (step === "wait") return false;
+  // Claim it first, so two beats can't both plan the day (or both write the final).
+  const [won] = step === "plan"
+    ? await db.update(opsProjects).set({ lastPlannedDay: t }).where(and(eq(opsProjects.id, p.id), sql`(${opsProjects.lastPlannedDay} is null or ${opsProjects.lastPlannedDay} <> ${t})`)).returning()
+    : await db.update(opsProjects).set({ finalAt: new Date() }).where(and(eq(opsProjects.id, p.id), sql`${opsProjects.finalAt} is null`)).returning();
   if (!won) return false;
   const [lead] = p.leadAgentId ? await db.select().from(opsAgents).where(eq(opsAgents.id, p.leadAgentId)).limit(1) : [];
-  const finalDay = d.phase === "final" || d.phase === "over";
+  const finalDay = step === "finish";
   if (lead?.cloud) {
     const { budgetFor } = await import("@/lib/services/ops-inbox");
     const { runPlannerJob } = await import("@/lib/services/ops-free");
@@ -151,21 +175,27 @@ export async function planProjectDayFor(userId: number, p: OpsProject) {
     userId, day: t, projectId: p.id, dueDay: t, kind: "other", effort: "normal",
     title: finalDay ? `Write the final solution: ${p.title}` : `Plan day ${d.dayNo}/${d.totalDays}: ${p.title}`,
     brief: finalDay
-      ? "It's the deadline. Call ops_get_project, read every result, and submit the final solution as your deliverable: what to do, why, the numbers, and the next steps."
-      : "Call ops_get_project, then post today's missions with ops_create_mission (project_id, due_in_days, role). Keep it to what moves the goal forward today.",
+      ? "Call ops_get_project, read every result, and submit the final result as your deliverable: what the goal asked for (for a list goal, all the rows as one table), what's missing, and next steps."
+      : "Call ops_get_project, then post today's missions with ops_create_mission (project_id, due_in_days, and `to` = a crew member's name). Missions must DO the work. For a list goal, fix the columns and have every mission return its rows as one markdown table.",
     agentId: lead?.id ?? null, role: lead ? null : "chief",
   });
   return true;
 }
 
 const PLAN_SYSTEM = `You are the lead of a project at Galaxus Ops, coordinating a small crew of AI agents for a student in Sarajevo on a tight budget.
-Plan TODAY only. Reply with ONLY a JSON object:
+Plan TODAY's work only. Reply with ONLY a JSON object:
 {"plan": "the overall plan in short markdown (write it on day 1; afterwards only if it must change, else empty)",
  "message": "2-4 lines to the crew: today's priorities and who does what",
- "missions": [{"title": "...", "brief": "what a good result looks like", "role": "${ROLE_KEYS.join("|")}", "kind": "${MISSION_KINDS.join("|")}", "effort": "quick|normal|deep", "due_in_days": 0}],
+ "missions": [{"title": "...", "brief": "exactly what to produce and what a good result looks like", "agent": "a name from CREW, or null for anyone with the role", "role": "${ROLE_KEYS.join("|")}", "kind": "${MISSION_KINDS.join("|")}", "effort": "quick|normal|deep", "due_in_days": 0}],
  "question_for_user": null or {"question": "...", "options": ["...", "..."]}}
-At most ${MAX_PROJECT_MISSIONS_PER_DAY} missions. Prefer "quick" (cheapest) unless a task really needs depth. Most are due today (due_in_days 0).
-Don't repeat finished work; build on results. Ask the user only when a decision is truly theirs. Missions are research, writing, planning and analysis — never sending, buying or deploying.`;
+Rules:
+- Missions DO the work (find, check, collect, write). Never post a mission that only explains to the user how they could do it themselves.
+- Use the whole crew: give each crew member work that fits their role, split so nobody overlaps (by category, area or source). Name them in "agent".
+- If the goal is a list of LOCAL BUSINESSES (leads): use the business finder. Give each mission ONE category and city, and make the brief's FIRST line exactly
+  "FIND: <type> @ <city>" with <type> one of: ${OSM_TYPES.map((t) => t.key).join(", ")}. Add "<N> rows" for the target. The finder returns the table (Name, Category, Address, Phone, WhatsApp, Email, Website, Website status, Source) from map data and the businesses' own pages — split categories and cities across the crew; several cities if one city can't reach the target.
+- If the goal is any other list: fix the columns on day 1 (put them in the plan) and make EVERY mission deliver its rows as ONE markdown table with exactly those columns, plus a target row count per mission. Rows must be real and checked (a source link per row); never invent contact details — leave a cell empty when unknown.
+- At most ${MAX_PROJECT_MISSIONS_PER_DAY} missions. Prefer "quick" (cheapest) unless a task needs depth. Most are due today (due_in_days 0).
+- Don't repeat finished work; build on results. Ask the user only when a decision is truly theirs. Never sending, buying or deploying.`;
 
 export async function buildProjectDayPrompt(userId: number, projectId: number) {
   const [p] = await db.select().from(opsProjects).where(and(eq(opsProjects.id, projectId), eq(opsProjects.userId, userId))).limit(1);
@@ -175,12 +205,13 @@ export async function buildProjectDayPrompt(userId: number, projectId: number) {
 
 export async function applyProjectDayResult(userId: number, projectId: number, leadId: number, text: string) {
   const { parseJsonReply } = await import("@/lib/claude-jobs");
-  type Plan = { plan?: string; message?: string; missions?: { title?: string; brief?: string; role?: string; kind?: string; effort?: string; due_in_days?: number }[]; question_for_user?: { question?: string; options?: string[] } | null };
+  type Plan = { plan?: string; message?: string; missions?: { title?: string; brief?: string; agent?: string | null; role?: string; kind?: string; effort?: string; due_in_days?: number }[]; question_for_user?: { question?: string; options?: string[] } | null };
   const r = parseJsonReply<Plan>(text);
   if (!r) throw new Error("The lead's plan couldn't be read.");
   const [p] = await db.select().from(opsProjects).where(and(eq(opsProjects.id, projectId), eq(opsProjects.userId, userId))).limit(1);
   if (!p) return "Project is gone.";
   const [lead] = await db.select().from(opsAgents).where(eq(opsAgents.id, leadId)).limit(1);
+  const crew = await db.select().from(opsAgents).where(eq(opsAgents.userId, userId));
   const t = today();
   const d = projectDay({ startDay: String(p.startDay), deadline: String(p.deadline) }, t);
   const left = p.budgetCents != null ? p.budgetCents - (await projectBrief(userId, p)).spent : null;
@@ -192,8 +223,10 @@ export async function applyProjectDayResult(userId: number, projectId: number, l
     const role: RoleKey = ROLE_KEYS.includes(m.role as RoleKey) ? (m.role as RoleKey) : MISSION_KIND_INFO[kind].role;
     const effort: Effort = EFFORTS.includes(m.effort as Effort) ? (m.effort as Effort) : "quick";
     const due = Math.max(0, Math.min(Number(m.due_in_days) || 0, d.daysLeft));
+    // Delegated by name: that crew member gets it (whatever their role); else anyone with the role.
+    const who = m.agent ? crew.find((a) => a.name.toLowerCase() === String(m.agent).trim().toLowerCase()) : undefined;
     await db.insert(opsMissions).values({
-      userId, day: t, projectId, title, brief: String(m.brief ?? "").slice(0, 3000) || null, kind, role, effort, dueDay: addDays(t, due),
+      userId, day: t, projectId, title, brief: String(m.brief ?? "").slice(0, 3000) || null, kind, role: who ? null : role, agentId: who?.id ?? null, effort, dueDay: addDays(t, due),
       createdByAgentId: lead?.id ?? null, budgetCents: left != null ? Math.max(0, Math.min(left, effort === "deep" ? 150 : 50)) : null,
     });
     made++;
@@ -215,13 +248,35 @@ export async function applyProjectDayResult(userId: number, projectId: number, l
   return `${p.title}: day ${d.dayNo} planned, ${made} mission${made === 1 ? "" : "s"}`;
 }
 
-const FINAL_SYSTEM = `You are the lead of a project at Galaxus Ops. The deadline is today. Write the FINAL SOLUTION for the user (a student in Sarajevo, tight budget):
-markdown, lead with the recommendation in 2-3 sentences, then the plan step by step with numbers (prices in KM where relevant), what the crew found that supports it (cite results), risks, and the next 3 actions the user can take this week. Use only what the results support; say plainly what's still unknown. Reply with only the solution.`;
+const FINAL_SYSTEM = `You are the lead of a project at Galaxus Ops, writing the FINAL RESULT for the user (a student in Sarajevo, tight budget). Markdown.
+Deliver what the GOAL asked for, from what the crew actually delivered — not a plan for the user to do it themselves.
+If the goal was a list/sheet: the merged sheet is attached automatically below your text (its row count is given). Write a short cover: how many rows, by category, how they were checked, the gap to the target if any (e.g. "120 of 200"), and what to do next with them. Do not repeat the rows.
+Otherwise: lead with the answer in 2-3 sentences, then the details with numbers (KM where relevant), what supports it (cite results), and the next 3 actions.
+Say plainly what's still unknown. Reply with only the result.`;
+
+/** Every delivered result of a project, full text (for merging tables and the final). */
+async function projectResults(userId: number, projectId: number) {
+  return db.select({ title: opsMissions.title, deliverable: opsMissions.deliverable }).from(opsMissions)
+    .where(and(eq(opsMissions.userId, userId), eq(opsMissions.projectId, projectId), inArray(opsMissions.status, ["done", "submitted"]), sql`${opsMissions.deliverable} is not null`))
+    .orderBy(opsMissions.id);
+}
+
+/** The project's merged sheet: every table row the crew delivered, deduplicated. [] if it isn't that kind of project. */
+export async function projectSheetFor(userId: number, projectId: number) {
+  const [p] = await db.select({ id: opsProjects.id, title: opsProjects.title }).from(opsProjects).where(and(eq(opsProjects.id, projectId), eq(opsProjects.userId, userId))).limit(1);
+  if (!p) throw new Error("Project not found.");
+  return { title: p.title, rows: mergeTables((await projectResults(userId, projectId)).map((r) => r.deliverable ?? "")) };
+}
 
 export async function buildProjectFinalPrompt(userId: number, projectId: number) {
   const [p] = await db.select().from(opsProjects).where(and(eq(opsProjects.id, projectId), eq(opsProjects.userId, userId))).limit(1);
   if (!p) throw new Error("Project not found.");
-  return { system: FINAL_SYSTEM, prompt: (await projectBrief(userId, p)).text };
+  const [brief, sheet] = await Promise.all([projectBrief(userId, p), projectSheetFor(userId, projectId)]);
+  const rows = sheet.rows.length ? sheet.rows.length - 1 : 0;
+  const attached = rows
+    ? `\n\nTHE MERGED SHEET (attached automatically): ${rows} rows, columns: ${sheet.rows[0].join(" | ")}.\nFirst rows:\n${sheet.rows.slice(1, 8).map((r) => `- ${r.join(" | ")}`).join("\n")}`
+    : "";
+  return { system: FINAL_SYSTEM, prompt: `${brief.text}${attached}` };
 }
 
 export async function applyProjectFinalResult(userId: number, projectId: number, text: string) {
@@ -232,9 +287,12 @@ export async function applyProjectFinalResult(userId: number, projectId: number,
 }
 
 async function finishProject(userId: number, p: OpsProject, md: string) {
+  const { rows } = await projectSheetFor(userId, p.id);
   if (p.pageId) {
     const { appendMarkdownToPage } = await import("@/lib/services/ops-deliver");
-    await appendMarkdownToPage(userId, p.pageId, "Final solution", md.trim().slice(0, 20_000));
+    const cell = (c: string) => c.replace(/\|/g, "/").replace(/\s+/g, " ");
+    const table = rows.length > 1 ? `\n\n## The sheet (${rows.length - 1} rows · download it as Excel from the project in Ops)\n${rows.slice(0, 301).map((r, i) => `| ${r.map(cell).join(" | ")} |${i === 0 ? `\n|${r.map(() => "---").join("|")}|` : ""}`).join("\n")}` : "";
+    await appendMarkdownToPage(userId, p.pageId, "Final result", `${md.trim()}${table}`.slice(0, 40_000));
   }
   await db.update(opsProjects).set({ status: "done", finalAt: new Date() }).where(eq(opsProjects.id, p.id));
   const { remember, compress } = await import("@/lib/services/ops-memory");
@@ -242,7 +300,7 @@ async function finishProject(userId: number, p: OpsProject, md: string) {
   await remember(userId, { type: "goal", title: `Project: ${p.title} (done)`, body: p.goal, source: `project:${p.id}`, projectId: p.id, pinned: false }).catch(() => null);
   await remember(userId, { type: "decision", title: `Final solution: ${p.title}`, body: compress(md, 1500), source: `project-final:${p.id}`, projectId: p.id }).catch(() => null);
   const { pushFor } = await import("@/lib/services/ops-inbox");
-  await pushFor(userId, "report", true, `Project done: ${p.title}`, "The final solution is on the project page.", `ops-project-${p.id}`);
+  await pushFor(userId, "report", true, `Project done: ${p.title}`, rows.length > 1 ? `${rows.length - 1} rows in the sheet. Download it in Ops → Projects.` : "The final result is on the project page.", `ops-project-${p.id}`);
 }
 
 /** A local lead submitted "Write the final solution": that deliverable IS the solution. */
@@ -278,13 +336,28 @@ export async function reportProjectDayFor(userId: number, p: OpsProject) {
   return true;
 }
 
-/** Everything project-shaped on a beat: plan today (when the shift is on), report at the end of it. */
+/** Everything project-shaped on a beat: plan today or finish (while the shift is on, or when it ends), report at the end of the day. */
 export async function projectsTickFor(userId: number, o: { shiftOn: boolean; shiftEnded: boolean }) {
   const active = await db.select().from(opsProjects).where(and(eq(opsProjects.userId, userId), eq(opsProjects.status, "active")));
   let planned = 0, reported = 0;
   for (const p of active) {
-    if (o.shiftOn && (await planProjectDayFor(userId, p))) planned++;
     if (o.shiftEnded && (await reportProjectDayFor(userId, p))) reported++;
+    if ((o.shiftOn || o.shiftEnded) && (await planProjectDayFor(userId, p, { dayEnded: o.shiftEnded }))) planned++;
   }
   return { planned, reported };
+}
+
+/** "Keep going": a finished (or overdue) project runs N more days; the lead plans again today. */
+export async function extendProjectFor(userId: number, id: number, days: number) {
+  const n = Math.round(Number(days));
+  if (!Number.isInteger(n) || n < 1 || n > 30) throw new Error("Extend by 1 to 30 days.");
+  const [p] = await db.select().from(opsProjects).where(and(eq(opsProjects.id, id), eq(opsProjects.userId, userId))).limit(1);
+  if (!p) throw new Error("Project not found.");
+  if (p.status === "cancelled") throw new Error("That project was cancelled.");
+  const t = today();
+  const from = String(p.deadline) > t ? String(p.deadline) : t;
+  const [row] = await db.update(opsProjects).set({ status: "active", deadline: addDays(from, n), finalAt: null, lastPlannedDay: null })
+    .where(eq(opsProjects.id, id)).returning();
+  await planProjectDayFor(userId, row);
+  return row;
 }

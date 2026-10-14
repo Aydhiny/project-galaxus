@@ -685,7 +685,9 @@ export async function dispatchCloudFor(userId: number) {
   // Why Claude can't take work right now (null = it can). Your plan's limits: a usage-limit pause, and today's share of the monthly budget.
   const claudeBlocked = !healthy ? "Claude isn't connected" : budget.paused ? "paused: your Claude plan hit a usage limit" : budget.exhausted ? "today's budget is used up" : null;
   const freeReady = free.usableCount > 0;
-  if (claudeBlocked && !(freeReady && (settings.freeFallback || cloud.some((a) => a.engine === "free")))) return { dispatched: 0, reason: claudeBlocked };
+  const findWaiting = (await db.select({ id: opsMissions.id }).from(opsMissions)
+    .where(and(eq(opsMissions.userId, userId), eq(opsMissions.status, "open"), sql`${opsMissions.brief} ~* '^FIND:'`)).limit(1)).length > 0;
+  if (claudeBlocked && !findWaiting && !(freeReady && (settings.freeFallback || cloud.some((a) => a.engine === "free")))) return { dispatched: 0, reason: claudeBlocked };
   let leftToday = budget.leftToday;
   let freeRuns = 0;
 
@@ -704,6 +706,19 @@ export async function dispatchCloudFor(userId: number) {
         order by (agent_id is null), id limit 1 for update skip locked
       )`).returning();
     if (!m) continue;
+    // A data mission ("FIND: dentist @ Sarajevo") needs no model: the business finder does it, for $0.
+    const { parseFindLine } = await import("@/lib/services/business-finder");
+    if (parseFindLine(m.brief)) {
+      if (freeRuns >= MAX_FREE_RUNS_PER_BEAT) { await releaseCloudMission(userId, m.id, null); continue; }
+      freeRuns++;
+      await db.update(opsMissions).set({ jobId: FREE_JOB }).where(eq(opsMissions.id, m.id));
+      await recordEventForAgent(a, { kind: "status", label: `Took the mission: ${m.title}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
+      const { runFindMission } = await import("@/lib/services/ops-free");
+      const run = () => runFindMission(userId, m.id, a.id);
+      try { after(run); } catch { void run(); }
+      dispatched++;
+      continue;
+    }
     const route = cloudRoute({ engine: a.engine, effort: m.effort, claudeBlocked: !!claudeBlocked, freeReady: freeReady && freeRuns < MAX_FREE_RUNS_PER_BEAT, freeFirst: settings.freeFirst, freeFallback: settings.freeFallback });
     if (route === "none") { await releaseCloudMission(userId, m.id, null); continue; }
     if (route === "free") {

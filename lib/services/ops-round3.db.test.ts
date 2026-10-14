@@ -22,11 +22,16 @@ const h = vi.hoisted(() => ({
   pending: [] as Promise<unknown>[],
   calls: [] as { url: string; body: string }[],
   reply: (() => ({ status: 200, text: "ok" })) as (url: string) => { status: number; text: string; headers?: Record<string, string> },
+  // Other outside services for a test (maps, business websites): return a Response, or null to fall through.
+  web: (() => null) as (url: string, body: string) => Response | null,
+  userId: 0,
 }));
 vi.mock("@/lib/db", () => ({ db: testDb }));
 // after(): run the work, and let the test wait for it (as Vercel's waitUntil would).
 vi.mock("next/server", async (orig) => ({ ...(await orig<object>()), after: (fn: () => unknown) => { h.pending.push(Promise.resolve().then(fn)); } }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
+// The Excel route reads the signed-in user; here, whoever the test says.
+vi.mock("@/lib/auth-session", () => ({ requireUserId: async () => { if (!h.userId) throw new Error("Not authenticated."); return h.userId; } }));
 
 const ops = await import("@/lib/services/ops");
 const day = await import("@/lib/services/ops-day");
@@ -49,7 +54,9 @@ const llmCalls = () => h.calls.filter((c) => c.url.endsWith("/chat/completions")
 async function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
   const url = String(input instanceof Request ? input.url : input);
   const body = typeof init?.body === "string" ? init.body : "";
-  h.calls.push({ url, body });
+  h.calls.push({ url, body: body || (init?.body instanceof URLSearchParams ? init.body.toString() : "") });
+  const custom = h.web(url, body || (init?.body instanceof URLSearchParams ? init.body.toString() : ""));
+  if (custom) return custom;
   if (url.endsWith("/chat/completions")) {
     const r = h.reply(url);
     return new Response(r.text, { status: r.status, headers: { "content-type": "application/json", ...(r.headers ?? {}) } });
@@ -296,6 +303,102 @@ describe("the Chief reviews results against the goal", () => {
     await settle();
     expect(reviews.length).toBe(before);
     expect((await mission(last.id)).chiefNote).toBe("3 rounds on this already — your call now.");
+  });
+});
+
+describe("a 1-day lead-finding project, end to end", () => {
+  it("plans day 1 (not a final from nothing), delegates by name, the finder fills a real sheet, the lead reviews, then it finishes with an Excel file", async () => {
+    const lena = (await testDb.insert(users).values({ name: "Lena", email: "lena@example.test" }).returning())[0].id;
+    await free.saveFreeKeyFor(lena, { provider: "groq", key: "gsk_lena_1234567890", model: "openai/gpt-oss-120b" });
+    const { agent: lead } = await ops.createAgentFor(lena, { name: "Novacheck", role: "chief", provider: "claude", cloud: true, engine: "free" });
+    await ops.createAgentFor(lena, { name: "Testy", role: "scout", provider: "claude", cloud: true, engine: "free" });
+    await ops.createAgentFor(lena, { name: "Sam", role: "researcher", provider: "claude", cloud: true, engine: "free" });
+
+    // The outside world: maps (Nominatim + Overpass), two business websites, Exa finding a Facebook page.
+    const html = (body: string) => new Response(`<html><body>${body}${" Ordinacija u centru Sarajeva, radno vrijeme 8-20.".repeat(6)}</body></html>`, { headers: { "content-type": "text/html" } });
+    h.web = (url, body) => {
+      if (url.startsWith("https://nominatim.openstreetmap.org/")) return Response.json([{ boundingbox: ["43.80", "43.90", "18.30", "18.45"] }]);
+      if (url.includes("overpass")) {
+        const dentists = [
+          { type: "node", id: 1, tags: { name: "Stomatologija Ćiro", "addr:street": "Ferhadija", "addr:housenumber": "3", website: "https://ciro-dental.example" } },
+          { type: "node", id: 2, tags: { name: "Zubić Vila", phone: "061 234 567" } },
+          { type: "node", id: 3, tags: { name: "Dental Pro" } },
+        ];
+        const lawyers = [{ type: "node", id: 9, tags: { name: "Advokat Hodžić", website: "https://hodzic-law.example" } }];
+        return Response.json({ elements: decodeURIComponent(body).includes("office") ? lawyers : dentists });
+      }
+      if (url.replace(/\/$/, "") === "https://ciro-dental.example") return html('<a href="tel:+38761999888">Pozovite</a> <a href="mailto:info@ciro-dental.example">email</a>');
+      if (url.replace(/\/$/, "") === "https://hodzic-law.example") return html('<meta name="viewport" content="width=device-width"><a href="mailto:ured@hodzic-law.example">ured</a> tel 033 222 333');
+      if (url === "https://mcp.exa.ai/mcp" && body.includes("Dental Pro")) {
+        const text = "Title: Dental Pro Sarajevo | Facebook\nURL: https://www.facebook.com/dentalpro.sa\nHighlights:\nDental Pro";
+        return new Response(`data: ${JSON.stringify({ jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text }] } })}\n\n`);
+      }
+      if (url === "https://www.facebook.com/dentalpro.sa") return html("Kontakt: 062 777 888, dentalpro@gmail.com");
+      return null;
+    };
+    // The free model plays the lead: the day plan, the reviews, and the final cover.
+    const systems: string[] = [];
+    h.reply = () => {
+      const body = JSON.parse(h.calls.at(-1)!.body) as { messages: { content: string }[] };
+      const sys = body.messages[0].content;
+      systems.push(sys.slice(0, 160));
+      if (sys.includes("coordinating a small crew")) return llm(JSON.stringify({
+        plan: "Columns from the business finder. Dentists first, then lawyers.", message: "Testy: dentists. Sam: lawyers.",
+        missions: [
+          { title: "Dentists in Sarajevo", brief: "FIND: dentist @ Sarajevo\n120 rows", agent: "Testy", role: "scout", kind: "research", effort: "quick", due_in_days: 0 },
+          { title: "Lawyers in Sarajevo", brief: "FIND: lawyer @ Sarajevo\n80 rows", agent: "Sam", role: "researcher", kind: "research", effort: "quick", due_in_days: 0 },
+        ],
+      }));
+      if (sys.startsWith("You are the Chief of staff")) return llm(JSON.stringify({ verdict: "accept", progress: 50, note: "Real businesses with contacts.", feedback: "Good." }));
+      if (sys.includes("writing the FINAL RESULT")) return llm("**4 businesses** in the sheet: 3 dentists, 1 lawyer. Short of 200: add more cities next.");
+      return llm("unexpected");
+    };
+
+    const p = await projects.createProjectFor(lena, { title: "Leads that need websites", goal: "Find 200 local businesses that need websites, dentists first, then lawyers, with WhatsApp numbers and emails, as an Excel sheet.", days: 1, leadAgentId: lead.id });
+    await settle();
+    // Day 1 was PLANNED (the old bug wrote a final here) and delegated by name.
+    expect(systems[0]).toContain("You are the lead of a project at Galaxus Ops, coordinating");
+    const ms = await testDb.select().from(opsMissions).where(eq(opsMissions.projectId, p.id)).orderBy(opsMissions.id);
+    const testy = (await testDb.select().from(opsAgents).where(and(eq(opsAgents.userId, lena), eq(opsAgents.name, "Testy"))))[0];
+    expect(ms.map((m) => [m.title, m.agentId === testy.id, m.status])).toEqual([["Dentists in Sarajevo", true, "submitted"], ["Lawyers in Sarajevo", false, "submitted"]]);
+    // The finder's table: worst website first, contacts from the site / the Facebook page, nothing invented.
+    expect(ms[0].deliverable).toContain("| Dental Pro | Dentists | Sarajevo | +38762777888 | yes | dentalpro@gmail.com | https://www.facebook.com/dentalpro.sa | Only Facebook/Instagram |");
+    expect(ms[0].deliverable).toContain("| Zubić Vila | Dentists | Sarajevo | +38761234567 | yes |  |  | No website |");
+    expect(ms[0].deliverable).toContain("| Stomatologija Ćiro | Dentists | Ferhadija 3, Sarajevo | +38761999888 | yes | info@ciro-dental.example | https://ciro-dental.example |");
+    expect(ms[0]).toMatchObject({ spentCents: 0, chiefNote: "✓ Real businesses with contacts. (50% of the way)" });
+    expect((await projects.projectsFor(lena))[0]).toMatchObject({ status: "active", sheetRows: 4 });
+
+    // Next beat: nothing in progress on the deadline day → the lead writes the final, and the sheet goes on the page.
+    await projects.projectsTickFor(lena, { shiftOn: true, shiftEnded: false });
+    await settle();
+    expect(systems.at(-1)).toContain("writing the FINAL RESULT");
+    const done = (await projects.projectsFor(lena))[0];
+    expect(done).toMatchObject({ status: "done", sheetRows: 4 });
+    const page = (await testDb.select().from(schema.workspacePages).where(eq(schema.workspacePages.id, done.pageId!)))[0];
+    expect(JSON.stringify(page.blocks)).toContain("The sheet (4 rows");
+
+    // The Excel download: a real .xlsx with the merged rows.
+    h.userId = lena;
+    const { GET } = await import("@/app/api/ops/xlsx/route");
+    const res = await GET(new Request(`http://localhost/api/ops/xlsx?project=${p.id}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(res.headers.get("content-disposition")).toBe('attachment; filename="Leads that need websites.xlsx"');
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect([...bytes.slice(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
+    expect(new TextDecoder().decode(bytes)).toContain("Advokat Hodžić");
+    // Someone else can't download it.
+    h.userId = me;
+    expect((await GET(new Request(`http://localhost/api/ops/xlsx?project=${p.id}`))).status).toBe(404);
+    h.userId = 0;
+
+    // "Keep going": it runs again and the lead plans today.
+    const before = systems.length;
+    await projects.extendProjectFor(lena, p.id, 3);
+    await settle();
+    expect((await projects.projectsFor(lena))[0]).toMatchObject({ status: "active", finishing: false });
+    expect(systems.slice(before)[0]).toContain("coordinating a small crew");
+    h.web = () => null;
   });
 });
 

@@ -7,6 +7,9 @@ import { runnerCostCents } from "@/lib/ops";
 
 export const dynamic = "force-dynamic";
 
+// Filing a result can start the next agent mission (finishes in after() within this limit).
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   const auth = await voiceRunnerAuth(req);
   if (auth instanceof NextResponse) return auth;

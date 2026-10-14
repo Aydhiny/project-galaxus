@@ -2,7 +2,7 @@
 // quota maths, the Reach parsers, and how deliverables are squeezed into memory.
 
 import { describe, expect, it } from "vitest";
-import { MAX_REVIEW_ROUNDS, cloudRoute, mdInline, mdToBlocks, parseCloudReply, parseReview } from "@/lib/ops";
+import { MAX_REVIEW_ROUNDS, cloudRoute, mdInline, mdToBlocks, mergeTables, parseCloudReply, parseReview, projectStep } from "@/lib/ops";
 import { cooldownMs, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday, usable, type FreeKeyState } from "@/lib/free-llm";
 import { htmlToText, parseExa } from "@/lib/services/reach";
 import { compress } from "@/lib/services/ops-memory";
@@ -132,5 +132,47 @@ describe("the Chief's review", () => {
     expect(parseReview({ verdict: "maybe" })).toBeNull();
     expect(parseReview({ verdict: "redo" })).toBeNull(); // no feedback to act on
     expect(MAX_REVIEW_ROUNDS).toBe(3);
+  });
+});
+
+describe("project sheets and the plan/finish rule", () => {
+  it("merges tables across results by column name and drops duplicates", () => {
+    const a = "Found these:\n| Name | Phone | Email |\n|---|---|---|\n| **Dental Ćiro** | +38761111111 | a@b.ba |\n| Smile | | |";
+    const b = "| Phone | Name | Email |\n|---|---|---|\n| +38762222222 | Novi Zubi | |\n| +38761111111 | dental ćiro | dup@b.ba |";
+    expect(mergeTables([a, b, "no table here"])).toEqual([
+      ["Name", "Phone", "Email"], ["Dental Ćiro", "+38761111111", "a@b.ba"], ["Smile", "", ""], ["Novi Zubi", "+38762222222", ""],
+    ]);
+    expect(mergeTables(["just text"])).toEqual([]);
+  });
+
+  it("plans every day — the deadline day too — and finishes only with results", () => {
+    const base = { plannedToday: false, results: 0, inProgress: 0, dayEnded: false };
+    // The bug: a 1-day project is in its "final" phase on day 1. It must plan work first.
+    expect(projectStep({ ...base, phase: "final" })).toBe("plan");
+    expect(projectStep({ ...base, phase: "final", plannedToday: true, inProgress: 3 })).toBe("wait");
+    // Everything delivered on the deadline day: finish now, don't wait for the evening.
+    expect(projectStep({ ...base, phase: "final", plannedToday: true, results: 4 })).toBe("finish");
+    expect(projectStep({ ...base, phase: "final", plannedToday: true, results: 2, inProgress: 1, dayEnded: true })).toBe("finish");
+    // Overdue with nothing delivered: keep working, never a final from zero results.
+    expect(projectStep({ ...base, phase: "over" })).toBe("plan");
+    expect(projectStep({ ...base, phase: "over", results: 1, plannedToday: true, inProgress: 2 })).toBe("finish");
+    expect(projectStep({ ...base, phase: "working", plannedToday: true, results: 9 })).toBe("wait");
+    expect(projectStep({ ...base, phase: "not started" })).toBe("wait");
+  });
+});
+
+describe("business finder pieces", () => {
+  it("reads the planner's FIND line, only for known business types", async () => {
+    const { parseFindLine } = await import("@/lib/services/business-finder");
+    expect(parseFindLine("FIND: dentist @ Sarajevo\n60 rows, then lawyers")).toEqual({ type: "dentist", city: "Sarajevo" });
+    expect(parseFindLine("Some brief\nFIND: Lawyer @ Mostar")).toEqual({ type: "lawyer", city: "Mostar" });
+    expect(parseFindLine("FIND: spaceships @ Sarajevo")).toBeNull();
+    expect(parseFindLine(null)).toBeNull();
+  });
+  it("finds a contact email, not image names or tracking addresses", async () => {
+    const { extractEmail } = await import("@/lib/outreach");
+    expect(extractEmail('<a href="mailto:Info@Zubar.ba?subject=x">pišite</a>')).toBe("info@zubar.ba");
+    expect(extractEmail("<img src='logo@2x.png'> kontakt: ordinacija@gmail.com")).toBe("ordinacija@gmail.com");
+    expect(extractEmail("abc@sentry.wixpress.com nothing else")).toBeNull();
   });
 });

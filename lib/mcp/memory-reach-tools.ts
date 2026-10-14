@@ -182,6 +182,32 @@ export function registerMemoryReachTools(server: McpServer) {
   );
 
   server.registerTool(
+    "reach_businesses",
+    {
+      title: "Find local businesses",
+      description:
+        "Local businesses of one type in a city, from map data (OpenStreetMap, plus Foursquare/Google if the user added keys), with phone, WhatsApp (mobile), email " +
+        "and how good their website is (read from their site, or their page found on the web). Best-first: no website / Facebook only / broken / outdated. " +
+        "Returns a markdown table you can submit as is. Takes a minute or two for 60 businesses.",
+      inputSchema: z.object({
+        type: z.string().describe("One of: dentist, clinic, physio, veterinary, hairdresser, beauty, gym, restaurant, cafe, hotel, car_repair, lawyer, accountant, estate_agent, bakery, florist, optician, car_wash, car_rental, car_dealer, driving_school, kindergarten, language_school, travel_agency, photographer…"),
+        city: z.string().min(2).max(60),
+        limit: z.number().int().min(1).max(100).optional(),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    async (a: { type: string; city: string; limit?: number }, ctx: Ctx) => {
+      try {
+        const userId = userOf(ctx);
+        await logForAgent(ctx, "search", `Map search: ${a.type} in ${a.city}`, null);
+        const { findBusinessesFor, businessTable } = await import("@/lib/services/business-finder");
+        const r = await findBusinessesFor(userId, a.type, a.city, { limit: a.limit ?? 40, deadlineMs: 45_000 });
+        return { content: [{ type: "text" as const, text: `${r.rows.length} of ${r.found} on the map (sources: ${r.sources.join(", ")})\n\n${businessTable(r.rows)}` }] };
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
     "reach_youtube",
     {
       title: "Find YouTube videos",

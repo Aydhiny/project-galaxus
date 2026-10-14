@@ -1,6 +1,6 @@
 // Loads a lead's homepage and turns what it finds into gaps (lib/outreach.ts).
 
-import { analyzeHtml, bizKey, extractPhone, gapsFor, isSocialUrl, type Gap } from "@/lib/outreach";
+import { analyzeHtml, bizKey, extractEmail, extractPhone, gapsFor, isSocialUrl, type Gap } from "@/lib/outreach";
 
 const MAX_BYTES = 1_500_000;
 const UA = "Mozilla/5.0 (compatible; GalaxusSiteCheck/1.0; one-off homepage check)";
@@ -36,7 +36,7 @@ async function readCapped(res: Response): Promise<string> {
 }
 
 /** Gaps on the homepage, plus a phone number found there (for leads without one). */
-export async function auditWebsite(website: string | null): Promise<{ gaps: Gap[]; phone: string | null }> {
+export async function auditWebsite(website: string | null): Promise<{ gaps: Gap[]; phone: string | null; email?: string | null }> {
   if (!website || isSocialUrl(website)) return { gaps: gapsFor(website, null), phone: null };
   if (!isFetchable(website)) return { gaps: ["site_down"], phone: null };
   try {
@@ -51,7 +51,7 @@ export async function auditWebsite(website: string | null): Promise<{ gaps: Gap[
     if (html.length < 200) return { gaps: gapsFor(website, null), phone: null }; // parked/empty page
     // No number on the homepage? Most Bosnian sites put it on /kontakt.
     const phone = extractPhone(html) ?? (await contactPagePhone(res.url || website));
-    return { gaps: gapsFor(website, analyzeHtml(html, res.url || website)), phone };
+    return { gaps: gapsFor(website, analyzeHtml(html, res.url || website)), phone, email: extractEmail(html) };
   } catch {
     return { gaps: gapsFor(website, null), phone: null };
   }

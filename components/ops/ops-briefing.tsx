@@ -10,11 +10,11 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  CalendarClock, Check, ChevronDown, Crown, Maximize2, Cloud, CornerDownRight, Copy, FileText, Gift, GitPullRequest, HelpCircle, Link2, Loader2, Megaphone, Plus, Repeat, RotateCcw, Swords, Trash2, X,
+  CalendarClock, Check, ChevronDown, Crown, FileSpreadsheet, Maximize2, Cloud, CornerDownRight, Copy, FileText, Gift, GitPullRequest, HelpCircle, Link2, Loader2, Megaphone, Plus, Repeat, RotateCcw, Swords, Trash2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  DAY_TEMPLATES, EFFORTS, MISSION_KINDS, MISSION_KIND_INFO, ROLES, WEEKDAYS, budgetState, describeRepeat, formatUsd, isLate, prLabel, roleOf,
+  DAY_TEMPLATES, EFFORTS, MISSION_KINDS, MISSION_KIND_INFO, ROLES, WEEKDAYS, budgetState, describeRepeat, formatUsd, isLate, mergeTables, prLabel, roleOf,
   type Effort, type MissionKind, type RoleKey,
 } from "@/lib/ops";
 import { ConfirmDialog, Dialog, PromptDialog, btnGhost, btnPrimary, field } from "@/components/ops/ops-dialog";
@@ -162,6 +162,7 @@ function MissionCard({ m, data, onChanged, onCompare }: { m: Mission; data: OpsO
             <div className="rounded-lg bg-black/30 border border-white/10 p-2.5">
               <div className="flex items-center gap-2 mb-1.5">
                 <p className="text-[11px] font-semibold text-[#8ea6ff] flex-1 min-w-0 truncate">{m.deliverableTitle || "Result"}</p>
+                {mergeTables([m.deliverable]).length > 1 && <a href={`/api/ops/xlsx?mission=${m.id}`} className="text-[11px] text-emerald-200 hover:text-white inline-flex items-center gap-1"><FileSpreadsheet className="w-3 h-3" /> Excel</a>}
                 <button onClick={() => setDialog("read")} className="text-[11px] text-white/55 hover:text-white inline-flex items-center gap-1"><Maximize2 className="w-3 h-3" /> Read</button>
               </div>
               {/* Written by an agent: rendered from markdown into plain React text, never HTML. */}
