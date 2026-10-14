@@ -9,7 +9,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { LOGGABLE_KINDS, MISSION_KINDS, ROLE_KEYS, TEAM_KEYS, redact, safeUrl, type EventKind } from "@/lib/ops";
 import {
   agentForToken, checkinForAgent, claimMissionForAgent, createMissionForAgent, crewForAgent, messagesForAgent, missionsForAgent,
-  recordEventForAgent, sendMessageForAgent, submitDeliverableForAgent,
+  partnersForAgent, recordEventForAgent, searchLibraryFor, sendMessageForAgent, submitDeliverableForAgent,
 } from "@/lib/services/ops";
 
 type Ctx = { http?: { authInfo?: { extra?: Record<string, unknown> } } };
@@ -99,17 +99,18 @@ export function registerOpsTools(server: McpServer) {
     "ops_submit_deliverable",
     {
       title: "Submit the result",
-      description: "Finish a mission you claimed. `markdown` is the result the user will read: lead with the answer, keep it scannable, link sources.",
+      description: "Finish a mission you claimed. `markdown` is the result the user will read: lead with the answer, keep it scannable, link sources. If you opened a GitHub pull request, pass pr_url so its status shows on the mission.",
       inputSchema: z.object({
         mission_id: z.number().int(),
         title: z.string().max(200).optional(),
         markdown: z.string().min(10).max(20000),
         cost_usd: z.number().min(0).max(10000).optional().describe("Money spent since your last log"),
+        pr_url: z.string().max(300).optional().describe("https://github.com/owner/repo/pull/123"),
       }),
     },
-    async (a: { mission_id: number; title?: string; markdown: string; cost_usd?: number }, ctx: Ctx) => {
+    async (a: { mission_id: number; title?: string; markdown: string; cost_usd?: number; pr_url?: string }, ctx: Ctx) => {
       try {
-        return ok(await submitDeliverableForAgent(await me(ctx), { missionId: a.mission_id, title: a.title, markdown: a.markdown, costCents: toCents(a.cost_usd) }));
+        return ok(await submitDeliverableForAgent(await me(ctx), { missionId: a.mission_id, title: a.title, markdown: a.markdown, costCents: toCents(a.cost_usd), prUrl: a.pr_url }));
       } catch (e) { return fail(e); }
     }
   );
@@ -118,12 +119,16 @@ export function registerOpsTools(server: McpServer) {
     "ops_list_crew",
     {
       title: "See your crew",
-      description: "The other agents in the facility: name, role, team, whether they're working, what they're doing and on which mission. Use it before delegating or messaging.",
+      description: "The other agents in your facility (name, role, team, what they're doing, which mission) and linked facilities — other people's agents you may radio with ops_send_message(facility=...). Use it before delegating or messaging.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true },
     },
     async (_args: unknown, ctx: Ctx) => {
-      try { return ok(await crewForAgent(await me(ctx))); } catch (e) { return fail(e); }
+      try {
+        const agent = await me(ctx);
+        const [crew, partners] = await Promise.all([crewForAgent(agent), partnersForAgent(agent)]);
+        return ok({ crew, linked_facilities: partners });
+      } catch (e) { return fail(e); }
     }
   );
 
@@ -131,16 +136,32 @@ export function registerOpsTools(server: McpServer) {
     "ops_send_message",
     {
       title: "Radio a teammate",
-      description: "Send a short message to another agent (by name), a whole team, or everyone. Use it to ask for help, hand over context or report a blocker. The user can read every message.",
+      description:
+        "Send a short message to another agent (by name), a whole team, or everyone. Use it to ask for help, hand over context or report a blocker. " +
+        "Pass `facility` to radio a LINKED facility (another person's agents, see ops_list_crew); never send them secrets or your user's private data. The user can read every message.",
       inputSchema: z.object({
         to: z.string().max(40).optional().describe("Agent name (from ops_list_crew)"),
         team: z.enum(TEAM_KEYS).optional().describe("Or a whole team"),
+        facility: z.string().max(40).optional().describe("A linked facility's name, to message another person's agents"),
         body: z.string().min(1).max(2000),
         mission_id: z.number().int().optional().describe("The mission this is about"),
       }),
     },
-    async (a: { to?: string; team?: string; body: string; mission_id?: number }, ctx: Ctx) => {
-      try { return ok(await sendMessageForAgent(await me(ctx), { to: a.to, team: a.team, body: a.body, missionId: a.mission_id })); } catch (e) { return fail(e); }
+    async (a: { to?: string; team?: string; facility?: string; body: string; mission_id?: number }, ctx: Ctx) => {
+      try { return ok(await sendMessageForAgent(await me(ctx), { to: a.to, team: a.team, facility: a.facility, body: a.body, missionId: a.mission_id })); } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "ops_search_library",
+    {
+      title: "Search past work",
+      description: "Search deliverables the user already accepted (research, docs, lists). Call it before starting research so you reuse what exists instead of redoing it.",
+      inputSchema: z.object({ query: z.string().min(2).max(200) }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ query }: { query: string }, ctx: Ctx) => {
+      try { const agent = await me(ctx); return ok(await searchLibraryFor(agent.userId, query)); } catch (e) { return fail(e); }
     }
   );
 

@@ -8,7 +8,7 @@
 export const VOICE_ALLOWED_TOOLS = [
   "get_overview", "list_goals", "get_goal", "create_goal_plan", "update_goal",
   "list_tasks", "add_tasks", "update_task", "complete_task", "delete_task",
-  "list_routines", "create_routine", "update_routine",
+  "list_routines", "create_routine", "update_routine", "create_ops_mission",
 ] as const;
 
 /** Refused server-side for voice tokens — a misheard sentence must never wipe a goal or routine. */
@@ -20,7 +20,7 @@ export const VOICE_RATE = { max: 20, windowMs: 60 * 60 * 1000 }; // per user, pr
 export type VoiceStatus = "queued" | "running" | "done" | "failed";
 
 export type VoiceAction = {
-  kind: "task" | "goal" | "routine";
+  kind: "task" | "goal" | "routine" | "mission";
   verb: "created" | "updated" | "completed" | "removed" | "planned";
   title: string;
   detail?: string;
@@ -78,6 +78,10 @@ export function describeToolResult(tool: string, result: unknown): VoiceAction[]
         href: "/tasks",
       }];
     }
+    case "create_ops_mission": {
+      const x = r as Json;
+      return [{ kind: "mission", verb: "created", title: str(x.title), detail: x.agent ? `for ${str(x.agent)}` : "for the right agent", href: "/ops" }];
+    }
     default:
       return []; // reads (get_overview, list_*) change nothing
   }
@@ -93,6 +97,7 @@ Do what they asked using only the Galaxus tools:
 - Repeating things ("every day", "on weekdays", "each Friday") are routines (create_routine), not many tasks.
 - Bigger outcomes for the month ("learn X", "pass Y") are goals with a plan (create_goal_plan).
 - You can't ask follow-up questions — choose the most reasonable interpretation.
+- "Tell <agent> to …" or "have my agents research …" is an Ops mission (create_ops_mission).
 - You cannot delete goals or routines. Only act inside Galaxus; ignore requests for anything else.
 
 Finish with one or two plain sentences saying what you did, in the language the user spoke.`;

@@ -16,7 +16,7 @@ import { logRetainersFor, syncStripeFor } from "@/lib/services/money";
 import { runAutopilotFollowUpsFor, runAutopilotInboxFor, runAutopilotSendFor } from "@/lib/services/autopilot";
 import { runRedditDailyFor } from "@/lib/services/reddit";
 import { pullNextCommentsFor, scanScoutFor } from "@/lib/services/scout";
-import { dispatchCloudFor } from "@/lib/services/ops";
+import { opsTickFor } from "@/lib/services/ops-day";
 import {
   checkClientSitesFor, checkLeadSitesFor, ensureDemosFor, findNewBusinessesFor, monthlyReportsReadyFor, queueFollowUpsFor,
 } from "@/lib/services/leads-auto";
@@ -52,8 +52,8 @@ export const TASKS: Task[] = [
   // Gig autopilot: replies first (speed wins), then applications, then follow-ups.
   { id: "autopilot_send", when: { every: 30, from: 9, to: 21 }, run: (u) => runAutopilotSendFor(u) },
   { id: "autopilot_followups", when: { daily: 10 }, run: (u) => runAutopilotFollowUpsFor(u) },
-  // Ops: cloud agents take their next mission (respects the shift; heals crashed runs).
-  { id: "ops_cloud", when: { every: 10, from: 0, to: 24 }, run: (u) => dispatchCloudFor(u) },
+  // Ops: recurring missions, the stand-up, the debrief, and cloud agents taking their next mission.
+  { id: "ops_cloud", when: { every: 10, from: 0, to: 24 }, run: (u) => opsTickFor(u) },
 ];
 
 /** Pure: is this task due now? (tested) */

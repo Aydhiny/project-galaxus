@@ -13,6 +13,8 @@ vi.mock("@/lib/client/ops", () => ({
   acceptMissionC: (...a: unknown[]) => (acceptMissionC as unknown as (...x: unknown[]) => Promise<unknown>)(...a),
   reopenMissionC: (...a: unknown[]) => (reopenMissionC as unknown as (...x: unknown[]) => Promise<unknown>)(...a),
   cancelMissionC: (...a: unknown[]) => (cancelMissionC as unknown as (...x: unknown[]) => Promise<unknown>)(...a),
+  missionToTasksC: vi.fn(async () => ({ count: 1 })), missionToPageC: vi.fn(), missionToLeadC: vi.fn(), missionToRedditC: vi.fn(), redditSubsC: vi.fn(async () => []),
+  removeRecurringC: vi.fn(), standupNowC: vi.fn(), debriefNowC: vi.fn(), setDayC: vi.fn(), applyTemplateC: vi.fn(), repeatLastDayC: vi.fn(),
   removeAgentC: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), message: vi.fn() } }));
@@ -20,6 +22,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), message: v
 import { ConnectDialog } from "./ops-connect";
 import { Briefing } from "./ops-briefing";
 import { Feed } from "./ops-feed";
+import { RemoveAgentDialog } from "./ops-dialog";
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -84,37 +87,62 @@ const today = "2026-10-14";
 const agent = (id: number, name: string, role: string) => ({ id, userId: 1, tokenId: id, name, role, provider: "claude", cloud: false, skills: [], status: "idle", activity: null, activityKind: null, activityUrl: null, lastSeenAt: null, createdAt: new Date() });
 const mission = (over: Record<string, unknown>) => ({
   id: 1, userId: 1, day: today, title: "Find grants", brief: null, kind: "research", agentId: null, role: "researcher", budgetCents: null, spentCents: 0, status: "open",
-  deliverableTitle: null, deliverable: null, claimedAt: null, submittedAt: null, createdAt: new Date(), parentId: null, createdByAgentId: null, jobId: null, ...over,
+  deliverableTitle: null, deliverable: null, claimedAt: null, submittedAt: null, createdAt: new Date(), parentId: null, createdByAgentId: null, jobId: null,
+  costMeasured: false, submittedBy: null, reopens: 0, duelId: null, prUrl: null, recurringId: null, ...over,
 });
 const data = (missions: unknown[], agents = [agent(1, "Sage", "researcher")]): OpsOverview =>
   ({
-    now: Date.now(), day: today, tz: "Europe/Sarajevo", agents, missions, events: [], messages: [], skills: [], shift: null,
+    now: Date.now(), day: today, tz: "Europe/Sarajevo", agents, missions, events: [], messages: [], skills: [], shift: null, scores: {}, recurring: [], links: [], prs: {},
     shiftNow: { state: "none", minutesLeft: null, lengthMin: null, label: "No shift set: agents work whenever they run" }, claudeMode: "runner",
     totals: { budgetCents: 0, spentCents: 0 },
   }) as unknown as OpsOverview;
 
-describe("Briefing", () => {
-  it("posts a mission with the chosen kind, target and budget", async () => {
+describe("Plan panel", () => {
+  it("posts a mission: title first, everything else under More options", async () => {
     const onChanged = vi.fn();
     render(<Briefing data={data([])} assignTo={null} onChanged={onChanged} />);
     fireEvent.change(screen.getByPlaceholderText("What should they do?"), { target: { value: "Compare hosting costs" } });
     fireEvent.click(screen.getByRole("button", { name: "Money" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "1" } });
-    fireEvent.change(screen.getByPlaceholderText("budget"), { target: { value: "12.5" } });
+    fireEvent.click(screen.getByRole("button", { name: /More options/ }));
+    fireEvent.change(screen.getByLabelText("Who"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Budget ($)"), { target: { value: "12.5" } });
     fireEvent.click(screen.getByRole("button", { name: /Post mission/ }));
     await waitFor(() => expect(createMissionC).toHaveBeenCalled());
-    expect(createMissionC).toHaveBeenCalledWith({ title: "Compare hosting costs", brief: "", kind: "finance", agentId: 1, budgetUsd: "12.5" });
+    expect(createMissionC).toHaveBeenCalledWith(expect.objectContaining({ title: "Compare hosting costs", kind: "finance", agentId: 1, budgetUsd: "12.5", repeat: "once" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it("saves a repeating mission", async () => {
+    render(<Briefing data={data([])} assignTo={null} onChanged={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText("What should they do?"), { target: { value: "Gig check" } });
+    fireEvent.click(screen.getByRole("button", { name: /More options/ }));
+    fireEvent.change(screen.getByLabelText("Repeat"), { target: { value: "weekdays" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save repeating mission/ }));
+    await waitFor(() => expect(createMissionC).toHaveBeenCalledWith(expect.objectContaining({ title: "Gig check", repeat: "weekdays", repeatTime: "09:00" })));
+  });
+
+  it("head-to-head needs exactly two agents", async () => {
+    render(<Briefing data={data([], [agent(1, "Sage", "researcher"), agent(2, "Nova", "researcher")])} assignTo={null} onChanged={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText("What should they do?"), { target: { value: "Best accounting app" } });
+    fireEvent.click(screen.getByRole("button", { name: /More options/ }));
+    fireEvent.click(screen.getByLabelText(/Head-to-head/));
+    const post = screen.getByRole("button", { name: /Post mission/ }) as HTMLButtonElement;
+    fireEvent.click(screen.getByRole("button", { name: "Sage" }));
+    expect(post.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Nova" }));
+    expect(post.disabled).toBe(false);
+    fireEvent.click(post);
+    await waitFor(() => expect(createMissionC).toHaveBeenCalledWith(expect.objectContaining({ duelAgentIds: [1, 2], agentId: null })));
   });
 
   it("aims the form at an agent when asked to give them a mission", () => {
     render(<Briefing data={data([], [agent(2, "Forge", "builder")])} assignTo={2} onChanged={() => {}} />);
-    expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("2");
+    expect((screen.getByLabelText("Who") as HTMLSelectElement).value).toBe("2");
     expect(screen.getByRole("button", { name: "App feature" }).className).toContain("6b8afd"); // the builder's kind is preselected
   });
 
   it("shows a submitted result as plain text and lets you accept it", async () => {
-    const m = mission({ status: "submitted", agentId: 1, deliverableTitle: "Grant list", deliverable: "<script>alert(1)</script> **bold** BOOST vouchers" });
+    const m = mission({ status: "submitted", agentId: 1, submittedBy: 1, deliverableTitle: "Grant list", deliverable: "<script>alert(1)</script> **bold** BOOST vouchers" });
     const { container } = render(<Briefing data={data([m])} assignTo={null} onChanged={() => {}} />);
     expect(screen.getByText(/Needs your review/)).toBeTruthy();
     expect(container.querySelector("script")).toBeNull(); // never rendered as HTML
@@ -123,9 +151,40 @@ describe("Briefing", () => {
     await waitFor(() => expect(acceptMissionC).toHaveBeenCalledWith(1));
   });
 
-  it("flags an over-budget mission", () => {
-    render(<Briefing data={data([mission({ status: "claimed", agentId: 1, budgetCents: 1000, spentCents: 1500 })])} assignTo={null} onChanged={() => {}} />);
+  it("sending back asks what to fix, in a dialog (no browser prompt)", async () => {
+    const m = mission({ status: "submitted", agentId: 1, deliverable: "draft" });
+    render(<Briefing data={data([m])} assignTo={null} onChanged={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /Send back/ }));
+    fireEvent.change(screen.getByPlaceholderText(/Add prices in KM/), { target: { value: "Add links" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Send back" }).at(-1)!);
+    await waitFor(() => expect(reopenMissionC).toHaveBeenCalledWith(1, "Add links"));
+  });
+
+  it("offers Use it on delivered results, with tasks found in the result", () => {
+    const m = mission({ status: "done", agentId: 1, deliverable: "## Next steps\n- Call the bank\n- Send the form" });
+    render(<Briefing data={data([m])} assignTo={null} onChanged={() => {}} />);
+    fireEvent.click(screen.getByText("Find grants"));
+    fireEvent.click(screen.getByRole("button", { name: /Use it/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Make tasks/ }));
+    expect(screen.getByText("Call the bank")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Add 2 to Tasks/ })).toBeTruthy();
+  });
+
+  it("flags an over-budget mission and marks measured cost", () => {
+    render(<Briefing data={data([mission({ status: "claimed", agentId: 1, budgetCents: 1000, spentCents: 1500, costMeasured: true })])} assignTo={null} onChanged={() => {}} />);
     expect(screen.getByText(/over!/)).toBeTruthy();
+    expect(screen.getByText("measured")).toBeTruthy();
+  });
+});
+
+describe("Removing an agent", () => {
+  it("explains what happens before removing", async () => {
+    const action = vi.fn(async () => {});
+    render(<RemoveAgentDialog agent={{ name: "Nova", role: "scout", provider: "codex", cloud: false }} holding={2} onClose={() => {}} action={action} />);
+    expect(document.body.textContent).toContain("Its token stops working");
+    expect(document.body.textContent).toContain("The 2 missions it holds go back on the board");
+    fireEvent.click(screen.getByRole("button", { name: "Remove Nova" }));
+    await waitFor(() => expect(action).toHaveBeenCalled());
   });
 });
 

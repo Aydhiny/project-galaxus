@@ -23,7 +23,7 @@ import { play as sfxPlay, setSfxSettings, sfxSettings, type Sfx } from "@/lib/sf
 import { tauriInvoke } from "@/components/desktop-bridge";
 import { InteriorView } from "./interior";
 import { BuildingCard } from "./building-card";
-import { SkyIcon, skyText } from "./sky-icon";
+import { SkyChip } from "./sky-icon";
 import { CustomizePanel } from "./customize";
 import { SimpleView } from "./simple-view";
 import { AirshipCard } from "./airship-card";
@@ -335,7 +335,7 @@ export function EmpireScene({ active, chrome = true }: { active: boolean; chrome
         <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-white/60 flex flex-wrap items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · updated {ago < 10 ? "just now" : `${ago}s ago`}
           {mood !== "normal" && <span className="ml-1 rounded-full bg-white/15 px-1.5">{mood === "disco" ? "🪩 disco" : "💤 hibernate"}</span>}
-          {weather && <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5" title={weather.live ? `Live weather in ${weather.place} (Open-Meteo)` : "Couldn't reach the weather service"}><SkyIcon kind={weather.kind} className="w-3 h-3" />{skyText(weather)}</span>}
+          {weather && <SkyChip sky={weather} />}
           {week && <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5" title={week.why}><WeekIcon className="w-3 h-3" />{week.kind === "sun" ? "strong week" : week.kind === "clouds" ? "mixed week" : "quiet week"}</span>}
           {ops && ops.agents > 0 && (
             <Link href="/ops" onClick={() => play("whoosh")} title="Enter the agent facility" className="inline-flex items-center gap-1 rounded-full bg-[#6b8afd]/25 px-1.5 hover:bg-[#6b8afd]/40">

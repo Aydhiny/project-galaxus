@@ -30,7 +30,7 @@ describe("parseOpenMeteo", () => {
   it("reads the real Open-Meteo `current` block", () => {
     // Shape of a real reply for Sarajevo (2026-10-14, clear, 14.4 °C).
     const json = { latitude: 43.87, current: { time: "2026-10-14T14:45", interval: 900, temperature_2m: 14.4, weather_code: 0, is_day: 1 } };
-    expect(parseOpenMeteo(json, "Sarajevo")).toEqual({ kind: "sun", intensity: 0, label: "Clear", tempC: 14, place: "Sarajevo", isDay: true, live: true });
+    expect(parseOpenMeteo(json, "Sarajevo")).toMatchObject({ kind: "sun", intensity: 0, label: "Clear", tempC: 14, place: "Sarajevo", isDay: true, live: true, forecast: [] });
   });
   it("returns null for anything else", () => {
     expect(parseOpenMeteo(null, "x")).toBeNull();

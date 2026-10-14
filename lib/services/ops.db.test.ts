@@ -236,7 +236,7 @@ describe("Ops on real Postgres", () => {
     expect(checkin.missions.map((x: { id: number }) => x.id)).toContain(m.id);
     await call("ops_claim_mission", { mission_id: m.id });
     await call("ops_log_activity", { kind: "browse", label: "Reading olx.ba", url: "https://olx.ba/x", mission_id: m.id, cost_usd: 0.5 });
-    expect((await call("ops_list_crew")).some((x: { name: string }) => x.name === "Nova")).toBe(true);
+    expect((await call("ops_list_crew")).crew.some((x: { name: string }) => x.name === "Nova")).toBe(true);
     await call("ops_send_message", { to: "Nova", body: "Found 3 monitors" });
     await call("ops_submit_deliverable", { mission_id: m.id, markdown: "Best: Dell P2723, 520 KM" });
     expect(await missionRow(m.id)).toMatchObject({ status: "submitted", spentCents: 50 });

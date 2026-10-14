@@ -165,6 +165,7 @@ export async function claimNextFor(userId: number) {
   return {
     id: Number(row.id),
     tools: true,
+    web: false,
     system: VOICE_SYSTEM,
     prompt: buildVoicePrompt({
       transcript: String(row.transcript),
@@ -193,7 +194,7 @@ export async function recordToolResultFor(userId: number, tool: string, resultTe
   `);
 }
 
-export async function completeFor(userId: number, id: number, result: { ok: boolean; summary?: string; error?: string }) {
+export async function completeFor(userId: number, id: number, result: { ok: boolean; summary?: string; error?: string; costCents?: number | null }) {
   const [current] = await db
     .select()
     .from(voiceCommands)
@@ -208,7 +209,7 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
   // Non-voice jobs: turn Claude's answer into data (idea, hooks, replies, themes).
   if (ok && current.kind !== "voice") {
     try {
-      summary = await applyJobResult(current, full ?? "");
+      summary = await applyJobResult(current, full ?? "", result.costCents ?? null);
     } catch (e) {
       ok = false;
       error = e instanceof Error ? e.message : "Couldn't use Claude's answer.";
@@ -219,21 +220,25 @@ export async function completeFor(userId: number, id: number, result: { ok: bool
     .set({ status: ok ? "done" : "failed", summary, result: full, error, finishedAt: new Date() })
     .where(eq(voiceCommands.id, id))
     .returning();
-  await notifyDone(userId, row);
+  await notifyDone(userId, row, result.costCents ?? null);
   return row;
 }
 
 const JOB_URL: Record<string, string> = { voice: "/voice", devlog: "/youtube", hooks: "/youtube", comment_replies: "/youtube", playtest: "/game", digest: "/brief", gigs: "/gigs", email_reply: "/gigs", reddit_post: "/game/reddit", scout: "/scout", ops_mission: "/ops" };
 
-async function notifyDone(userId: number, c: VoiceCommand) {
+async function notifyDone(userId: number, c: VoiceCommand, costCents: number | null = null) {
   // The brief sends its own notification (with an image) — and if Claude
   // couldn't write it, the plain headlines are still worth announcing.
   // Background scoring failing isn't news — the free scores already cover it.
   if (c.kind === "gigs" && c.status === "failed") return;
   // A cloud agent's mission goes back on the board; the facility shows why.
-  if (c.kind === "ops_mission" && c.status === "failed") {
-    const { cloudMissionFailedFor } = await import("@/lib/services/ops");
-    await cloudMissionFailedFor(userId, Number((c.payload ?? {}).missionId), c.error);
+  // Its success is announced by the facility itself (the deliverable push), so only failures are handled here.
+  if (c.kind === "ops_mission" || c.kind === "ops_debrief" || c.kind === "ops_standup") {
+    if (c.kind === "ops_mission" && c.status === "failed") {
+      const { cloudMissionFailedFor } = await import("@/lib/services/ops");
+      await cloudMissionFailedFor(userId, Number((c.payload ?? {}).missionId), c.error, costCents);
+    }
+    return;
   }
   // A client reply Claude couldn't handle → it's yours (the push already went out on arrival).
   if (c.kind === "email_reply") {

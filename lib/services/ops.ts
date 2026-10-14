@@ -10,13 +10,22 @@
 
 import { and, desc, eq, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { opsAgents, opsDays, opsEvents, opsMessages, opsMissions, opsSkills, outreachSettings, voiceCommands, type OpsAgent, type OpsMission } from "@/lib/db/schema";
+import { opsAgents, opsDays, opsEvents, opsMessages, opsMissions, opsRecurring, opsSkills, outreachSettings, voiceCommands, type OpsAgent, type OpsMission } from "@/lib/db/schema";
 import { createApiTokenFor, revokeApiTokenFor } from "@/lib/services/api-tokens";
 import {
   BUILTIN_SKILLS, DAY_TEMPLATES, MISSION_KIND_INFO, PROVIDER_KEYS, ROLES, ROLE_KEYS, TEAM_KEYS, checkDelegation, cleanSkillKeys, defaultSkillsFor,
-  eventFromHook, hhmmIn, parseMessage, parseMissionInput, parseShift, parseSkillInput, presence, redact, roleOf, shiftStatus,
+  EXTERNAL_NOTE, eventFromHook, hhmmIn, parseMessage, parseMissionInput, parsePrUrl, parseShift, parseSkillInput, presence, redact, repeatMask, roleOf,
+  scoreFor, shiftStatus,
   type AgentEventInput, type ProviderKey, type RoleKey, type Skill, type TeamKey,
 } from "@/lib/ops";
+
+/** Push to your phone (and the bell). Never let a notification failure break an agent's call. */
+async function notifyOps(userId: number, title: string, body: string, tag: string) {
+  try {
+    const { notifyUser } = await import("@/lib/services/outreach/push");
+    await notifyUser(userId, { title, body: body.slice(0, 160), url: "/ops", tag });
+  } catch { /* push is best-effort */ }
+}
 
 const EVENT_KEEP_MS = 3 * 86_400_000;
 const MESSAGE_KEEP_MS = 14 * 86_400_000;
@@ -99,7 +108,8 @@ export async function opsCountsFor(userId: number) {
 export async function opsOverviewFor(userId: number) {
   const day = today();
   const tz = await tzFor(userId);
-  const [agents, missions, events, messages, skills, [shift]] = await Promise.all([
+  const since = new Date(Date.now() - 30 * 86_400_000);
+  const [agents, missions, events, messages, skills, [shift], delivered, recurring] = await Promise.all([
     db.select().from(opsAgents).where(eq(opsAgents.userId, userId)).orderBy(opsAgents.id),
     // Today's missions plus anything still unfinished from earlier days.
     db.select().from(opsMissions)
@@ -109,7 +119,17 @@ export async function opsOverviewFor(userId: number) {
     db.select().from(opsMessages).where(eq(opsMessages.userId, userId)).orderBy(desc(opsMessages.at)).limit(60),
     db.select().from(opsSkills).where(eq(opsSkills.userId, userId)).orderBy(opsSkills.id),
     db.select().from(opsDays).where(and(eq(opsDays.userId, userId), eq(opsDays.day, day))).limit(1),
+    // Everything delivered in the last 30 days: the scorecards.
+    db.select({ submittedBy: opsMissions.submittedBy, status: opsMissions.status, reopens: opsMissions.reopens, spentCents: opsMissions.spentCents,
+      claimedAt: opsMissions.claimedAt, submittedAt: opsMissions.submittedAt, duelId: opsMissions.duelId })
+      .from(opsMissions).where(and(eq(opsMissions.userId, userId), sql`${opsMissions.submittedBy} is not null`, sql`${opsMissions.createdAt} >= ${since}`)),
+    db.select().from(opsRecurring).where(eq(opsRecurring.userId, userId)).orderBy(opsRecurring.id),
   ]);
+  const scores = Object.fromEntries(agents.map((a) => [a.id, scoreFor(delivered.filter((d) => d.submittedBy === a.id))]));
+  const { linksFor } = await import("@/lib/services/ops-links");
+  const { prStatusesFor } = await import("@/lib/services/ops-deliver");
+  const prUrls = missions.filter((m) => m.prUrl && m.status !== "cancelled").map((m) => m.prUrl!).slice(0, 6);
+  const [links, prs] = await Promise.all([linksFor(userId), prStatusesFor(userId, prUrls)]);
   const todays = missions.filter((m) => m.day === day && m.status !== "cancelled");
   const { claudeModeFor } = await import("@/lib/services/claude-mode");
   return {
@@ -121,7 +141,11 @@ export async function opsOverviewFor(userId: number) {
     events,
     messages,
     skills: [...BUILTIN_SKILLS.map((s) => ({ ...s, custom: false })), ...skills.map((s) => ({ key: `c:${s.id}`, name: s.name, blurb: s.blurb ?? "", instructions: s.instructions, custom: true }))],
-    shift: shift ? { startsAt: shift.startsAt, endsAt: shift.endsAt, focus: shift.focus } : null,
+    shift: shift ? { startsAt: shift.startsAt, endsAt: shift.endsAt, focus: shift.focus, standupAt: shift.standupAt, debriefAt: shift.debriefAt, debriefPageId: shift.debriefPageId } : null,
+    scores,
+    recurring,
+    links,
+    prs,
     shiftNow: shiftStatus(shift ?? null, hhmmIn(tz)),
     claudeMode: await claudeModeFor(userId),
     totals: {
@@ -134,15 +158,55 @@ export type OpsOverview = Awaited<ReturnType<typeof opsOverviewFor>>;
 
 export async function createMissionFor(userId: number, raw: Record<string, unknown>) {
   const m = parseMissionInput(raw, today());
-  if (m.agentId) {
-    const [a] = await db.select({ id: opsAgents.id }).from(opsAgents).where(and(eq(opsAgents.id, m.agentId), eq(opsAgents.userId, userId))).limit(1);
+  const owned = async (id: number) => {
+    const [a] = await db.select({ id: opsAgents.id }).from(opsAgents).where(and(eq(opsAgents.id, id), eq(opsAgents.userId, userId))).limit(1);
     if (!a) throw new Error("That agent doesn't exist.");
+  };
+  if (m.agentId) await owned(m.agentId);
+
+  // Repeat: store the schedule; the scheduler posts each day's copy (including today's, if it's due).
+  const mask = repeatMask(raw.repeat);
+  if (mask) {
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(raw.repeatTime ?? "")) ? String(raw.repeatTime) : "09:00";
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(opsRecurring).where(eq(opsRecurring.userId, userId));
+    if (n >= 30) throw new Error("That's 30 recurring missions. Remove one first.");
+    const [r] = await db.insert(opsRecurring).values({
+      userId, title: m.title, brief: m.brief || null, kind: m.kind, role: m.role, agentId: m.agentId, budgetCents: m.budgetCents, days: mask, time,
+    }).returning();
+    const { postDueRecurringFor } = await import("@/lib/services/ops-day");
+    await postDueRecurringFor(userId);
+    return { id: r.id, recurring: true };
   }
+
+  // Head-to-head: the same mission for two agents; you pick the better result.
+  const duel = Array.isArray(raw.duelAgentIds) ? [...new Set((raw.duelAgentIds as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n > 0))] : [];
+  if (duel.length) {
+    if (duel.length !== 2) throw new Error("Pick exactly two agents for a head-to-head.");
+    for (const id of duel) await owned(id);
+    const base = { userId, day: m.day, title: m.title, brief: m.brief || null, kind: m.kind, role: null, budgetCents: m.budgetCents };
+    const [first] = await db.insert(opsMissions).values({ ...base, agentId: duel[0] }).returning();
+    await db.update(opsMissions).set({ duelId: first.id }).where(eq(opsMissions.id, first.id));
+    await db.insert(opsMissions).values({ ...base, agentId: duel[1], duelId: first.id });
+    await dispatchCloudFor(userId).catch(() => {});
+    return { id: first.id, duel: true };
+  }
+
   const [row] = await db.insert(opsMissions).values({
     userId, day: m.day, title: m.title, brief: m.brief || null, kind: m.kind, agentId: m.agentId, role: m.role, budgetCents: m.budgetCents,
   }).returning();
   await dispatchCloudFor(userId).catch(() => {});
   return row;
+}
+
+export async function removeRecurringFor(userId: number, id: number) {
+  await db.delete(opsRecurring).where(and(eq(opsRecurring.id, id), eq(opsRecurring.userId, userId)));
+}
+
+/** A system note on an agent's record (you accepted / sent back its work). Doesn't touch its presence. */
+async function reviewEvent(userId: number, agentId: number | null, missionId: number, label: string) {
+  if (!agentId) return;
+  const [a] = await db.select({ id: opsAgents.id }).from(opsAgents).where(and(eq(opsAgents.id, agentId), eq(opsAgents.userId, userId))).limit(1);
+  if (a) await db.insert(opsEvents).values({ userId, agentId: a.id, missionId, kind: "status", label: label.slice(0, 200), url: null });
 }
 
 async function mission(userId: number, id: number) {
@@ -162,6 +226,13 @@ export async function acceptMissionFor(userId: number, id: number) {
   const m = await mission(userId, id);
   if (m.status !== "submitted") throw new Error("Only a submitted mission can be accepted.");
   await db.update(opsMissions).set({ status: "done" }).where(eq(opsMissions.id, id));
+  await reviewEvent(userId, m.submittedBy, m.id, `Accepted: ${m.title}`);
+  // Head-to-head: accepting one result makes it the winner; the other one is closed (its result stays readable).
+  if (m.duelId != null) {
+    const others = await db.update(opsMissions).set({ status: "cancelled" })
+      .where(and(eq(opsMissions.userId, userId), eq(opsMissions.duelId, m.duelId), ne(opsMissions.id, m.id), ne(opsMissions.status, "done"))).returning();
+    for (const o of others) await reviewEvent(userId, o.submittedBy ?? o.agentId, o.id, `Lost the head-to-head: ${o.title}`);
+  }
 }
 
 /** Send it back to the board. A mission aimed at a role goes to whoever has that role next; one aimed at an agent stays with them. */
@@ -169,9 +240,14 @@ export async function reopenMissionFor(userId: number, id: number, note?: string
   const m = await mission(userId, id);
   if (m.status === "open" || m.status === "cancelled") throw new Error("That mission is already open or cancelled.");
   const feedback = note?.trim() ? `\n\n— Sent back by the user: ${redact(note.trim()).slice(0, 1000)}` : "";
+  const wasDelivered = m.status === "submitted" || m.status === "done";
   await db.update(opsMissions)
-    .set({ status: "open", claimedAt: null, submittedAt: null, jobId: null, agentId: m.role ? null : m.agentId, brief: `${m.brief ?? ""}${feedback}`.trim() || null })
+    .set({
+      status: "open", claimedAt: null, submittedAt: null, jobId: null, agentId: m.role ? null : m.agentId, brief: `${m.brief ?? ""}${feedback}`.trim() || null,
+      reopens: wasDelivered ? m.reopens + 1 : m.reopens,
+    })
     .where(eq(opsMissions.id, id));
+  if (wasDelivered) await reviewEvent(userId, m.submittedBy, m.id, `Sent back: ${m.title}`);
   await dispatchCloudFor(userId).catch(() => {});
 }
 
@@ -277,7 +353,12 @@ export async function recordEventForAgent(agent: OpsAgent, ev: AgentEventInput, 
     }
   }
 
+  // A pull request the agent opened while on a mission goes on the mission (and the Builder's desk).
+  if (missionId && parsePrUrl(ev.url)) await db.update(opsMissions).set({ prUrl: parsePrUrl(ev.url)!.url }).where(and(eq(opsMissions.id, missionId), sql`${opsMissions.prUrl} is null`));
+
   await db.insert(opsEvents).values({ userId: agent.userId, agentId: agent.id, missionId, kind: ev.kind, label: ev.label, url: ev.url });
+  // It just started waiting for you: tell your phone (once per wait, not on every hook).
+  if (ev.status === "waiting" && agent.status !== "waiting") await notifyOps(agent.userId, `${agent.name} needs you`, ev.label, `ops-wait-${agent.id}`);
   await db.update(opsAgents).set({
     lastSeenAt: now,
     status: ev.status ?? "working",
@@ -323,6 +404,7 @@ function inboxWhere(agent: OpsAgent) {
   const team = ROLES[roleOf(agent.role)].team;
   return and(
     eq(opsMessages.userId, agent.userId),
+    isNull(opsMessages.extTo), // copies of what we sent to a partner facility aren't anyone's inbox
     or(isNull(opsMessages.fromAgentId), ne(opsMessages.fromAgentId, agent.id)),
     or(eq(opsMessages.toAgentId, agent.id), and(isNull(opsMessages.toAgentId), or(isNull(opsMessages.toTeam), eq(opsMessages.toTeam, team)))),
   );
@@ -375,6 +457,27 @@ export async function crewForAgent(agent: OpsAgent) {
   }));
 }
 
+/** Linked facilities (other people's) and, where they share it, their crew. For ops_list_crew. */
+export async function partnersForAgent(agent: OpsAgent) {
+  const { partnerCrewsFor } = await import("@/lib/services/ops-links");
+  return partnerCrewsFor(agent.userId);
+}
+
+// ─── The library: accepted work, searchable ───────────────────────────────────
+
+/** Accepted deliverables matching the words in `q` (best first), so nobody researches the same thing twice. */
+export async function searchLibraryFor(userId: number, q: string, limit = 5) {
+  const words = String(q ?? "").toLowerCase().match(/[\p{L}\p{N}]{3,}/gu)?.slice(0, 8) ?? [];
+  if (!words.length) return [];
+  const hay = sql`lower(${opsMissions.title} || ' ' || coalesce(${opsMissions.deliverableTitle}, '') || ' ' || coalesce(${opsMissions.deliverable}, ''))`;
+  const score = sql.join(words.map((w) => sql`(case when ${hay} like ${`%${w}%`} then 1 else 0 end)`), sql` + `);
+  const rows = await db.select({ id: opsMissions.id, title: opsMissions.title, day: opsMissions.day, deliverable: opsMissions.deliverable, score: sql<number>`(${score})::int` })
+    .from(opsMissions)
+    .where(and(eq(opsMissions.userId, userId), eq(opsMissions.status, "done"), sql`${opsMissions.deliverable} is not null`, sql`(${score}) > 0`))
+    .orderBy(sql`(${score}) desc`, desc(opsMissions.id)).limit(Math.min(10, limit));
+  return rows.map((r) => ({ mission_id: r.id, title: r.title, day: String(r.day), match: `${r.score}/${words.length} words`, excerpt: (r.deliverable ?? "").slice(0, 1200) }));
+}
+
 /** Atomic: the UPDATE only matches if the mission is still open and aimed at this agent. */
 export async function claimMissionForAgent(agent: OpsAgent, missionId: number) {
   const [m] = await db.update(opsMissions).set({ status: "claimed", agentId: agent.id, claimedAt: new Date() })
@@ -388,17 +491,21 @@ export async function claimMissionForAgent(agent: OpsAgent, missionId: number) {
   return { id: m.id, title: m.title, brief: m.brief, budget_usd: m.budgetCents ? m.budgetCents / 100 : null };
 }
 
-export async function submitDeliverableForAgent(agent: OpsAgent, input: { missionId: number; title?: string; markdown: string; costCents?: number }) {
+export async function submitDeliverableForAgent(agent: OpsAgent, input: { missionId: number; title?: string; markdown: string; costCents?: number; measured?: boolean; prUrl?: string }) {
   const markdown = redact(String(input.markdown ?? "")).trim();
   if (markdown.length < 10) throw new Error("The deliverable is empty. Write the result in markdown.");
   const [m] = await db.select().from(opsMissions)
     .where(and(eq(opsMissions.id, input.missionId), eq(opsMissions.userId, agent.userId), eq(opsMissions.agentId, agent.id), eq(opsMissions.status, "claimed"))).limit(1);
   if (!m) throw new Error("You can only submit a mission you have claimed.");
   const cost = Math.max(0, Math.min(input.costCents ?? 0, 10_000_00));
+  const pr = parsePrUrl(input.prUrl) ?? parsePrUrl(markdown.match(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/)?.[0]);
   await db.update(opsMissions).set({
-    status: "submitted", submittedAt: new Date(), spentCents: m.spentCents + cost, jobId: null,
+    status: "submitted", submittedAt: new Date(), spentCents: m.spentCents + cost, jobId: null, submittedBy: agent.id,
+    costMeasured: input.measured ? true : m.costMeasured,
     deliverableTitle: (input.title?.trim() || m.title).slice(0, 200), deliverable: markdown.slice(0, 20_000),
+    ...(pr ? { prUrl: pr.url } : {}),
   }).where(eq(opsMissions.id, m.id));
+  await notifyOps(agent.userId, `${agent.name} delivered`, m.title, `ops-done-${m.id}`);
   await recordEventForAgent(agent, { kind: "status", label: `Submitted: ${m.title}`.slice(0, 200), url: null, status: "idle" }, { missionId: m.id });
   // A finished sub-mission tells whoever delegated it.
   if (m.parentId && m.createdByAgentId && m.createdByAgentId !== agent.id) {
@@ -409,7 +516,11 @@ export async function submitDeliverableForAgent(agent: OpsAgent, input: { missio
 }
 
 /** An agent radios a teammate (by name), a team, or everyone. */
-export async function sendMessageForAgent(agent: OpsAgent, input: { to?: string; team?: string; body: string; missionId?: number }) {
+export async function sendMessageForAgent(agent: OpsAgent, input: { to?: string; team?: string; body: string; missionId?: number; facility?: string }) {
+  if (input.facility?.trim()) {
+    const { sendExternalForAgent } = await import("@/lib/services/ops-links");
+    return sendExternalForAgent(agent, { facility: input.facility, to: input.to, body: input.body });
+  }
   const body = parseMessage(input.body);
   let toAgentId: number | null = null, toTeam: string | null = null, label = "everyone";
   if (input.to?.trim()) {
@@ -439,7 +550,10 @@ export async function messagesForAgent(agent: OpsAgent) {
   const unread = rows.filter((r) => !r.m.readAt).map((r) => r.m.id);
   if (unread.length) await db.update(opsMessages).set({ readAt: new Date() }).where(inArray(opsMessages.id, unread));
   return rows.map(({ m, from }) => ({
-    id: m.id, from: m.fromAgentId ? from ?? "an agent" : "the user (your boss)", to: m.toAgentId ? "you" : m.toTeam ? `team ${m.toTeam}` : "everyone",
+    id: m.id,
+    from: m.extFrom ? `${m.extFrom} (linked facility)` : m.fromAgentId ? from ?? "an agent" : "the user (your boss)",
+    to: m.toAgentId ? "you" : m.toTeam ? `team ${m.toTeam}` : "everyone",
+    ...(m.extFrom ? { external: true, note: EXTERNAL_NOTE, reply_with: { facility: m.extFrom.split(" / ")[0], to: m.extFrom.split(" / ")[1] ?? undefined } } : {}),
     mission_id: m.missionId, body: m.body, unread: !m.readAt, at: m.at.toISOString(),
   }));
 }
@@ -513,6 +627,7 @@ export async function dispatchCloudFor(userId: number) {
         select id from ${opsMissions}
         where user_id = ${userId} and status = 'open' and day <= ${today()}
           and (agent_id is null or agent_id = ${a.id}) and (role is null or role = ${a.role})
+          and (budget_cents is null or spent_cents < budget_cents)
         order by (agent_id is null), id limit 1 for update skip locked
       )`).returning();
     if (!m) continue;
@@ -541,7 +656,9 @@ async function releaseCloudMission(userId: number, missionId: number, why: strin
 }
 
 /** Called when a cloud job fails outright (lib/services/voice.ts). */
-export async function cloudMissionFailedFor(userId: number, missionId: number, error: string | null) {
+export async function cloudMissionFailedFor(userId: number, missionId: number, error: string | null, costCents: number | null = null) {
+  // A failed run still cost something: it counts, measured.
+  if (costCents) await db.update(opsMissions).set({ spentCents: sql`${opsMissions.spentCents} + ${costCents}`, costMeasured: true }).where(and(eq(opsMissions.id, missionId), eq(opsMissions.userId, userId)));
   await releaseCloudMission(userId, missionId, `Couldn't finish: ${(error ?? "the run failed").slice(0, 140)}`);
 }
 
@@ -556,9 +673,10 @@ export async function buildCloudMissionPrompt(userId: number, missionId: number)
   if (!m || !m.agentId) throw new Error("This mission is no longer waiting for a cloud agent.");
   const [a] = await db.select().from(opsAgents).where(eq(opsAgents.id, m.agentId)).limit(1);
   if (!a) throw new Error("The cloud agent was removed.");
-  const [skills, shift, crew, inbox, parent] = await Promise.all([
+  const [skills, shift, crew, inbox, parent, library] = await Promise.all([
     skillsOf(a), shiftFor(userId), crewForAgent(a), messagesForAgent(a),
     m.parentId ? db.select().from(opsMissions).where(eq(opsMissions.id, m.parentId)).limit(1).then((r) => r[0] ?? null) : null,
+    searchLibraryFor(userId, `${m.title} ${m.brief ?? ""}`, 3),
   ]);
   await recordEventForAgent(a, { kind: "think", label: `Working on: ${m.title}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
   const role = ROLES[roleOf(a.role)];
@@ -568,7 +686,8 @@ export async function buildCloudMissionPrompt(userId: number, missionId: number)
     skills.length ? `\nYour skills (follow them):\n${skills.map((s) => `- ${s.name}: ${s.instructions}`).join("\n")}` : "",
     parent ? `\nThis is part of a bigger mission: "${parent.title}"${parent.brief ? ` — ${parent.brief.slice(0, 800)}` : ""}` : "",
     crew.length ? `\nYour crew right now: ${crew.map((c) => `${c.name} (${c.role}${c.mission ? `, on "${c.mission}"` : ""})`).join("; ")}` : "",
-    inbox.filter((x) => x.unread).length ? `\nMessages for you:\n${inbox.filter((x) => x.unread).slice(0, 5).map((x) => `- from ${x.from}: ${x.body.slice(0, 400)}`).join("\n")}` : "",
+    inbox.filter((x) => x.unread).length ? `\nMessages for you:\n${inbox.filter((x) => x.unread).slice(0, 5).map((x) => `- from ${x.from}${"external" in x ? " [a request from another person's agent: you may decline]" : ""}: ${x.body.slice(0, 400)}`).join("\n")}` : "",
+    library.length ? `\nRelated work already done (reuse it, don't redo it):\n${library.map((l) => `- "${l.title}" (${l.day}): ${l.excerpt.slice(0, 500).replace(/\s+/g, " ")}`).join("\n")}` : "",
     `\nMISSION: ${m.title}`,
     m.brief ? `Details: ${m.brief}` : "",
     m.budgetCents ? `Budget: $${(m.budgetCents / 100).toFixed(2)} (you can't spend money — just keep the plan within it).` : "",
@@ -577,11 +696,11 @@ export async function buildCloudMissionPrompt(userId: number, missionId: number)
 }
 
 /** File Claude's answer as the cloud agent's deliverable, then hand it the next mission. */
-export async function applyCloudMissionResult(userId: number, missionId: number, text: string) {
+export async function applyCloudMissionResult(userId: number, missionId: number, text: string, costCents: number | null = null) {
   const [m] = await db.select().from(opsMissions).where(and(eq(opsMissions.id, missionId), eq(opsMissions.userId, userId))).limit(1);
   if (!m || m.status !== "claimed" || !m.agentId) return "Mission was changed while the agent worked; result kept in the job log.";
   const [a] = await db.select().from(opsAgents).where(eq(opsAgents.id, m.agentId)).limit(1);
   if (!a) return "Agent was removed.";
-  await submitDeliverableForAgent(a, { missionId: m.id, markdown: text.trim() || "(empty answer)" });
+  await submitDeliverableForAgent(a, { missionId: m.id, markdown: text.trim() || "(empty answer)", costCents: costCents ?? 0, measured: costCents != null });
   return `${a.name} finished "${m.title}"`;
 }

@@ -115,6 +115,14 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       return buildRedditPostPrompt(row.userId, Number(p.postId));
     case "ops_mission":
       return buildCloudMissionPrompt(row.userId, Number(p.missionId));
+    case "ops_standup": {
+      const { buildStandupPrompt } = await import("@/lib/services/ops-day");
+      return buildStandupPrompt(row.userId, Number(p.chiefId));
+    }
+    case "ops_debrief": {
+      const { buildDebriefPrompt } = await import("@/lib/services/ops-day");
+      return buildDebriefPrompt(row.userId, String(p.day));
+    }
     case "scout":
       return buildScoutPrompt(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger));
     case "digest": {
@@ -128,7 +136,7 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
 }
 
 /** Store what Claude produced. Returns a one-line summary for the notification. */
-export async function applyJobResult(row: VoiceCommand, text: string): Promise<string> {
+export async function applyJobResult(row: VoiceCommand, text: string, costCents: number | null = null): Promise<string> {
   const p = (row.payload ?? {}) as Record<string, unknown>;
   switch (row.kind) {
     case "devlog": {
@@ -173,7 +181,15 @@ export async function applyJobResult(row: VoiceCommand, text: string): Promise<s
     case "reddit_post":
       return applyRedditPostResult(row.userId, Number(p.postId), text);
     case "ops_mission":
-      return applyCloudMissionResult(row.userId, Number(p.missionId), text);
+      return applyCloudMissionResult(row.userId, Number(p.missionId), text, costCents);
+    case "ops_standup": {
+      const { applyStandupResult } = await import("@/lib/services/ops-day");
+      return applyStandupResult(row.userId, Number(p.chiefId), text);
+    }
+    case "ops_debrief": {
+      const { applyDebriefResult } = await import("@/lib/services/ops-day");
+      return applyDebriefResult(row.userId, Number(p.pageId), text);
+    }
     case "scout":
       return applyScoutResult(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger), text);
     case "gigs": {

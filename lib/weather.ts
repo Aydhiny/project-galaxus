@@ -15,6 +15,9 @@ export type SkyNow = {
   place: string; // "Sarajevo"
   isDay: boolean | null;
   live: boolean; // false = we couldn't reach the weather service and are guessing
+  sunrise?: string | null; // "06:58", local to the place
+  sunset?: string | null;
+  forecast?: { day: string; kind: Weather; label: string; max: number | null; min: number | null }[]; // next 3 days
 };
 
 /** Sarajevo, used until you pick a place in the city's Customize panel. */
@@ -45,7 +48,34 @@ export function parseOpenMeteo(json: unknown, place: string): SkyNow | null {
   if (!cur || typeof cur.weather_code !== "number") return null;
   const sky = skyFromCode(cur.weather_code);
   const t = typeof cur.temperature_2m === "number" ? Math.round(cur.temperature_2m) : null;
-  return { ...sky, tempC: t, place, isDay: typeof cur.is_day === "number" ? cur.is_day === 1 : null, live: true };
+  const daily = (json as { daily?: Record<string, unknown[]> }).daily;
+  const hm = (v: unknown) => (typeof v === "string" && /T\d{2}:\d{2}/.test(v) ? v.slice(11, 16) : null);
+  const forecast = Array.isArray(daily?.time)
+    ? daily!.time.slice(0, 3).map((day, i) => {
+      const code = Number(daily!.weather_code?.[i]);
+      const f = Number.isFinite(code) ? skyFromCode(code) : { kind: "clouds" as Weather, label: "Cloudy" };
+      const num = (v: unknown) => (typeof v === "number" ? Math.round(v) : null);
+      return { day: String(day), kind: f.kind, label: f.label, max: num(daily!.temperature_2m_max?.[i]), min: num(daily!.temperature_2m_min?.[i]) };
+    })
+    : [];
+  return {
+    ...sky, tempC: t, place, isDay: typeof cur.is_day === "number" ? cur.is_day === 1 : null, live: true,
+    sunrise: hm(daily?.sunrise?.[0]), sunset: hm(daily?.sunset?.[0]), forecast,
+  };
+}
+
+/**
+ * How dark the city should be (0 = day, 1 = night) at `hour` (decimal, local),
+ * from the real sunrise and sunset, with an hour of dusk/dawn either side.
+ * Falls back to fixed hours (7:00 / 19:00) when the times are unknown.
+ */
+export function nightLevelAt(hour: number, sunrise?: string | null, sunset?: string | null) {
+  const h = (t: string | null | undefined, d: number) => (t && /^\d{2}:\d{2}$/.test(t) ? Number(t.slice(0, 2)) + Number(t.slice(3)) / 60 : d);
+  const rise = h(sunrise, 7), set = h(sunset, 19);
+  if (hour >= rise + 0.5 && hour <= set - 0.5) return 0;
+  if (hour <= rise - 0.75 || hour >= set + 0.75) return 1;
+  if (hour < rise + 0.5) return (rise + 0.5 - hour) / 1.25; // dawn
+  return (hour - (set - 0.5)) / 1.25; // dusk
 }
 
 /** Used when the weather service is down: a calm, honest "we don't know". */

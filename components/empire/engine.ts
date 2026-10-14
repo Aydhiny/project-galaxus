@@ -12,6 +12,7 @@
 
 import * as THREE from "three";
 import { OpsSite, OPS_SITE_ID } from "./ops-site";
+import { nightLevelAt } from "@/lib/weather";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Building, World, WorldEvent } from "@/lib/client/empire";
@@ -89,6 +90,7 @@ export class EmpireEngine {
   private trees: { trunks: THREE.InstancedMesh; crowns: THREE.InstancedMesh; spots: THREE.Vector3[] } | null = null;
   private radarSpin: { obj: THREE.Object3D; speed: number; axis: "y" | "z" } | null = null;
   private opsSite: OpsSite | null = null; // the agent facility outside town
+  private sunTimes: { rise: string | null; set: string | null } = { rise: null, set: null };
   private workingIds = new Set<string>();
   private lastSound = 0;
   private buildingsGroup = new THREE.Group();
@@ -646,6 +648,7 @@ export class EmpireEngine {
   /** Weather, streak lights, vault gold, goal sites, airships, runner glow, radar sweep. Returns goals that just completed. */
   setWorld(w: World, previousStreak: number | null): number[] {
     this.life.setWeather(w.weather.kind, w.weather.intensity);
+    this.sunTimes = { rise: w.weather.sunrise ?? null, set: w.weather.sunset ?? null };
     this.setOps(w.ops);
     if (this.worldStreak !== w.streak) { this.life.setStreak(w.streak, this.worldStreak ?? previousStreak); this.worldStreak = w.streak; }
     this.life.setGold(w.gold);
@@ -820,8 +823,8 @@ export class EmpireEngine {
   private updateDayNight() {
     const now = new Date();
     const h = this.timeOverride ?? now.getHours() + now.getMinutes() / 60;
-    // 0 at midday, 1 at midnight, smooth through dawn/dusk.
-    const real = h >= 7 && h <= 18 ? 0 : h >= 20 || h <= 5 ? 1 : h < 7 ? (7 - h) / 2 : (h - 18) / 2;
+    // 0 by day, 1 by night, smooth through the real dawn/dusk (sunrise/sunset from the weather).
+    const real = nightLevelAt(h, this.sunTimes.rise, this.sunTimes.set);
     // Hibernate dims the city; disco needs the dark to shine.
     const target = this.mood === "hibernate" ? Math.max(real, 0.75) : this.mood === "disco" ? Math.max(real, 0.85) : real;
     this.night += (target - this.night) * 0.05;

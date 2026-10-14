@@ -84,6 +84,8 @@ export function Radio({ data, now, onlyAgent, onSent }: { data: OpsOverview; now
     });
   }
   const label = (m: OpsOverview["messages"][number]) => {
+    if (m.extTo) return `${m.fromAgentId ? names.get(m.fromAgentId) ?? "Agent" : "You"} → ${m.extTo} (linked)`;
+    if (m.extFrom) return `${m.extFrom} (linked) → ${m.toAgentId ? names.get(m.toAgentId) ?? "agent" : "your crew"}`;
     const from = m.fromAgentId ? names.get(m.fromAgentId) ?? "Agent" : "You";
     const dest = m.toAgentId ? names.get(m.toAgentId) ?? "agent" : m.toTeam ? TEAMS[m.toTeam as TeamKey]?.label ?? m.toTeam : "everyone";
     return `${from} → ${dest}`;
@@ -112,10 +114,10 @@ export function Radio({ data, now, onlyAgent, onSent }: { data: OpsOverview; now
       ) : (
         <ul className="space-y-1.5">
           {list.map((m) => (
-            <li key={m.id} className={cn("rounded-lg px-2.5 py-1.5", m.fromAgentId ? "bg-violet-400/10" : "bg-[#6b8afd]/10")}>
+            <li key={m.id} className={cn("rounded-lg px-2.5 py-1.5", m.extFrom || m.extTo ? "bg-amber-300/10 border border-amber-300/20" : m.fromAgentId ? "bg-violet-400/10" : "bg-[#6b8afd]/10")}>
               <div className="flex items-center gap-1.5 text-[11px] text-white/60">
                 <span className="font-semibold text-white/85">{label(m)}</span>
-                {!m.readAt && m.fromAgentId == null && <span className="text-[10px] text-amber-300">unread</span>}
+                {!m.readAt && m.fromAgentId == null && !m.extTo && <span className="text-[10px] text-amber-300">unread</span>}
                 <span className="ml-auto tabular-nums">{timeAgo(m.at, now)}</span>
               </div>
               <p className="mt-0.5 text-xs text-white/90 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{m.body}</p>

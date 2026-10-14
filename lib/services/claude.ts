@@ -2,6 +2,7 @@
 // reports, scripts). Uses the user's own Anthropic key.
 
 import Anthropic from "@anthropic-ai/sdk";
+import type { ApiUsage } from "@/lib/ops";
 
 export const CLAUDE_MODEL = "claude-opus-5-5";
 
@@ -14,6 +15,8 @@ export async function askClaude(opts: {
   maxTokens: number;
   /** Let Claude search and read the web (Anthropic's server-side tools). Used by Ops cloud agents. */
   web?: boolean;
+  /** Called with each response's real token usage (Ops turns it into measured cost). */
+  onUsage?: (usage: ApiUsage) => void;
 }): Promise<string | null> {
   const client = new Anthropic({ apiKey: opts.apiKey, maxRetries: 2, timeout: opts.web ? 300_000 : 120_000 });
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: opts.prompt }];
@@ -35,6 +38,7 @@ export async function askClaude(opts: {
       messages,
       ...(tools ? { tools } : {}),
     });
+    opts.onUsage?.(response.usage as unknown as ApiUsage);
     if (response.stop_reason === "refusal") return null;
     if (response.stop_reason === "pause_turn") {
       messages.push({ role: "assistant", content: response.content });

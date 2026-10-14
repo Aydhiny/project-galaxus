@@ -17,7 +17,7 @@ export async function placeFor(userId: number) {
 }
 
 export async function skyAt(place: { lat: number; lon: number; name: string }): Promise<SkyNow> {
-  const url = `${FORECAST}?latitude=${place.lat}&longitude=${place.lon}&current=temperature_2m,weather_code,is_day&timezone=auto`;
+  const url = `${FORECAST}?latitude=${place.lat}&longitude=${place.lon}&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=3&timezone=auto`;
   try {
     const res = await fetch(url, { next: { revalidate: 900 }, signal: AbortSignal.timeout(4000) });
     if (!res.ok) return UNKNOWN_SKY(place.name);

@@ -1282,6 +1282,12 @@ export const opsMissions = pgTable(
     parentId: integer("parent_id"), // a sub-mission an agent delegated from this one
     createdByAgentId: integer("created_by_agent_id"), // null = you posted it
     jobId: integer("job_id"), // voice_commands row while a cloud agent works on it
+    costMeasured: boolean("cost_measured").notNull().default(false), // spend came from the runner's real usage, not the agent's word
+    submittedBy: integer("submitted_by"), // the agent that delivered (kept when a role mission is sent back) — scorecards
+    reopens: integer("reopens").notNull().default(0), // times you sent it back
+    duelId: integer("duel_id"), // head-to-head: both missions share the first one's id
+    prUrl: text("pr_url"), // a GitHub pull request this mission produced
+    recurringId: integer("recurring_id"), // posted by a recurring mission
     budgetCents: integer("budget_cents"),
     spentCents: integer("spent_cents").notNull().default(0), // as REPORTED by the agent; not enforced for external agents
     status: varchar("status", { length: 10 }).notNull().default("open"), // open | claimed | submitted | done | cancelled
@@ -1317,6 +1323,9 @@ export const opsMessages = pgTable(
     fromAgentId: integer("from_agent_id").references(() => opsAgents.id, { onDelete: "cascade" }), // null = you
     toAgentId: integer("to_agent_id").references(() => opsAgents.id, { onDelete: "cascade" }), // null = a team (or everyone)
     toTeam: varchar("to_team", { length: 16 }),
+    linkId: integer("link_id"), // a message to/from a linked facility (another user's)
+    extFrom: varchar("ext_from", { length: 90 }), // "Faruk / Nova": who sent it from the partner facility
+    extTo: varchar("ext_to", { length: 90 }), // your copy of what you sent out: "Faruk / Nova"
     missionId: integer("mission_id").references(() => opsMissions.id, { onDelete: "set null" }),
     body: text("body").notNull(),
     readAt: timestamp("read_at"),
@@ -1349,12 +1358,53 @@ export const opsDays = pgTable(
     startsAt: varchar("starts_at", { length: 5 }).notNull().default("09:00"), // HH:MM, your timezone
     endsAt: varchar("ends_at", { length: 5 }).notNull().default("17:00"),
     focus: text("focus"),
+    standupAt: timestamp("standup_at"),
+    debriefAt: timestamp("debrief_at"),
+    debriefPageId: integer("debrief_page_id"),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [uniqueIndex("uq_ops_days_user_day").on(t.userId, t.day)]
 );
 
+// Missions that post themselves: "every Monday 09:00: competitor scan".
+export const opsRecurring = pgTable(
+  "ops_recurring",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    title: varchar("title", { length: 200 }).notNull(),
+    brief: text("brief"),
+    kind: varchar("kind", { length: 10 }).notNull().default("other"),
+    role: varchar("role", { length: 16 }),
+    agentId: integer("agent_id").references(() => opsAgents.id, { onDelete: "set null" }),
+    budgetCents: integer("budget_cents"),
+    days: varchar("days", { length: 7 }).notNull().default("1111111"), // Monday→Sunday, like recurring_tasks
+    time: varchar("time", { length: 5 }).notNull().default("09:00"),
+    lastPostedDay: date("last_posted_day"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("idx_ops_recurring_user").on(t.userId)]
+);
+
+// Two users' facilities linked so their agents can radio each other. Messages only: no missions, data or budget cross.
+export const opsLinks = pgTable(
+  "ops_links",
+  {
+    id: serial("id").primaryKey(),
+    fromUserId: userIdCol(), // who invited
+    toUserId: integer("to_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: varchar("status", { length: 10 }).notNull().default("pending"), // pending | active
+    shareFrom: boolean("share_from").notNull().default(true), // inviter shows their crew list to the partner
+    shareTo: boolean("share_to").notNull().default(false), // invitee shows theirs (decided when accepting)
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_ops_links_pair").on(t.fromUserId, t.toUserId), index("idx_ops_links_to").on(t.toUserId)]
+);
+
 export type OpsAgent = typeof opsAgents.$inferSelect;
+export type OpsRecurring = typeof opsRecurring.$inferSelect;
+export type OpsLink = typeof opsLinks.$inferSelect;
 export type OpsMessage = typeof opsMessages.$inferSelect;
 export type OpsSkill = typeof opsSkills.$inferSelect;
 export type OpsDay = typeof opsDays.$inferSelect;

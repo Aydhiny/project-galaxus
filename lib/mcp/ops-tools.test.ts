@@ -40,11 +40,14 @@ const submitDeliverableForAgent = vi.fn(async () => ({ submitted: true }));
 const sendMessageForAgent = vi.fn(async () => ({ sent: true, id: 1 }));
 const createMissionForAgent = vi.fn(async () => ({ id: 77, title: "Sub", for: "Scribe", budget_usd: 1 }));
 const crewForAgent = vi.fn(async () => [{ name: "Quill", role: "Scribe" }]);
+const partnersForAgent = vi.fn(async () => []);
 const messagesForAgent = vi.fn(async () => []);
 vi.mock("@/lib/services/ops", () => ({
   sendMessageForAgent: (...a: unknown[]) => sendMessageForAgent(...(a as [])),
   createMissionForAgent: (...a: unknown[]) => createMissionForAgent(...(a as [])),
   crewForAgent: (...a: unknown[]) => crewForAgent(...(a as [])),
+  partnersForAgent: (...a: unknown[]) => partnersForAgent(...(a as [])),
+  searchLibraryFor: vi.fn(async () => []),
   messagesForAgent: (...a: unknown[]) => messagesForAgent(...(a as [])),
   agentForToken: (...a: unknown[]) => agentForToken(...(a as [number])),
   checkinForAgent: (...a: unknown[]) => checkinForAgent(...(a as [])),

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { Check, CheckSquare, Keyboard, Loader2, Mic, RotateCcw, Repeat, Square, Target, X } from "lucide-react";
+import { Bot, Check, CheckSquare, Keyboard, Loader2, Mic, RotateCcw, Repeat, Square, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VoiceCommand } from "@/lib/db/schema";
 import type { VoiceAction } from "@/lib/voice";
@@ -41,11 +41,12 @@ const LANG_KEY = "galaxus-voice-lang";
 
 type Phase = "idle" | "listening" | "review" | "tracking";
 
-const KIND_ICON = { task: CheckSquare, goal: Target, routine: Repeat } as const;
+const KIND_ICON = { task: CheckSquare, goal: Target, routine: Repeat, mission: Bot } as const;
 const KIND_TILE = {
   task: "bg-sky-500/12 text-sky-600 dark:text-sky-400",
   goal: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
   routine: "bg-orange-500/12 text-orange-600 dark:text-orange-400",
+  mission: "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400",
 } as const;
 const VERB_STYLE: Record<VoiceAction["verb"], string> = {
   created: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",

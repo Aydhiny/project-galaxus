@@ -427,6 +427,41 @@ export function registerGalaxusTools(rawServer: McpServer, hooks: McpHooks = {})
   );
 
   server.registerTool(
+    "create_ops_mission",
+    {
+      title: "Give an Ops agent a mission",
+      description:
+        "Post a mission in the user's agent facility (Galaxus → Ops): research, a document, an app feature, something to find or buy, money, outreach. " +
+        "Aim it at an agent by name (e.g. 'tell Nova to research X') or leave `agent` empty to let any agent with the right role take it.",
+      inputSchema: z.object({
+        title: z.string().min(3).max(200).describe("Short: 'Compare 27-inch monitors'"),
+        brief: z.string().max(4000).optional().describe("Details and what a good result looks like"),
+        kind: z.enum(["research", "document", "build", "procure", "finance", "outreach", "other"]).optional(),
+        agent: z.string().max(40).optional().describe("Agent name, if the user named one"),
+        budget_usd: z.number().min(0).max(1000).optional(),
+      }),
+    },
+    async ({ title, brief, kind, agent, budget_usd }, ctx) => {
+      try {
+        const userId = userIdOf(ctx);
+        const { opsAgents } = await import("@/lib/db/schema");
+        const { db } = await import("@/lib/db");
+        const { and, eq, sql } = await import("drizzle-orm");
+        let agentId: number | undefined;
+        if (agent?.trim()) {
+          const [a] = await db.select({ id: opsAgents.id }).from(opsAgents).where(and(eq(opsAgents.userId, userId), sql`lower(${opsAgents.name}) = lower(${agent.trim()})`)).limit(1);
+          if (!a) throw new Error(`There's no agent called "${agent}" in Ops.`);
+          agentId = a.id;
+        }
+        const { createMissionFor } = await import("@/lib/services/ops");
+        const row = await createMissionFor(userId, { title, brief, kind: kind ?? "research", agentId, budgetUsd: budget_usd ?? "" });
+        written();
+        return ok({ id: row.id, title, agent: agent ?? null, url: "/ops" });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
     "list_routines",
     {
       title: "List routines",

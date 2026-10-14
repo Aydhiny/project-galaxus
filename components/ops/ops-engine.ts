@@ -20,11 +20,15 @@ import { PROVIDERS, ROLES, TEAMS, type Presence, type ProviderKey, type RoleKey,
 export type AgentView = {
   id: number; name: string; role: RoleKey; provider: ProviderKey; presence: Presence; cloud?: boolean;
   activity: string | null; activityKind: string | null; activityUrl: string | null;
+  level?: number; // from the scorecard; shown on the name plate
+  deskNote?: string | null; // e.g. "PR open · checks ✓ · approved", shown on the monitor
 };
 export type SceneExtras = {
-  messages: { id: number; from: number | null; to: number | null; team: string | null }[];
+  messages: { id: number; from: number | null; to: number | null; team: string | null; external?: "in" | "out" | null; partner?: string | null }[];
   links: [number, number][]; // agents working on linked missions (delegator, delegate)
   shift: string; shiftOn: boolean;
+  standupAt?: number | null; // ms; a fresh stand-up plays at the holo table
+  partners?: string[]; // linked facilities: the portal on the side wall
 };
 export type MissionView = { id: number; title: string; status: string; budgetCents: number | null; spentCents: number };
 export type OpsView = "overview" | "wall" | "table";
@@ -38,6 +42,8 @@ const BODY: Record<RoleKey, number> = {
 };
 const KIND_ICON: Record<string, string> = { browse: "🌐", search: "🔎", read: "📄", edit: "✏️", shell: "⌨️", tool: "🔧", think: "💭", status: "●", message: "📻", delegate: "🤝", waiting: "✋" };
 const COMMAND_POS = new THREE.Vector3(0, 6.5, -10.4); // where your own radio messages come from: the mission wall
+const PORTAL_POS = new THREE.Vector3(-14.7, 2.1, -1.5); // linked facilities: the doorway on the left wall, in view from the floor camera
+const STANDUP = { walk: 3, stay: 12 }; // seconds
 
 // Where each team sits (x, z) and how its desks wrap (2 per row).
 const PODS: Record<TeamKey, { x: number; z: number }> = {
@@ -92,6 +98,8 @@ type Slot = {
   prop: THREE.Object3D | null;
   ring: THREE.Mesh;
   hit: THREE.Mesh;
+  body: THREE.Group; // the character (walks to stand-ups)
+  home: THREE.Vector3; // where the character sits, in the desk's local space
   beacon: THREE.Group; // red light over the head while the agent waits for you
   rack: THREE.Mesh[] | null; // a cloud agent's server lights
   mon: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sig: string; mat: THREE.MeshBasicMaterial };
@@ -127,6 +135,9 @@ export class OpsEngine {
   private links = new THREE.Group();
   private linkMats: THREE.LineDashedMaterial[] = [];
   private clock: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; label: string; on: boolean; drawnAt: number } | null = null;
+  private standup: { at: number; startedAt: number } | null = null; // playing a stand-up (performance.now() based)
+  private lastStandupAt: number | null = null;
+  private portal: { group: THREE.Group; sign: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture }; sig: string; ring: THREE.Mesh } | null = null;
   private table = new THREE.Group();
   private ringsHolo: THREE.Mesh[] = [];
   private board: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sig: string } | null = null;
@@ -177,12 +188,19 @@ export class OpsEngine {
   // ─── Public API ────────────────────────────────────────────────────────────
 
   setState(agents: AgentView[], missions: MissionView[], extras?: SceneExtras) {
-    const sig = agents.map((a) => `${a.id}:${a.role}:${a.provider}:${a.name}:${a.cloud ? 1 : 0}`).join("|");
+    const sig = agents.map((a) => `${a.id}:${a.role}:${a.provider}:${a.name}:${a.cloud ? 1 : 0}:${a.level ?? 1}`).join("|");
     if (sig !== this.layoutSig) { this.layoutSig = sig; this.layout(agents); this.linkSig = ""; }
     for (const a of agents) this.updateAgent(this.slots.get(a.id)!, a);
     this.drawBoard(missions);
     if (!extras) return;
     this.radio(extras.messages, agents);
+    this.drawPortal(extras.partners ?? []);
+    // A stand-up called in the last 2 minutes plays once.
+    if (extras.standupAt && extras.standupAt !== this.lastStandupAt) {
+      const fresh = Date.now() - extras.standupAt < 120_000;
+      if (this.lastStandupAt !== null || fresh) { if (fresh) this.standup = { at: extras.standupAt, startedAt: performance.now() }; }
+      this.lastStandupAt = extras.standupAt;
+    }
     this.drawLinks(extras.links);
     if (this.clock && (this.clock.label !== extras.shift || this.clock.on !== extras.shiftOn)) { this.clock.label = extras.shift; this.clock.on = extras.shiftOn; this.drawClock(); }
   }
@@ -340,11 +358,43 @@ export class OpsEngine {
       p.mesh.scale.setScalar(0.8 + 0.6 * Math.sin(p.t * Math.PI));
     }
     for (const m of this.linkMats) m.opacity = 0.55 + 0.4 * Math.sin(t * 4); // the link pulses while data flows
+    if (this.portal?.group.visible) {
+      this.portalFlash = Math.max(0, this.portalFlash - dt * 1.5);
+      (this.portal.ring.material as THREE.MeshBasicMaterial).opacity = 0.14 + 0.06 * Math.sin(t * 2) + this.portalFlash * 0.5;
+    }
+    if (this.standup && (performance.now() - this.standup.startedAt) / 1000 > STANDUP.walk * 2 + STANDUP.stay) this.standup = null;
     if (this.clock && performance.now() - this.clock.drawnAt > 20_000) this.drawClock(); // keep the wall clock's minutes current
     this.renderer.render(this.scene, this.camera);
   }
 
+  /** Where an agent stands at the stand-up: a circle around the holo table, in its desk's local space. */
+  private standupSpot(s: Slot) {
+    const ids = [...this.slots.keys()];
+    const a = (ids.indexOf(s.agent.id) / Math.max(1, ids.length)) * Math.PI * 2;
+    const world = new THREE.Vector3(Math.sin(a) * 4.3, 0.62, -1.5 + Math.cos(a) * 4.3);
+    return world.sub(s.pos);
+  }
+
+  private walkStandup(s: Slot) {
+    if (!this.standup) { s.body.position.copy(s.home); s.body.rotation.y = 0; return false; }
+    const el = (performance.now() - this.standup.startedAt) / 1000;
+    const spot = this.standupSpot(s);
+    const ease = (x: number) => x * x * (3 - 2 * x);
+    let k: number, out: boolean;
+    if (el < STANDUP.walk) { k = ease(el / STANDUP.walk); out = true; }
+    else if (el < STANDUP.walk + STANDUP.stay) { k = 1; out = true; }
+    else { k = 1 - ease(Math.min(1, (el - STANDUP.walk - STANDUP.stay) / STANDUP.walk)); out = false; }
+    s.body.position.lerpVectors(s.home, spot, k);
+    s.body.position.y += k > 0 && k < 1 ? Math.abs(Math.sin(el * 9)) * 0.08 : 0; // a little bounce while walking
+    // Face where they walk; at the table, face its centre.
+    const toTable = new THREE.Vector3(0, 0, -1.5).sub(s.pos).sub(spot);
+    const dir = k >= 1 ? toTable : out ? spot.clone().sub(s.home) : s.home.clone().sub(spot);
+    s.body.rotation.y = Math.atan2(dir.x, dir.z);
+    return true;
+  }
+
   private animateAgent(s: Slot, t: number, dt: number) {
+    if (this.walkStandup(s)) { s.armL.rotation.x = -0.2; s.armR.rotation.x = -0.2; s.armR.rotation.z = 0; s.beacon.visible = false; return; }
     const working = s.agent.presence === "working";
     const waiting = s.agent.presence === "waiting";
     const offline = s.agent.presence === "offline";
@@ -384,7 +434,7 @@ export class OpsEngine {
   private updateAgent(s: Slot, a: AgentView) {
     const prev = s.agent;
     s.agent = a;
-    const sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}`;
+    const sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}|${a.deskNote ?? ""}`;
     if (sig !== s.mon.sig) {
       const changed = prev.activity !== a.activity && a.activity;
       s.mon.sig = sig;
@@ -411,20 +461,58 @@ export class OpsEngine {
     this.lastMsgId = Math.max(this.lastMsgId, max);
     for (const m of fresh) {
       const from = m.from != null ? this.slots.get(m.from) : null;
-      const start = from ? new THREE.Vector3(from.pos.x - 0.55, from.pos.y + 2.6, from.pos.z - 0.7) : COMMAND_POS.clone();
+      if (m.external === "out") {
+        // To a linked facility: out through the portal.
+        if (from) this.fly(new THREE.Vector3(from.pos.x - 0.55, from.pos.y + 2.6, from.pos.z - 0.7), PORTAL_POS.clone(), 0xf5a524);
+        this.portalFlash = 1;
+        continue;
+      }
+      const start = m.external === "in" ? PORTAL_POS.clone() : from ? new THREE.Vector3(from.pos.x - 0.55, from.pos.y + 2.6, from.pos.z - 0.7) : COMMAND_POS.clone();
+      if (m.external === "in") this.portalFlash = 1;
       const targets = m.to != null ? [m.to]
         : agents.filter((a) => a.id !== m.from && (!m.team || ROLES[a.role].team === m.team)).map((a) => a.id);
       for (const id of targets.slice(0, 8)) {
         const s = this.slots.get(id);
         if (!s) continue;
-        const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 0), new THREE.MeshBasicMaterial({ color: from ? 0xa78bfa : 0xe8e8e6 }));
-        const to = new THREE.Vector3(s.pos.x - 0.55, s.pos.y + 2.6, s.pos.z - 0.7);
-        mesh.position.copy(start);
-        this.crew.add(mesh);
-        this.packets.push({ mesh, from: start, to, t: 0, dur: 1.4, arc: 2.6 });
+        this.fly(start, new THREE.Vector3(s.pos.x - 0.55, s.pos.y + 2.6, s.pos.z - 0.7), m.external === "in" ? 0xf5a524 : from ? 0xa78bfa : 0xe8e8e6);
         s.flash = Math.max(s.flash, 0.6);
       }
     }
+  }
+
+  private portalFlash = 0;
+  private fly(from: THREE.Vector3, to: THREE.Vector3, color: number) {
+    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 0), new THREE.MeshBasicMaterial({ color }));
+    mesh.position.copy(from);
+    this.crew.add(mesh);
+    this.packets.push({ mesh, from, to, t: 0, dur: 1.4, arc: 2.6 });
+  }
+
+  /** A doorway on the left wall, labelled with your linked facilities; only there when you have some. */
+  private drawPortal(partners: string[]) {
+    const sig = partners.join("|");
+    if (!this.portal) {
+      const group = new THREE.Group(); group.position.copy(PORTAL_POS); group.rotation.y = Math.PI / 2; this.scene.add(group);
+      const frame = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.09, 10, 48), this.lam(0x3a3b41)); group.add(frame);
+      const ring = new THREE.Mesh(new THREE.CircleGeometry(1.18, 48), new THREE.MeshBasicMaterial({ color: 0xf5a524, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+      group.add(ring);
+      const c = makeCanvas(512, 96);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.6), new THREE.MeshBasicMaterial({ map: tex(c.c), transparent: true }));
+      sign.position.y = 1.75; group.add(sign);
+      this.portal = { group, sign: { g: c.g, t: sign.material.map as THREE.CanvasTexture }, sig: "\u0000", ring };
+    }
+    if (sig === this.portal.sig) return;
+    this.portal.sig = sig;
+    this.portal.group.visible = partners.length > 0;
+    const { g, t } = this.portal.sign;
+    g.clearRect(0, 0, 512, 96);
+    g.fillStyle = "rgba(38,39,43,.96)"; roundRect(g, 2, 2, 508, 92, 18); g.fill();
+    g.fillStyle = "#f5a524"; g.font = "bold 22px ui-monospace, monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText("LINKED", 256, 28);
+    g.fillStyle = "#e8e8e6"; g.font = "600 30px system-ui, sans-serif";
+    g.fillText(partners.join(" · ").slice(0, 34), 256, 64);
+    g.textAlign = "left";
+    t.needsUpdate = true;
   }
 
   /** Glowing dashed links on the floor between agents on linked missions. */
@@ -491,7 +579,12 @@ export class OpsEngine {
       g.fillText(KIND_ICON[a.activityKind ?? "tool"] ?? "●", 14, 78);
       g.font = "600 24px system-ui, sans-serif"; g.fillStyle = "#e2e8f0";
       wrap(g, a.activity, W - 90, 3).forEach((ln, i) => g.fillText(ln, 74, 66 + i * 30));
-      if (a.activityUrl) {
+      if (a.deskNote) {
+        // A pull request it's on beats the last URL.
+        g.fillStyle = /✗|changes/.test(a.deskNote) ? "#f05252" : /✓|approved|merged/.test(a.deskNote) ? "#34d399" : "#8ea6ff";
+        g.font = "600 20px ui-monospace, monospace";
+        g.fillText(a.deskNote.slice(0, 34), 14, 196);
+      } else if (a.activityUrl) {
         let h = a.activityUrl;
         try { h = new URL(a.activityUrl).host; } catch { /* keep raw */ }
         g.fillStyle = "#8ea6ff"; g.font = "20px ui-monospace, monospace";
@@ -738,7 +831,7 @@ export class OpsEngine {
     nt.g.fillStyle = "rgba(38,39,43,.96)"; roundRect(nt.g, 2, 2, 508, 108, 24); nt.g.fill();
     nt.g.strokeStyle = TEAMS[ROLES[a.role].team].hex; nt.g.lineWidth = 4; roundRect(nt.g, 2, 2, 508, 108, 24); nt.g.stroke();
     nt.g.fillStyle = "#fff"; nt.g.font = "bold 50px system-ui, sans-serif"; nt.g.textAlign = "center"; nt.g.textBaseline = "middle";
-    nt.g.fillText(a.name.slice(0, 16), 256, 40);
+    nt.g.fillText(`${a.name.slice(0, 14)}${a.level && a.level > 1 ? `  LV${a.level}` : ""}`, 256, 40);
     nt.g.fillStyle = TEAMS[ROLES[a.role].team].hex; nt.g.font = "34px system-ui, sans-serif"; nt.g.fillText(ROLES[a.role].label, 256, 84);
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.37), new THREE.MeshBasicMaterial({ map: tex(nt.c), transparent: true }));
     plate.position.set(0, 0.5, 0.77); root.add(plate);
@@ -770,7 +863,7 @@ export class OpsEngine {
     }
 
     const slot: Slot = {
-      agent: a, root, pos: pos.clone(), head, armL, armR, eyes, prop, ring, hit, beacon, rack,
+      agent: a, root, pos: pos.clone(), head, armL, armR, eyes, prop, ring, hit, beacon, rack, body: ag, home: ag.position.clone(),
       mon: { g: mc.g, t: mon.map as THREE.CanvasTexture, sig: "\u0000", mat: mon },
       bubble: { g: bc.g, t: bubble.material.map as THREE.CanvasTexture, sprite: bubble, sig: "" },
       seed, flash: 0, nextBlink: 1 + (seed % 3),
@@ -780,7 +873,7 @@ export class OpsEngine {
   }
 
   private updateAgentFirst(s: Slot, a: AgentView) {
-    s.mon.sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}`;
+    s.mon.sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}|${a.deskNote ?? ""}`;
     this.drawMonitor(s);
     this.drawBubble(s);
   }

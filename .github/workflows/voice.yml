@@ -85,6 +85,7 @@ jobs:
             mcp__galaxus__list_tasks mcp__galaxus__add_tasks mcp__galaxus__update_task
             mcp__galaxus__complete_task mcp__galaxus__delete_task
             mcp__galaxus__list_routines mcp__galaxus__create_routine mcp__galaxus__update_routine
+            mcp__galaxus__create_ops_mission
           )
 
           for _ in 1 2 3; do
@@ -125,12 +126,13 @@ jobs:
             status=$?
 
             if [ $status -eq 0 ] && jq -e '.is_error == false' out.json > /dev/null 2>&1; then
-              jq --argjson id "$id" '{id: $id, ok: true, summary: (.result // "")}' out.json > done.json
+              jq --argjson id "$id" '{id: $id, ok: true, summary: (.result // ""), cost_usd: (.total_cost_usd // null)}' out.json > done.json
               echo "Command #$id: ok"
             else
               # Details go privately to Galaxus, never into this public log.
               detail=$( (jq -r '.result // empty' out.json 2>/dev/null; tail -c 300 err.log) | tr '\n' ' ' | cut -c1-400)
-              jq -n --argjson id "$id" --arg e "Claude exited with $status. $detail" '{id: $id, ok: false, error: $e}' > done.json
+              cost=$(jq -r '.total_cost_usd // empty' out.json 2>/dev/null || true)
+              jq -n --argjson id "$id" --arg e "Claude exited with $status. $detail" --arg c "${cost:-}" '{id: $id, ok: false, error: $e, cost_usd: ($c | tonumber? // null)}' > done.json
               echo "Command #$id: failed (exit $status)"
             fi
             curl -sS --max-time 20 -o /dev/null -X POST -H "Authorization: Bearer $VOICE_TOKEN" \

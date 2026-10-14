@@ -40,8 +40,10 @@ export async function runJobViaApi(userId: number, id: number) {
     const { system, prompt } = await buildJobPrompt(job);
     const { jobUsesWeb } = await import("@/lib/claude-jobs");
     const web = jobUsesWeb(job.kind);
-    const text = await askClaude({ apiKey, system, prompt, effort: "medium", maxTokens: web ? 12_000 : 6000, web });
-    await completeFor(userId, id, text ? { ok: true, summary: text } : { ok: false, error: "Claude declined this one." });
+    const { usageCostCents } = await import("@/lib/ops");
+    let costCents = 0;
+    const text = await askClaude({ apiKey, system, prompt, effort: "medium", maxTokens: web ? 12_000 : 6000, web, onUsage: (u) => { costCents += usageCostCents(u); } });
+    await completeFor(userId, id, text ? { ok: true, summary: text, costCents } : { ok: false, error: "Claude declined this one.", costCents });
   } catch (e) {
     await completeFor(userId, id, { ok: false, error: e instanceof Error ? e.message : "Claude call failed." });
   }
