@@ -7,7 +7,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CalendarRange, FileSpreadsheet, FileText, Loader2, Pause, Play, Plus, Target, X } from "lucide-react";
+import { BarChart3, CalendarRange, FileSpreadsheet, FileText, Loader2, Pause, Play, Plus, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRESENCE_LOOK, ROLES, formatUsd, presence, roleOf } from "@/lib/ops";
 import { progressLine } from "@/lib/ops-progress";
@@ -76,6 +76,7 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
         <span className="font-mono">{formatUsd(p.spentCents)}{p.budgetCents ? ` / ${formatUsd(p.budgetCents)}` : ""}</span>
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
+        <Link href={`/ops/results/${p.id}`} className="h-7 px-2.5 rounded-lg border border-[#6b8afd]/50 text-xs text-[#c7d2ff] hover:bg-[#6b8afd]/10 inline-flex items-center gap-1"><BarChart3 className="w-3.5 h-3.5" /> Results</Link>
         {p.pageId && <Link href={`/pages/${p.pageId}`} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/85 hover:bg-white/10 inline-flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Project page</Link>}
         {p.status === "active" && <button disabled={busy} onClick={() => run(() => setProjectStatusC(p.id, "paused"), "Paused.")} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/80 inline-flex items-center gap-1"><Pause className="w-3.5 h-3.5" /> Pause</button>}
         {p.status === "paused" && <button disabled={busy} onClick={() => run(() => setProjectStatusC(p.id, "active"), "Resumed.")} className="h-7 px-2.5 rounded-lg border border-white/15 text-xs text-white/80 inline-flex items-center gap-1"><Play className="w-3.5 h-3.5" /> Resume</button>}
