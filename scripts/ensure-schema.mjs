@@ -1101,6 +1101,18 @@ const STATEMENTS = [
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "route" varchar(8)`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "chief_answer" text`,
   `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "changed_at" timestamp`,
+  // Run engines: what each agent / mission actually ran on (claude, groq, gemini…, finder), and free-model healing.
+  `ALTER TABLE "ops_agents" ADD COLUMN IF NOT EXISTS "run_engine" varchar(12)`,
+  `ALTER TABLE "ops_agents" ADD COLUMN IF NOT EXISTS "run_model" varchar(120)`,
+  `ALTER TABLE "ops_missions" ADD COLUMN IF NOT EXISTS "ran_on" varchar(140)`,
+  `ALTER TABLE "free_llm_keys" ADD COLUMN IF NOT EXISTS "last_call_at" timestamp`,
+  `ALTER TABLE "free_llm_keys" ADD COLUMN IF NOT EXISTS "switched_from" varchar(120)`,
+  // Renamed / retired free model ids (checked 2026-10): move saved keys to the current ones.
+  `UPDATE "free_llm_keys" SET "model" = 'gpt-oss:20b' WHERE "provider" = 'llm7' AND "model" IN ('gpt-oss-20b', 'minimax-m2.7')`,
+  `UPDATE "free_llm_keys" SET "model" = 'gpt-oss-120b' WHERE "provider" = 'cerebras' AND "model" IN ('zai-glm-4.7', 'llama3.1-70b')`,
+  `UPDATE "free_llm_keys" SET "model" = 'z-ai/glm-5.3-flash' WHERE "provider" = 'nvidia' AND "model" = 'z-ai/glm-5.2'`,
+  // A rate limit or a missing model never made a provider unhealthy: wipe those failure counts and rests.
+  `UPDATE "free_llm_keys" SET "health_fails" = 0, "cooldown_until" = NULL WHERE "health_fails" > 0 AND "last_error" ~* '429|rate.?limit|too many requests|model_unavailable|model_not_found|currently unavailable' AND "last_error" NOT LIKE 'No model works%'`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,

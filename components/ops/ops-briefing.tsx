@@ -23,6 +23,7 @@ import { Markdown } from "@/components/ops/ops-markdown";
 import { Projects } from "@/components/ops/ops-projects";
 import { BudgetMeter } from "@/components/ops/ops-budget";
 import { ToOutreach } from "@/components/ops/ops-to-outreach";
+import { RanOn } from "@/components/ops/ops-ran-on";
 import {
   acceptMissionC, applyTemplateC, cancelMissionC, createMissionC, debriefNowC, removeRecurringC, reopenMissionC, repeatLastDayC, setDayC, standupNowC,
   type OpsOverview,
@@ -141,7 +142,8 @@ function MissionCard({ m, data, onChanged, onCompare }: { m: Mission; data: OpsO
             {m.waitingOn != null && <span className="text-rose-200 inline-flex items-center gap-0.5"><HelpCircle className="w-3 h-3" />waiting for your answer</span>}
             {m.requestLinkId != null && !m.requestFromLabel && <span className="text-sky-200 inline-flex items-center gap-0.5"><Link2 className="w-3 h-3" />at a linked facility</span>}
             {m.requestFromLabel && <span className="text-sky-200 inline-flex items-center gap-0.5"><Link2 className="w-3 h-3" />for {m.requestFromLabel}</span>}
-            {m.status === "claimed" && m.jobId === 0 && <span className="text-emerald-200 inline-flex items-center gap-0.5"><Gift className="w-3 h-3" />free model</span>}
+            {m.status === "claimed" && m.jobId === 0 && !m.ranOn && <span className="text-emerald-200 inline-flex items-center gap-0.5"><Gift className="w-3 h-3" />free model</span>}
+            <RanOn ranOn={m.ranOn} running={m.status === "claimed"} />
             {m.effort !== "normal" && <span className="text-white/40">{m.effort}</span>}
             {m.spentCents > 0 && <span className={m.costMeasured ? "text-emerald-300/80" : "text-white/40"} title={m.costMeasured ? "From the run's real usage (on a subscription this is the API-equivalent cost)" : "As reported by the agent"}>{m.costMeasured ? "measured" : "reported"}</span>}
           </p>

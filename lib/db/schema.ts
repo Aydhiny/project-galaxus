@@ -1269,6 +1269,8 @@ export const opsAgents = pgTable(
     activityKind: varchar("activity_kind", { length: 10 }),
     activityUrl: text("activity_url"),
     lastSeenAt: timestamp("last_seen_at"),
+    runEngine: varchar("run_engine", { length: 12 }), // what its last run actually ran on (lib/ops-run-engine.ts RUN_ENGINES)
+    runModel: varchar("run_model", { length: 120 }), // and which model
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [uniqueIndex("uq_ops_agents_user_name").on(t.userId, t.name), index("idx_ops_agents_token").on(t.tokenId)]
@@ -1312,6 +1314,7 @@ export const opsMissions = pgTable(
     claimedAt: timestamp("claimed_at"),
     submittedAt: timestamp("submitted_at"),
     nightShift: boolean("night_shift").notNull().default(false), // taken by the night shift (free models, while you slept)
+    ranOn: varchar("ran_on", { length: 140 }), // "groq:openai/gpt-oss-120b" — the engine and model of its last run (lib/ops-run-engine.ts)
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [index("idx_ops_missions_user_day").on(t.userId, t.day), index("idx_ops_missions_user_status").on(t.userId, t.status)]
@@ -1507,6 +1510,8 @@ export const freeLlmKeys = pgTable(
     healthAt: timestamp("health_at"), // last hourly health check (lib/free-health.ts)
     healthFails: integer("health_fails").notNull().default(0), // failed checks in a row; 3+ = unhealthy, tried last
     healthChecks: integer("health_checks").notNull().default(0), // of today's `requests`, how many were health checks
+    lastCallAt: timestamp("last_call_at"), // the latest reserved call slot: spaces calls to providers with per-second limits
+    switchedFrom: varchar("switched_from", { length: 120 }), // the model it was on before the router switched (yours was missing)
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [uniqueIndex("uq_free_llm_keys_user_provider").on(t.userId, t.provider)]

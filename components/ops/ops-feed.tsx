@@ -8,8 +8,9 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ExternalLink, Loader2, Radio as RadioIcon, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ProviderIcon } from "@/components/ops/provider-logos";
+import { BadgeIcon } from "@/components/ops/provider-logos";
 import { TEAMS, TEAM_KEYS, providerOf, type TeamKey } from "@/lib/ops";
+import { badgeFor, parseRanOn, runEngineOf, runLabel, runShort } from "@/lib/ops-run-engine";
 import { sendMessageC, type OpsOverview } from "@/lib/client/ops";
 
 export const KIND_ICON: Record<string, string> = {
@@ -28,6 +29,13 @@ export function timeAgo(from: Date | string, now: number) {
 export function Feed({ data, now, onlyAgent, onPick }: { data: OpsOverview; now: number; onlyAgent: number | null; onPick: (id: number) => void }) {
   const agents = new Map(data.agents.map((a) => [a.id, a]));
   const events = data.events.filter((e) => onlyAgent == null || e.agentId === onlyAgent).slice(0, 80);
+  // What a cloud agent's line ran on: its mission's engine if we know it, else the agent's latest run.
+  const ranOn = new Map(data.missions.map((m) => [m.id, parseRanOn(m.ranOn)]));
+  const engineOf = (e: (typeof events)[number], a: (typeof data.agents)[number] | undefined) => {
+    if (!a?.cloud) return null;
+    const r = e.missionId != null ? ranOn.get(e.missionId) : null;
+    return r ? { engine: r.engine, model: r.model } : runEngineOf(a.runEngine) ? { engine: runEngineOf(a.runEngine)!, model: a.runModel } : null;
+  };
 
   if (events.length === 0) {
     return (
@@ -41,11 +49,14 @@ export function Feed({ data, now, onlyAgent, onPick }: { data: OpsOverview; now:
       {events.map((e) => {
         const a = agents.get(e.agentId);
         const provider = providerOf(a?.provider ?? "other");
+        const run = engineOf(e, a);
+        const badge = a ? badgeFor({ cloud: a.cloud, provider, engine: a.engine, runEngine: run?.engine ?? null }) : provider;
         return (
           <li key={e.id} className={cn("rounded-lg px-2.5 py-1.5", e.kind === "waiting" ? "bg-rose-500/15 border border-rose-400/30" : "bg-white/[0.04]")}>
             <div className="flex items-center gap-1.5 text-[11px] text-white/55">
-              <ProviderIcon provider={provider} className="w-3 h-3" />
+              <BadgeIcon badge={badge} className="w-3 h-3" />
               <button onClick={() => onPick(e.agentId)} className="font-semibold text-white/80 hover:underline">{a?.name ?? "Agent"}</button>
+              {run && <span className="truncate text-white/40" title={runLabel(run.engine, run.model) ?? undefined}>{runShort(run.engine)}</span>}
               <span className="ml-auto tabular-nums">{timeAgo(e.at, now)}</span>
             </div>
             <p className="mt-0.5 text-xs text-white/90 break-words">

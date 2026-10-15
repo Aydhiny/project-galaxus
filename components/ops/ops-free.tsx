@@ -11,6 +11,7 @@ import { ArrowDown, ArrowUp, ExternalLink, Gift, HeartPulse, Loader2, PlugZap, T
 import { cn } from "@/lib/utils";
 import { DIRECTORY_URL, FREE_PROVIDERS, UNHEALTHY_AFTER, freeProvider } from "@/lib/free-llm";
 import { healthLabel } from "@/lib/free-health";
+import { freeVerdict, type FreeVerdict } from "@/lib/free-limits";
 import { Dialog, btnGhost, btnPrimary, field } from "@/components/ops/ops-dialog";
 import { moveFreeKeyC, removeFreeKeyC, saveFreeKeyC, saveNightShiftC, saveOpsSettingsC, testFreeKeyC, type OpsOverview } from "@/lib/client/ops";
 
@@ -65,15 +66,14 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
       <ul className="mt-2 space-y-1.5">
         {f.providers.map((p, i) => {
           const cooling = p.cooldownUntil ? new Date(p.cooldownUntil) : null;
+          // Plain words per provider: Working / Resting until HH:MM (rate limit) / Switched model / Broken.
+          const verdict = freeVerdict({ ...p, switchedFrom: p.switchedFrom ?? null }, data.now);
           const pct = p.left.limit ? Math.round(((p.left.requests ?? 0) / p.left.limit) * 100) : null;
           return (
             <li key={p.id} className={cn("rounded-xl border px-3 py-2", p.enabled ? "border-white/10 bg-white/[0.03]" : "border-white/5 opacity-60")}>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{p.name}</span>
-                {p.unhealthy && (
-                  <span title={`Failed ${p.healthFails} health checks in a row (${UNHEALTHY_AFTER}+ = unhealthy). Tried last until it passes again.`}
-                    className="inline-flex items-center gap-1 rounded-md border border-rose-300/40 bg-rose-300/10 px-1.5 text-[10px] text-rose-200"><HeartPulse className="w-3 h-3" />unhealthy</span>
-                )}
+                <VerdictChip v={verdict} fails={p.healthFails} />
                 <span className="text-[11px] font-mono text-white/50 truncate">{p.model}</span>
                 <span className="ml-auto flex items-center gap-0.5">
                   <IconBtn label="Up" disabled={busy || i === 0} onClick={() => run(() => moveFreeKeyC(p.id, -1))}><ArrowUp className="w-3.5 h-3.5" /></IconBtn>
@@ -99,9 +99,11 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
                 {p.left.usedTokens > 0 && <span className="text-white/40">· {p.left.usedTokens.toLocaleString("en-GB")} tokens used</span>}
                 {p.healthChecksToday > 0 && <span className="text-white/40" title="Hourly health checks are real requests: they count in today's usage.">· {p.left.used} used today, {healthLabel(p.healthChecksToday)}</span>}
               </div>
-              {cooling && <p className="mt-1 text-[11px] text-amber-200">Resting until {cooling.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}{p.lastError ? ` · ${p.lastError}` : ""} — the next provider takes over.</p>}
-              {!cooling && p.lastError && <p className={cn("mt-1 text-[11px]", p.unhealthy ? "text-rose-200/90" : "text-white/45")}>Last error: {p.lastError}</p>}
-              {p.unhealthy && <p className="mt-0.5 text-[10px] text-white/45">Unhealthy: {p.healthFails} health checks failed in a row, so it&apos;s tried last. Hit Test after fixing the key or model.</p>}
+              {verdict.kind === "resting" && <p className="mt-1 text-[11px] text-amber-200">Resting until {hhmm(verdict.until)} ({verdict.why}) — the next provider takes over.{verdict.why === "rate limit" ? " This isn't a fault: it's back on its own." : ""}</p>}
+              {verdict.kind === "switched" && <p className="mt-1 text-[11px] text-sky-200">Switched model to <span className="font-mono">{verdict.model}</span>: your key can&apos;t use <span className="font-mono">{verdict.from}</span> any more.</p>}
+              {verdict.kind === "broken" && <p className="mt-1 text-[11px] text-rose-200/90">{verdict.fix === "key" ? "Broken: fix the key (paste a new one below), then hit Test." : verdict.fix === "model" ? "Broken: no model works for this key. Pick another model id below, then hit Test." : `Broken: ${p.healthFails} health checks failed in a row, so it's tried last. Check the key or the provider, then hit Test.`}</p>}
+              {p.lastError && verdict.kind !== "working" && <p className="mt-0.5 text-[10px] text-white/40 break-words">Last error: {p.lastError}</p>}
+              {!cooling && p.unhealthy && verdict.kind !== "broken" && <p className="mt-0.5 text-[10px] text-white/45">{UNHEALTHY_AFTER}+ failed checks in a row: tried last until it passes again.</p>}
             </li>
           );
         })}
@@ -161,6 +163,25 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
         <button onClick={onClose} className={btnGhost}>Close</button>
       </div>
     </Dialog>
+  );
+}
+
+const hhmm = (d: Date) => d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+function VerdictChip({ v, fails }: { v: FreeVerdict; fails: number }) {
+  const look = {
+    off: ["Off", "border-white/15 text-white/50"],
+    untested: ["Not checked yet", "border-white/15 text-white/60"],
+    working: ["Working", "border-emerald-300/40 bg-emerald-300/10 text-emerald-200"],
+    switched: ["Working · switched model", "border-sky-300/40 bg-sky-300/10 text-sky-200"],
+    resting: [v.kind === "resting" ? `Resting until ${hhmm(v.until)}` : "", "border-amber-300/40 bg-amber-300/10 text-amber-200"],
+    broken: [v.kind === "broken" && v.fix === "key" ? "Broken: fix the key" : "Broken", "border-rose-300/40 bg-rose-300/10 text-rose-200"],
+  }[v.kind];
+  return (
+    <span title={v.kind === "broken" ? `${fails} failed health checks in a row` : undefined}
+      className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 text-[10px]", look[1])}>
+      {v.kind === "broken" && <HeartPulse className="w-3 h-3" />}{look[0]}
+    </span>
   );
 }
 

@@ -9,6 +9,7 @@ import { after } from "next/server";
 import { db } from "@/lib/db";
 import { opsAgents, opsEvents, opsMissions, type OpsAgent, type OpsMission, type VoiceCommand } from "@/lib/db/schema";
 import { ROLES, parseCloudReply, roleOf } from "@/lib/ops";
+import { noteRunFor } from "@/lib/services/ops-run-engine";
 
 export const FREE_JOB = 0; // ops_missions.job_id while a free model works on it (no runner job)
 
@@ -34,7 +35,8 @@ export async function runFreeMission(userId: number, missionId: number, agentId:
     const { askFree } = await import("@/lib/services/free-llm");
     const r = await askFree(userId, { system: SYSTEM, prompt, maxTokens: m.effort === "quick" ? 1800 : 3500 });
     await countFreeCall(m.id);
-    await ops.recordEventForAgent(a, { kind: "think", label: `Writing on ${r.name}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
+    await noteRunFor(a.id, m.id, r.provider, r.model); // the badge, monitor and card say what really runs it
+    await ops.recordEventForAgent(a, { kind: "think", label: `Writing on ${r.name} · ${r.model}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
     const q = parseCloudReply(r.text);
     if (q) {
       await db.update(opsMissions).set({ status: "open", claimedAt: null, jobId: null, agentId: a.id, role: null }).where(eq(opsMissions.id, m.id));
@@ -113,7 +115,7 @@ export async function runPlannerJob(userId: number, kind: PlannerKind, label: st
   // Night shift: Claude is never started while you sleep; the thinking happens on a free model or waits for morning.
   if (!night && !freeFirst && healthy && !budget.paused && !budget.exhausted) {
     const ok = await enqueueJobFor(userId, kind, label, { model: "haiku", capCents: Math.min(15, budget.leftToday), ...payload }).then(() => true, () => false);
-    if (ok) { await show("working", `${label} (on Claude)`); return "claude"; }
+    if (ok) { await noteRunFor(agent?.id, null, "claude", "haiku"); await show("working", `${label} (on Claude)`); return "claude"; }
   }
   if (!(freeFirst || settings.freeFallback || night) || free.usableCount === 0) {
     const why = night ? "night shift (free models only) and every free model is resting" : !healthy && free.usableCount === 0 ? "Claude isn't available and every free model is resting" : !healthy ? "Claude isn't available and free fallback is off" : "no engine available right now";
@@ -127,8 +129,9 @@ export async function runPlannerJob(userId: number, kind: PlannerKind, label: st
       const row = { userId, kind, payload } as Pick<VoiceCommand, "userId" | "kind" | "payload">;
       const { system, prompt } = await buildJobPrompt(row);
       const r = await askFree(userId, { system, prompt, maxTokens: 3500 });
+      await noteRunFor(agent?.id, null, r.provider, r.model);
       const summary = await applyJobResult(row as VoiceCommand, r.text, 0);
-      await show("idle", `${summary} · on ${r.name}`);
+      await show("idle", `${summary} · on ${r.name} · ${r.model}`);
     } catch (e) {
       // Never silent: the agent shows the error, and the work is released to be tried again.
       const why = e instanceof Error ? e.message : "failed";
@@ -154,6 +157,7 @@ export async function runFindMission(userId: number, missionId: number, agentId:
   const find = parseFindLine(m.brief);
   try {
     if (!find) throw new Error("No FIND line in the brief.");
+    await noteRunFor(a.id, m.id, "finder", null); // no model: the map finder does this one
     await ops.recordEventForAgent(a, { kind: "search", label: `Searching the map: ${find.type} in ${find.city}`, url: null, status: "working" }, { missionId: m.id });
     const target = Number(m.brief?.match(/\b(\d{1,3})\s+(?:rows|businesses|leads)\b/i)?.[1]) || 60;
     const r = await findBusinessesFor(userId, find.type, find.city, { limit: Math.min(120, target), deadlineMs: 150_000 });
