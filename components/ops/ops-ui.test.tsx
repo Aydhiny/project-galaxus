@@ -261,7 +261,10 @@ describe("Free models", () => {
     render(<FreeModelsDialog data={withFree()} onClose={() => {}} onChanged={() => {}} />);
     expect(screen.getByText("742 / 1,000 left today")).toBeTruthy();
     expect(screen.getByText("(reported by provider)")).toBeTruthy();
-    expect(screen.getByText(/Resting until .* HTTP 429 — the next provider takes over/)).toBeTruthy();
+    // Plain words per provider: a rate limit is a rest, not a fault.
+    expect(screen.getByText(/Resting until .* \(rate limit\) — the next provider takes over/)).toBeTruthy();
+    expect(screen.getByText("Working")).toBeTruthy();
+    expect(screen.queryByText(/Broken/)).toBeNull();
     expect(screen.getByRole("switch", { name: /When Claude runs out/ }).getAttribute("aria-checked")).toBe("true");
   });
 });

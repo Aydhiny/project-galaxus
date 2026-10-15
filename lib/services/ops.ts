@@ -762,7 +762,8 @@ export async function dispatchCloudFor(userId: number) {
     try {
       const job = await enqueueJobFor(userId, "ops_mission", `Ops: ${m.title}`, { missionId: m.id, agentId: a.id, model: plan.model, capCents });
       await db.update(opsMissions).set({ jobId: job.id }).where(eq(opsMissions.id, m.id));
-      await recordEventForAgent(a, { kind: "status", label: `Took the mission: ${m.title}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
+      await (await import("@/lib/services/ops-run-engine")).noteRunFor(a.id, m.id, "claude", plan.model); // run engines: on Claude, this model
+      await recordEventForAgent(a, { kind: "status", label: `Took the mission on Claude (${plan.model}): ${m.title}`.slice(0, 200), url: null, status: "working" }, { missionId: m.id });
       dispatched++;
     } catch (e) {
       await releaseCloudMission(userId, m.id, null);

@@ -13,7 +13,8 @@ import { toast } from "sonner";
 import { Activity, ArrowLeft, Brain, Cable, ClipboardList, Cloud, Eye, Gift, Hand, History, Inbox as InboxIcon, Megaphone, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BUILTIN_SKILLS, PRESENCE_LOOK, PROVIDERS, ROLES, TEAMS, formatUsd, presence, presenceNote, prLabel, providerOf, roleOf, type ProviderKey } from "@/lib/ops";
-import { ProviderIcon } from "@/components/ops/provider-logos";
+import { BadgeIcon } from "@/components/ops/provider-logos";
+import { badgeFor, runLabel, runShort } from "@/lib/ops-run-engine";
 import { Briefing } from "@/components/ops/ops-briefing";
 import { Feed, Radio, timeAgo } from "@/components/ops/ops-feed";
 import { ConnectDialog } from "@/components/ops/ops-connect";
@@ -110,6 +111,10 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
     statusNote: presenceNote(p, a, now, data.shiftNow.state !== "off"),
     activity: a.activity, activityKind: a.activityKind, activityUrl: a.activityUrl,
     level: data.scores[a.id]?.level ?? 1,
+    // What it really runs on (a cloud agent's provider is always "claude"): badge, monitor and tag.
+    badge: badgeFor({ cloud: a.cloud, provider: providerOf(a.provider), engine: a.engine, runEngine: a.runEngine }),
+    engineNote: a.cloud ? runLabel(a.runEngine, a.runModel) : null,
+    engineShort: a.cloud ? runShort(a.runEngine) : null,
     // A pull request the agent is on shows on its desk monitor.
     deskNote: (() => {
       const m = data.missions.find((x) => x.prUrl && (x.agentId === a.id || x.submittedBy === a.id) && (x.status === "claimed" || x.status === "submitted"));
@@ -304,7 +309,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
         <div className="absolute z-20 bottom-3 left-1/2 -translate-x-1/2 w-[min(34rem,calc(100%-1.5rem))] rounded-2xl bg-[#26272b]/94 backdrop-blur-md border border-white/12 p-3">
           <div className="flex items-start gap-3">
             <span className="w-10 h-10 shrink-0 rounded-xl bg-white/8 flex items-center justify-center">
-              {selView.cloud ? <Cloud className="w-6 h-6 text-sky-300" /> : <ProviderIcon provider={selView.provider} className="w-6 h-6" />}
+              <BadgeIcon badge={selView.badge ?? selView.provider} className="w-6 h-6" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-semibold leading-tight">
@@ -327,6 +332,14 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
                 {sel.skills.map((k) => skillName(k)).filter(Boolean).map((n) => <span key={n} className="rounded-full bg-violet-400/15 text-violet-100 px-2 py-0.5 text-[10px]">{n}</span>)}
                 <button onClick={() => setSkillsFor(sel.id)} className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] text-white/70 hover:text-white inline-flex items-center gap-0.5"><Sparkles className="w-3 h-3" /> skills</button>
               </div>
+              {sel.cloud && (
+                <p className="mt-1 text-[11px] text-white/70 inline-flex items-center gap-1">
+                  <Cloud className="w-3 h-3 text-sky-300" />
+                  {selView.engineNote
+                    ? <>{selView.presence === "working" ? "Running" : "Last ran"} <b className="font-semibold text-white">{selView.engineNote}</b></>
+                    : <span className="text-white/50">Hasn&apos;t run yet: {sel.engine === "claude" ? "it will run on Claude" : sel.engine === "free" ? "it will run on a free model" : "Claude, or a free model when Claude runs out"}</span>}
+                </p>
+              )}
               {sel.cloud && (
                 <div className="mt-1.5 flex items-center gap-1 text-[11px]">
                   <span className="text-white/50 mr-0.5">Runs on</span>

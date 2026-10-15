@@ -13,6 +13,7 @@ export type FreeProvider = {
   limits: { rpm: number | null; rpd: number | null; tpd: number | null }; // published free tier (approx.)
   note: string;
   logo?: "googlegemini" | "openrouter" | "mistralai" | "nvidia" | "huggingface";
+  gapMs?: number; // minimum gap between two calls (tight per-second limits), lib/free-limits.ts
 };
 
 export const FREE_PROVIDERS: FreeProvider[] = [
@@ -33,23 +34,27 @@ export const FREE_PROVIDERS: FreeProvider[] = [
   },
   {
     key: "cerebras", name: "Cerebras", baseUrl: "https://api.cerebras.ai/v1", keyUrl: "https://cloud.cerebras.ai", card: "none",
-    models: [{ id: "zai-glm-4.7", ctx: 128_000 }, { id: "llama3.1-70b", ctx: 131_072 }],
+    // Checked 2026-10 (inference-docs.cerebras.ai): shared inference serves these two.
+    models: [{ id: "gpt-oss-120b", ctx: 131_072 }, { id: "qwen-3.8-27b", ctx: 131_072 }],
     limits: { rpm: 10, rpd: 100, tpd: 1_000_000 }, note: "Very fast, 1M tokens a day. No card.",
   },
   {
     key: "mistral", name: "Mistral AI", baseUrl: "https://api.mistral.ai/v1", keyUrl: "https://console.mistral.ai/api-keys", card: "none",
     models: [{ id: "mistral-small-latest", ctx: 131_072 }, { id: "mistral-medium-latest", ctx: 131_072 }],
-    limits: { rpm: 60, rpd: null, tpd: 500_000 }, note: "Free experiment tier (~1 request/second). No card.", logo: "mistralai",
+    limits: { rpm: 60, rpd: null, tpd: 500_000 }, note: "Free experiment tier (~1 request/second, so calls are spaced). No card.", logo: "mistralai", gapMs: 1_500,
   },
   {
     key: "nvidia", name: "NVIDIA NIM", baseUrl: "https://integrate.api.nvidia.com/v1", keyUrl: "https://build.nvidia.com", card: "phone",
-    models: [{ id: "z-ai/glm-5.3-flash", ctx: 1_000_000 }, { id: "z-ai/glm-5.2", ctx: 1_000_000 }],
-    limits: { rpm: 40, rpd: null, tpd: null }, note: "132 free models. Needs phone verification.", logo: "nvidia",
+    // Checked 2026-10 against integrate.api.nvidia.com/v1/models (glm-5.2 is gone).
+    models: [{ id: "z-ai/glm-5.3-flash", ctx: 1_000_000 }, { id: "z-ai/glm-5.3", ctx: 1_000_000 }, { id: "openai/gpt-oss-20b", ctx: 131_072 }],
+    limits: { rpm: 40, rpd: null, tpd: null }, note: "Many free models. Needs phone verification.", logo: "nvidia", gapMs: 1_500,
   },
   {
     key: "llm7", name: "LLM7.io", baseUrl: "https://api.llm7.io/v1", keyUrl: "https://token.llm7.io", card: "none",
-    models: [{ id: "gpt-oss-20b", ctx: 128_000 }, { id: "minimax-m2.7", ctx: 180_000 }],
-    limits: { rpm: 60, rpd: 6000, tpd: null }, note: "60/min, 250/hour. Works even without a key (lower limits).",
+    // Checked 2026-10 against api.llm7.io/v1/models: the free ("turbo") models with good availability.
+    // "gpt-oss-20b" is now "gpt-oss:20b" (the old id answers 400 model_unavailable); minimax-m2.7 was down most of the time.
+    models: [{ id: "gpt-oss:20b", ctx: 128_000 }, { id: "GLM-5.3-Flash", ctx: 128_000 }, { id: "mistral-Nemo-Instruct-2407", ctx: 128_000 }, { id: "codestral-latest", ctx: 128_000 }],
+    limits: { rpm: 60, rpd: 6000, tpd: null }, note: "60/min, 250/hour. Works even without a key (lower limits).", gapMs: 1_000,
   },
   {
     key: "huggingface", name: "Hugging Face", baseUrl: "https://router.huggingface.co/v1", keyUrl: "https://huggingface.co/settings/tokens", card: "none",
@@ -132,7 +137,9 @@ export function readRateHeaders(h: { get(name: string): string | null }) {
  * exist / no access, "busy" = overloaded right now.
  */
 export function modelTrouble(status: number, body: string): "missing" | "busy" | null {
-  if (status === 404 || /model_not_found|does not exist|not found for API version|is not supported/i.test(body)) return "missing";
+  if (status === 404 || /model_not_found|model_unavailable|does not exist|not found for API version|is not supported/i.test(body)) return "missing";
+  // A 400 about the model (LLM7: "Model 'x' is currently unavailable") won't pass by waiting: try another model.
+  if (status === 400 && /currently unavailable|not available|unknown model|invalid model/i.test(body)) return "missing";
   if (status === 503 || status === 529 || /overloaded|high demand|UNAVAILABLE|currently unavailable|temporarily unavailable|Empty answer/i.test(body)) return "busy";
   return null;
 }

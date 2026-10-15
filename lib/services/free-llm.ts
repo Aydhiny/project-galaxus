@@ -8,6 +8,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { freeLlmKeys, type FreeLlmKey } from "@/lib/db/schema";
 import { encrypt, tryDecrypt } from "@/lib/crypto-box";
+import { waitTurn } from "@/lib/services/free-spacing";
 import { FREE_PROVIDERS, cooldownMs, freeProvider, isUnhealthy, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday } from "@/lib/free-llm";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -24,7 +25,7 @@ export async function freeStatusFor(userId: number) {
     id: k.id, provider: k.provider, name: freeProvider(k.provider)?.name ?? k.provider, model: k.model, baseUrl: k.baseUrl,
     enabled: k.enabled, priority: k.priority, hasKey: !!k.keyEnc,
     left: remainingToday(k, t), cooldownUntil: k.cooldownUntil && k.cooldownUntil.getTime() > Date.now() ? k.cooldownUntil : null,
-    lastError: k.lastError, lastOkAt: k.lastOkAt,
+    lastError: k.lastError, lastOkAt: k.lastOkAt, switchedFrom: k.switchedFrom ?? null,
     // Hourly health checks (lib/free-health.ts): counted in today's requests, but labelled.
     unhealthy: isUnhealthy(k), healthFails: k.healthFails, healthAt: k.healthAt, healthChecksToday: String(k.day ?? "") === t ? k.healthChecks : 0,
   }));
@@ -53,6 +54,7 @@ export async function saveFreeKeyFor(userId: number, raw: { provider: string; ke
   if (!existing && !key && p.key !== "llm7") throw new Error(`Paste your ${p.name} key (get one free at ${p.keyUrl}).`);
   const values = {
     model, baseUrl, enabled: raw.enabled ?? true, cooldownUntil: null, lastError: null,
+    ...(existing && existing.model !== model ? { switchedFrom: null } : {}), // you picked the model yourself
     ...(raw.priority != null ? { priority: Math.max(0, Math.min(99, Math.round(raw.priority))) } : {}),
     ...(key ? { keyEnc: encrypt(key) } : {}),
   };
@@ -83,7 +85,7 @@ type Msg = { role: "system" | "user" | "assistant"; content: string };
 const baseOf = (k: FreeLlmKey) => (k.baseUrl ?? freeProvider(k.provider)?.baseUrl ?? "").replace(/\/+$/, "");
 
 /** The models this key can actually use, as the provider lists them (empty if it won't say). */
-async function listModels(k: FreeLlmKey) {
+export async function listModels(k: FreeLlmKey) {
   const key = tryDecrypt(k.keyEnc);
   try {
     const r = await fetch(`${baseOf(k)}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(15_000), cache: "no-store" });
@@ -136,9 +138,12 @@ export async function askFree(userId: number, o: { system: string; prompt: strin
     let models = modelsToTry(k.provider, k.model);
     let listed = false;
     let last: { res: Response | null; error: string; status: number } | null = null;
+    let queued = false;
     for (let i = 0; i < models.length; i++) {
       const model = models[i];
       let res: Response | null = null;
+      // Tight per-second limits (Mistral): wait for this provider's next slot, or move on if the queue is long.
+      if (!(await waitTurn(k.id, k.provider))) { queued = true; break; }
       try {
         res = await call(k, model, messages, o.maxTokens ?? 3000, !!o.json);
         const body = await res.text();
@@ -155,7 +160,7 @@ export async function askFree(userId: number, o: { system: string; prompt: strin
         if (!text) { last = { res, error: `Empty answer (${model})`, status: 503 }; continue; }
         await noteUse(k, res, j.usage?.total_tokens ?? Math.ceil((o.prompt.length + text.length) / 4), null);
         // Your model doesn't exist (any more) for this key, another one worked: keep the one that works.
-        if (model !== k.model && last && modelTrouble(last.status, last.error) === "missing") await db.update(freeLlmKeys).set({ model }).where(eq(freeLlmKeys.id, k.id));
+        if (model !== k.model && last && modelTrouble(last.status, last.error) === "missing") await db.update(freeLlmKeys).set({ model, switchedFrom: k.model }).where(eq(freeLlmKeys.id, k.id));
         return { text, provider: k.provider, model, name: freeProvider(k.provider)?.name ?? k.provider };
       } catch (e) {
         last = { res, error: e instanceof Error ? e.message : "Request failed", status: 0 };
@@ -167,7 +172,7 @@ export async function askFree(userId: number, o: { system: string; prompt: strin
       const busy = modelTrouble(last.status, last.error) === "busy";
       await noteUse(k, last.res, 0, last.error, busy ? 503 : last.status, busy ? "120" : last.res?.headers.get("retry-after") ?? null);
       reasons.push(`${k.provider}: ${last.error.slice(0, 80)}`);
-    }
+    } else if (queued) reasons.push(`${k.provider}: too many calls queued right now`); // not an error: nothing to rest
   }
   throw new Error(`Every free model failed (${reasons.join("; ")}).`);
 }
@@ -179,7 +184,7 @@ export async function testFreeKeyFor(userId: number, id: number) {
   const models = await listModels(k);
   // Your model isn't one this key can use: switch to the best one it can (catalog order), before testing.
   const fix = models.length && !models.includes(k.model) ? modelsToTry(k.provider, k.model, models).find((m) => models.includes(m)) : undefined;
-  await db.update(freeLlmKeys).set({ cooldownUntil: null, ...(fix ? { model: fix } : {}) }).where(eq(freeLlmKeys.id, k.id)); // a manual test gets a fresh chance
+  await db.update(freeLlmKeys).set({ cooldownUntil: null, ...(fix ? { model: fix, switchedFrom: k.model } : {}) }).where(eq(freeLlmKeys.id, k.id)); // a manual test gets a fresh chance
   // Room to answer: reasoning models (gpt-oss, nemotron…) think first, and 10 tokens left them with nothing to say.
   const r = await askFree(userId, { system: "Reply with exactly: ok", prompt: "Say ok.", maxTokens: 400, only: [k.id] });
   return { ok: true, reply: r.text.slice(0, 40), models, model: r.model, switchedFrom: r.model !== k.model ? k.model : null };

@@ -14,8 +14,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { logoTexture } from "@/components/empire/logo-texture";
-import { PROVIDER_LOGO } from "@/components/ops/provider-logos";
+import { logoFor } from "@/components/ops/provider-logos";
 import { PRESENCE_LOOK, PROVIDERS, ROLES, TEAMS, type Presence, type ProviderKey, type RoleKey, type TeamKey } from "@/lib/ops";
+import type { BadgeKey } from "@/lib/ops-run-engine";
 
 export type AgentView = {
   id: number; name: string; role: RoleKey; provider: ProviderKey; presence: Presence; cloud?: boolean;
@@ -23,6 +24,9 @@ export type AgentView = {
   statusNote?: string; // under the state on the tag: "last seen 2h ago", "no signal since 18m ago", what it's doing
   level?: number; // from the scorecard; shown on the name plate
   deskNote?: string | null; // e.g. "PR open · checks ✓ · approved", shown on the monitor
+  badge?: BadgeKey; // the logo over the head: what it really runs on (lib/ops-run-engine.ts badgeFor)
+  engineNote?: string | null; // "on Gemini · gemini-3.8-flash", on the monitor; its short name goes on the tag
+  engineShort?: string | null; // "Gemini"
 };
 export type SceneExtras = {
   messages: { id: number; from: number | null; to: number | null; team: string | null; external?: "in" | "out" | null; partner?: string | null }[];
@@ -107,6 +111,7 @@ type Slot = {
   mon: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sig: string; mat: THREE.MeshBasicMaterial };
   bubble: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sprite: THREE.Sprite; sig: string };
   tag: { g: CanvasRenderingContext2D; t: THREE.CanvasTexture; sprite: THREE.Sprite; sig: string };
+  badge: { sprite: THREE.Sprite; key: BadgeKey }; // swapped in place when the engine changes (no re-layout)
   seed: number;
   flash: number;
   nextBlink: number;
@@ -448,9 +453,18 @@ export class OpsEngine {
   private updateAgent(s: Slot, a: AgentView) {
     const prev = s.agent;
     s.agent = a;
-    const tagSig = `${a.presence}|${a.statusNote ?? ""}`;
+    const tagSig = `${a.presence}|${a.statusNote ?? ""}|${a.engineShort ?? ""}`;
     if (tagSig !== s.tag.sig) { s.tag.sig = tagSig; this.drawTag(s); }
-    const sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}|${a.deskNote ?? ""}`;
+    // The engine changed (Claude → Gemini, finder…): swap the badge's texture in place.
+    const badge = badgeOf(a);
+    if (badge !== s.badge.key) {
+      s.badge.key = badge;
+      const mat = s.badge.sprite.material;
+      mat.map?.dispose();
+      mat.map = badgeTexture(badge);
+      mat.needsUpdate = true;
+    }
+    const sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}|${a.deskNote ?? ""}|${a.engineNote ?? ""}`;
     if (sig !== s.mon.sig) {
       const changed = prev.activity !== a.activity && a.activity;
       s.mon.sig = sig;
@@ -586,7 +600,14 @@ export class OpsEngine {
     g.fillStyle = "#1e1f22"; g.fillRect(0, 0, W, H);
     g.fillStyle = a.presence === "offline" ? "#334155" : a.presence === "waiting" ? "#e11d48" : a.presence === "stuck" || a.presence === "error" ? PRESENCE_LOOK[a.presence].hex : hex; g.fillRect(0, 0, W, 34);
     g.fillStyle = "#fff"; g.font = "bold 20px system-ui, sans-serif"; g.textBaseline = "middle";
-    g.fillText(a.name.toUpperCase(), 12, 18);
+    const name = a.name.toUpperCase();
+    g.fillText(name, 12, 18);
+    if (a.engineShort) { // what it runs on, right after the name: "NOVA · Gemini"
+      const x = 12 + g.measureText(name).width;
+      g.font = "16px system-ui, sans-serif"; g.fillStyle = "rgba(255,255,255,.85)";
+      g.fillText(` · ${a.engineShort}`.slice(0, 16), x, 18);
+      g.fillStyle = "#fff";
+    }
     g.textAlign = "right"; g.font = "16px system-ui, sans-serif";
     g.fillText(a.presence === "working" ? "● LIVE" : a.presence === "waiting" ? "✋ NEEDS YOU" : a.presence === "idle" ? "STANDBY" : a.presence === "stuck" ? "⏳ STUCK" : a.presence === "error" ? "⚠ ERROR" : "OFFLINE", W - 12, 18);
     g.textAlign = "left";
@@ -613,6 +634,11 @@ export class OpsEngine {
       g.fillStyle = "rgba(255,255,255,.025)";
       for (let y = 40; y < H; y += 6) g.fillRect(0, y, W, 1); // scanlines
     }
+    if (a.engineNote && a.presence !== "offline") {
+      // The full engine and model along the bottom edge: "on Gemini · gemini-3.8-flash".
+      g.fillStyle = "#94a3b8"; g.font = "16px ui-monospace, monospace"; g.textAlign = "left";
+      g.fillText(a.engineNote.slice(0, 40), 14, 226);
+    }
     t.needsUpdate = true;
   }
 
@@ -627,6 +653,11 @@ export class OpsEngine {
     g.fillStyle = look.hex; g.beginPath(); g.arc(34, 34, 11, 0, Math.PI * 2); g.fill();
     g.textBaseline = "middle"; g.textAlign = "left";
     g.font = "bold 30px system-ui, sans-serif"; g.fillText(look.label.toUpperCase(), 56, 35);
+    if (a.engineShort) { // "WORKING          on Gemini"
+      g.fillStyle = "#94a3b8"; g.font = "24px system-ui, sans-serif"; g.textAlign = "right";
+      g.fillText(`on ${a.engineShort}`.slice(0, 18), 488, 35);
+      g.textAlign = "left";
+    }
     g.fillStyle = "#cbd5e1"; g.font = "24px system-ui, sans-serif";
     const note = a.statusNote ?? "";
     g.fillText(note.length > 38 ? `${note.slice(0, 37)}…` : note, 22, 70);
@@ -861,8 +892,8 @@ export class OpsEngine {
     const prop = this.dressAgent(a.role, ag, head, props, hair);
 
     // Provider badge over the head, speech bubble above it, name plate on the desk front.
-    const logo = PROVIDER_LOGO[a.provider];
-    const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: logoTexture(logo.path, logo.hex, logo.mono, logo.evenodd), depthWrite: false }));
+    const badgeKey = badgeOf(a);
+    const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: badgeTexture(badgeKey), depthWrite: false }));
     badge.scale.setScalar(0.66); badge.position.set(-0.55, 3.25, -0.7); root.add(badge);
     const nt = makeCanvas(512, 112);
     nt.g.fillStyle = "rgba(38,39,43,.96)"; roundRect(nt.g, 2, 2, 508, 108, 24); nt.g.fill();
@@ -908,6 +939,7 @@ export class OpsEngine {
       mon: { g: mc.g, t: mon.map as THREE.CanvasTexture, sig: "\u0000", mat: mon },
       bubble: { g: bc.g, t: bubble.material.map as THREE.CanvasTexture, sprite: bubble, sig: "" },
       tag: { g: tc.g, t: tag.material.map as THREE.CanvasTexture, sprite: tag, sig: "" },
+      badge: { sprite: badge, key: badgeKey },
       seed, flash: 0, nextBlink: 1 + (seed % 3),
     };
     this.updateAgentFirst(slot, a);
@@ -915,7 +947,7 @@ export class OpsEngine {
   }
 
   private updateAgentFirst(s: Slot, a: AgentView) {
-    s.mon.sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}|${a.deskNote ?? ""}`;
+    s.mon.sig = `${a.presence}|${a.activity}|${a.activityKind}|${a.activityUrl}|${a.deskNote ?? ""}|${a.engineNote ?? ""}`;
     this.drawMonitor(s);
     this.drawBubble(s);
   }
@@ -1010,6 +1042,13 @@ export class OpsEngine {
     }
     return prop;
   }
+}
+
+/** The badge over an agent: what it runs on. Cloud agents without one (e.g. in a replay) show a neutral cloud, never Claude. */
+const badgeOf = (a: AgentView): BadgeKey => a.badge ?? (a.cloud ? "auto" : a.provider);
+function badgeTexture(key: BadgeKey) {
+  const l = logoFor(key);
+  return logoTexture(l.path, l.hex, l.mono, l.evenodd);
 }
 
 /** A small white cloud on a sky-blue badge: marks agents that run in Galaxus cloud. */
