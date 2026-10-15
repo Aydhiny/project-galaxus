@@ -3,37 +3,18 @@
 // GTA-style HUD for the top bar: level + XP bars on the left, today's stats as
 // icon chips, and your money stacked on the right — all real numbers.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Coins, Flame, ListChecks, MailWarning, Radar, Vault } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getHudC, type Hud } from "@/lib/client/hud";
 import { PrayerChip } from "@/components/prayer-chip";
+import { CountUp } from "@/components/ui/count-up";
 import { toast } from "sonner";
 import { play } from "@/lib/sfx";
 
-/** Numbers roll up to their new value, like a game counter. */
-function useCountUp(value: number, ms = 700) {
-  const [shown, setShown] = useState(value);
-  const from = useRef(value);
-  useEffect(() => {
-    const start = performance.now();
-    const a = from.current;
-    let raf = 0;
-    const step = (t: number) => {
-      const k = Math.min(1, (t - start) / ms);
-      const eased = 1 - Math.pow(1 - k, 3);
-      setShown(Math.round(a + (value - a) * eased));
-      if (k < 1) raf = requestAnimationFrame(step);
-      else from.current = value;
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [value, ms]);
-  return shown;
-}
-
-const fmt = (n: number) => n.toLocaleString("en-US");
+// Numbers roll up to their new value, like a game counter (<CountUp>: no
+// re-render per frame, and it stays still under reduced motion).
 const hudText = "font-hud uppercase tracking-wide [text-shadow:0_1px_0_rgb(0_0_0/0.25)]";
 
 export function HudLevel({ hud }: { hud: Hud }) {
@@ -46,20 +27,20 @@ export function HudLevel({ hud }: { hud: Hud }) {
         <span className={cn("text-[11px] leading-none text-muted-foreground", hudText)}>{hud.rank}</span>
         {/* XP (teal) and today's tasks (lavender) — like health and armour */}
         <span className="h-1.5 w-full bg-muted overflow-hidden -skew-x-12">
-          <span className="block h-full bg-teal-400 transition-[width] duration-700" style={{ width: `${hud.progress}%` }} />
+          <span className="block h-full bg-teal-400 bar-fill" style={{ width: `${hud.progress}%` }} />
         </span>
         <span className="h-1 w-3/4 bg-muted overflow-hidden -skew-x-12">
-          <span className="block h-full bg-violet-300 transition-[width] duration-700" style={{ width: `${hud.tasksToday ? Math.round((hud.tasksDone / hud.tasksToday) * 100) : 0}%` }} />
+          <span className="block h-full bg-violet-300 bar-fill" style={{ width: `${hud.tasksToday ? Math.round((hud.tasksDone / hud.tasksToday) * 100) : 0}%` }} />
         </span>
       </span>
     </Link>
   );
 }
 
-function Chip({ href, icon: Icon, value, label, tone, pulse, className }: { href: string; icon: typeof Flame; value: string; label: string; tone: string; pulse?: boolean; className?: string }) {
+function Chip({ href, icon: Icon, value, label, tone, pulse, className }: { href: string; icon: typeof Flame; value: React.ReactNode; label: string; tone: string; pulse?: boolean; className?: string }) {
   return (
-    <Link href={href} title={label} className={cn("inline-flex items-center gap-1.5 h-8 px-1.5 rounded-lg hover:bg-accent/60 transition-colors", className)}>
-      <span className={cn("w-5 h-5 rounded-full flex items-center justify-center", tone, pulse && "animate-pulse")}><Icon className="w-3 h-3" /></span>
+    <Link href={href} title={label} className={cn("group/chip inline-flex items-center gap-1.5 h-8 px-1.5 rounded-lg hover:bg-accent/60 transition-colors", className)}>
+      <span className={cn("relative w-5 h-5 rounded-full flex items-center justify-center transition-[scale] duration-300 ease-spring group-hover/chip:scale-110", tone, pulse && "live-dot")}><Icon className="w-3 h-3" /></span>
       <span className={cn("text-[15px] leading-none tabular-nums", hudText)}>{value}</span>
     </Link>
   );
@@ -69,7 +50,7 @@ export function HudStats({ hud }: { hud: Hud }) {
   return (
     <div className="flex items-center">
       <span className="hidden @4xl:contents"><PrayerChip /></span>
-      <Chip href="/tasks" icon={Flame} value={String(hud.streak)} label={`${hud.streak}-day streak`} tone="bg-orange-500/15 text-orange-500" />
+      <Chip href="/tasks" icon={Flame} value={<CountUp value={hud.streak} />} label={`${hud.streak}-day streak`} tone="bg-orange-500/15 text-orange-500" />
       <Chip href="/tasks" icon={ListChecks} value={`${hud.tasksDone}/${hud.tasksToday}`} label="Tasks done today" tone="bg-violet-500/15 text-violet-500" />
       <Chip href="/gigs" icon={Radar} value={hud.hotGigs > 0 ? `${hud.newGigs}·${hud.hotGigs}🔥` : String(hud.newGigs)} label={`${hud.newGigs} new gigs, ${hud.hotGigs} hot`} tone="bg-emerald-500/15 text-emerald-500" className="hidden @3xl:inline-flex" />
       {hud.replies > 0 && <Chip href="/gigs" icon={MailWarning} value={String(hud.replies)} label="Client replies waiting for you" tone="bg-rose-500/15 text-rose-500" pulse />}
@@ -78,16 +59,14 @@ export function HudStats({ hud }: { hud: Hud }) {
 }
 
 export function HudMoney({ hud }: { hud: Hud }) {
-  const month = useCountUp(hud.monthKm);
-  const total = useCountUp(hud.totalKm);
   return (
     <Link href="/money" className="flex flex-col items-end gap-0.5 px-1" title={hud.goalKm ? `${hud.monthKm} / ${hud.goalKm} KM this month` : "Earned this month · all time"}>
       <span className={cn("inline-flex items-center gap-1.5 text-[17px] leading-none", hudText)}>
-        {fmt(month)} KM
+        <CountUp value={hud.monthKm} /> KM
         <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center"><Coins className="w-2.5 h-2.5" /></span>
       </span>
       <span className={cn("hidden @4xl:inline-flex items-center gap-1.5 text-[12.5px] leading-none text-muted-foreground", hudText)}>
-        {fmt(total)} KM
+        <CountUp value={hud.totalKm} /> KM
         <span className="w-4 h-4 rounded-full bg-violet-500/20 text-violet-500 flex items-center justify-center"><Vault className="w-2.5 h-2.5" /></span>
       </span>
     </Link>

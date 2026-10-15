@@ -92,7 +92,7 @@ export function GoalsPanel({ goals: initialGoals, tasks, today, compact }: {
               </div>
               {/* Progress bar with a tick at where you "should" be by today */}
               <div className="relative mt-3 h-1.5 rounded-full bg-muted overflow-visible" aria-hidden>
-                <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${progress.pct}%` }} />
+                <div className="h-full rounded-full bg-primary bar-fill" style={{ width: `${progress.pct}%` }} />
                 {progress.total > 0 && expected > 0 && expected < 100 && (
                   <span className="absolute -top-1 w-0.5 h-3.5 rounded bg-foreground/40" style={{ left: `${expected}%` }} title={`Today's pace: ${expected}%`} />
                 )}

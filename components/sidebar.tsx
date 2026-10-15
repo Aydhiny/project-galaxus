@@ -5,12 +5,10 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
-  BookOpen, GraduationCap, Dumbbell, Moon,
-  Music2, LogOut, HeartPulse, Sparkles,
-  Activity, BarChart3, BookMarked, StickyNote, LayoutDashboard, PanelLeftClose, Sunrise, Search,
-  Disc3, Trophy, Download, Lightbulb, Settings, ListTodo, FileText, ChevronRight, ChevronsLeft, ChevronsRight,
-  Rss, CalendarRange, Gauge, Smartphone, Send, Clapperboard, Mic, Plug, Gamepad2, Newspaper, Radar, Wallet, Users, Handshake, Shield, BookHeart, Castle, Award, Bot,
+  LogOut, PanelLeftClose, Search, Download, Settings, ChevronRight, ChevronsLeft, ChevronsRight, Smartphone, Plug,
+  type LucideIcon,
 } from "lucide-react";
+import { GROUP_ICON, NAV_ICON } from "@/lib/nav-icons";
 import { useCommandStore } from "@/lib/store/command";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
@@ -19,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { RoomCustomizer } from "@/components/room-customizer";
 import { useHydrated } from "@/lib/hooks/client-values";
 
-type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string };
+type NavItem = { href: string; icon: LucideIcon; label: string };
 
 // One soft colour per section — tinted tile + coloured glyph. Full class
 // strings (not built dynamically) so Tailwind keeps them in the build.
@@ -65,80 +63,80 @@ const TONE: Record<string, string> = {
 
 // Pinned: what you open first thing every day.
 const PRIMARY: NavItem[] = [
-  { href: "/empire",   icon: Castle,    label: "Empire"      },
-  { href: "/overview", icon: Sunrise,   label: "Today"       },
-  { href: "/brief",    icon: Newspaper, label: "Daily brief" },
-  { href: "/voice",    icon: Mic,       label: "Voice"       },
-  { href: "/level",    icon: Trophy,    label: "Level & skills" },
+  { href: "/empire", icon: NAV_ICON["/empire"], label: "Empire" },
+  { href: "/overview", icon: NAV_ICON["/overview"], label: "Today" },
+  { href: "/brief", icon: NAV_ICON["/brief"], label: "Daily brief" },
+  { href: "/voice", icon: NAV_ICON["/voice"], label: "Voice" },
+  { href: "/level", icon: NAV_ICON["/level"], label: "Level & skills" },
 ];
 
 // Everything else, by category. `open` = expanded until you fold it.
-const GROUPS: { label: string; icon: React.ComponentType<{ className?: string }>; open?: boolean; items: NavItem[] }[] = [
+const GROUPS: { label: string; icon: LucideIcon; open?: boolean; items: NavItem[] }[] = [
   {
-    label: "Productivity", icon: Gauge, open: true,
+    label: "Productivity", icon: GROUP_ICON["Productivity"], open: true,
     items: [
-      { href: "/productivity", icon: Gauge,       label: "Productivity"   },
-      { href: "/tasks",        icon: ListTodo,    label: "Tasks"          },
-      { href: "/pages",        icon: FileText,    label: "Pages"          },
-      { href: "/review",       icon: BarChart3,   label: "Weekly Review"  },
+      { href: "/productivity", icon: NAV_ICON["/productivity"], label: "Productivity" },
+      { href: "/tasks", icon: NAV_ICON["/tasks"], label: "Tasks" },
+      { href: "/pages", icon: NAV_ICON["/pages"], label: "Pages" },
+      { href: "/review", icon: NAV_ICON["/review"], label: "Weekly Review" },
     ],
   },
   {
-    label: "Money", icon: Wallet, open: true,
+    label: "Money", icon: GROUP_ICON["Money"], open: true,
     items: [
-      { href: "/gigs",      icon: Radar,  label: "Gig radar" },
-      { href: "/deals",     icon: Handshake, label: "Deal desk" },
-      { href: "/outreach",  icon: Send,   label: "Outreach"  },
-      { href: "/opportunities", icon: Award, label: "Opportunities" },
-      { href: "/scout",     icon: Lightbulb, label: "Scout"     },
-      { href: "/ops",       icon: Bot,       label: "Ops"       },
-      { href: "/community", icon: Users,  label: "Community" },
-      { href: "/money",     icon: Wallet, label: "Money"     },
+      { href: "/gigs", icon: NAV_ICON["/gigs"], label: "Gig radar" },
+      { href: "/deals", icon: NAV_ICON["/deals"], label: "Deal desk" },
+      { href: "/outreach", icon: NAV_ICON["/outreach"], label: "Outreach" },
+      { href: "/opportunities", icon: NAV_ICON["/opportunities"], label: "Opportunities" },
+      { href: "/scout", icon: NAV_ICON["/scout"], label: "Scout" },
+      { href: "/ops", icon: NAV_ICON["/ops"], label: "Ops" },
+      { href: "/community", icon: NAV_ICON["/community"], label: "Community" },
+      { href: "/money", icon: NAV_ICON["/money"], label: "Money" },
     ],
   },
   {
-    label: "Create", icon: Clapperboard, open: true,
+    label: "Create", icon: GROUP_ICON["Create"], open: true,
     items: [
-      { href: "/youtube",  icon: Clapperboard, label: "YouTube"      },
-      { href: "/game",     icon: Gamepad2,     label: "Game dev"     },
-      { href: "/creative", icon: Music2,       label: "Creative"     },
-      { href: "/beats",    icon: Disc3,        label: "Beat Catalog" },
+      { href: "/youtube", icon: NAV_ICON["/youtube"], label: "YouTube" },
+      { href: "/game", icon: NAV_ICON["/game"], label: "Game dev" },
+      { href: "/creative", icon: NAV_ICON["/creative"], label: "Creative" },
+      { href: "/beats", icon: NAV_ICON["/beats"], label: "Beat Catalog" },
     ],
   },
   {
-    label: "Track", icon: Rss,
+    label: "Track", icon: GROUP_ICON["Track"],
     items: [
-      { href: "/dashboard",   icon: Rss,             label: "Feed"           },
-      { href: "/yearly",      icon: CalendarRange,   label: "Year in Review" },
-      { href: "/insights",    icon: Lightbulb,       label: "Insights"       },
-      { href: "/heatmap",     icon: LayoutDashboard, label: "Habit Map"      },
-      { href: "/leaderboard", icon: Trophy,          label: "Leaderboard"    },
+      { href: "/dashboard", icon: NAV_ICON["/dashboard"], label: "Feed" },
+      { href: "/yearly", icon: NAV_ICON["/yearly"], label: "Year in Review" },
+      { href: "/insights", icon: NAV_ICON["/insights"], label: "Insights" },
+      { href: "/heatmap", icon: NAV_ICON["/heatmap"], label: "Habit Map" },
+      { href: "/leaderboard", icon: NAV_ICON["/leaderboard"], label: "Leaderboard" },
     ],
   },
   {
-    label: "Body & Mind", icon: HeartPulse,
+    label: "Body & Mind", icon: GROUP_ICON["Body & Mind"],
     items: [
-      { href: "/training",   icon: Dumbbell,   label: "Training"     },
-      { href: "/workout",    icon: HeartPulse, label: "Home Workout" },
-      { href: "/meditation", icon: Sparkles,   label: "Meditation"   },
-      { href: "/metrics",    icon: Activity,   label: "Body Metrics" },
+      { href: "/training", icon: NAV_ICON["/training"], label: "Training" },
+      { href: "/workout", icon: NAV_ICON["/workout"], label: "Home Workout" },
+      { href: "/meditation", icon: NAV_ICON["/meditation"], label: "Meditation" },
+      { href: "/metrics", icon: NAV_ICON["/metrics"], label: "Body Metrics" },
     ],
   },
   {
-    label: "Knowledge", icon: GraduationCap,
+    label: "Knowledge", icon: GROUP_ICON["Knowledge"],
     items: [
-      { href: "/study",   icon: GraduationCap, label: "Study"       },
-      { href: "/reading", icon: BookOpen,      label: "Reading"     },
-      { href: "/notes",   icon: StickyNote,    label: "Quick Notes" },
+      { href: "/study", icon: NAV_ICON["/study"], label: "Study" },
+      { href: "/reading", icon: NAV_ICON["/reading"], label: "Reading" },
+      { href: "/notes", icon: NAV_ICON["/notes"], label: "Quick Notes" },
     ],
   },
   {
-    label: "Soul", icon: Moon,
+    label: "Soul", icon: GROUP_ICON["Soul"],
     items: [
-      { href: "/spiritual", icon: Moon,        label: "Spiritual"    },
-      { href: "/duas",      icon: BookMarked,  label: "Duas & Dhikr" },
-      { href: "/diary",     icon: BookHeart,   label: "Diary"        },
-      { href: "/hold",      icon: Shield,      label: "Hold the line" },
+      { href: "/spiritual", icon: NAV_ICON["/spiritual"], label: "Spiritual" },
+      { href: "/duas", icon: NAV_ICON["/duas"], label: "Duas & Dhikr" },
+      { href: "/diary", icon: NAV_ICON["/diary"], label: "Diary" },
+      { href: "/hold", icon: NAV_ICON["/hold"], label: "Hold the line" },
     ],
   },
 ];
@@ -175,16 +173,24 @@ export function Sidebar({ mobile, onClose }: SidebarProps) {
         key={href}
         href={href}
         onClick={onClose}
+        aria-current={active ? "page" : undefined}
         className={cn(
-          "flex items-center rounded-md text-[13.5px] transition-colors",
+          "group/nav relative flex items-center rounded-md text-[13.5px] transition-colors",
           collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-2.5 h-9 px-1.5",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
         )}
       >
-        <span className={cn("w-6 h-6 rounded-md flex items-center justify-center shrink-0", TONE[href] ?? "text-sidebar-foreground/55")}>
-          <Icon className="w-3.5 h-3.5" />
+        {/* Active: an accent bar grows in on the left edge (absolute, so no layout shift). */}
+        {active && <span aria-hidden className="absolute -left-2 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-sidebar-primary origin-center animate-[nav-bar-in_320ms_var(--ease-spring)_backwards]" />}
+        <span className={cn(
+          "w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-[scale,box-shadow] duration-300 ease-spring",
+          TONE[href] ?? "text-sidebar-foreground/55",
+          // Active tile: a filled glyph, a ring in its own colour and a one-off pop.
+          active ? "ring-1 ring-current/30 shadow-[0_0_12px_-2px_currentColor] animate-nav-pop" : "group-hover/nav:scale-110",
+        )}>
+          <Icon className="w-3.5 h-3.5" strokeWidth={active ? 2.25 : 2} fill={active ? "currentColor" : "none"} fillOpacity={active ? 0.2 : 0} />
         </span>
         {!collapsed && <span className="truncate">{label}</span>}
       </Link>

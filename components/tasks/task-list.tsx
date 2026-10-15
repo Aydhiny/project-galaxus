@@ -5,6 +5,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { Calendar, Check, ChevronDown, ChevronUp, Clock, Flag, GripVertical, Paperclip, Repeat, Sun, Sunrise } from "lucide-react";
 import { AREA_META, isArea } from "@/lib/areas";
 import { cn } from "@/lib/utils";
+import { fireBurst } from "@/lib/confetti";
 import type { MonthlyGoal, Task } from "@/lib/db/schema";
 import { formatTime, isOverdue, liveStreak, toDateKey, type RoutineStat, type TaskPriority, type TaskStatus } from "@/lib/tasks";
 
@@ -41,12 +42,17 @@ export function DueChip({ date, today, done, className, recurring }: { date: str
   );
 }
 
-export function Checkbox({ done, onToggle, priority }: { done: boolean; onToggle: () => void; priority: TaskPriority }) {
+export function Checkbox({ done, onToggle, priority, justDone }: { done: boolean; onToggle: () => void; priority: TaskPriority; /** Just completed: play the pop + ring. */ justDone?: boolean }) {
   return (
     <button
       role="checkbox"
       aria-checked={done}
-      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        // A little confetti puff from the box itself when a task gets done.
+        if (!done) void fireBurst(e.currentTarget);
+        onToggle();
+      }}
       aria-label={done ? "Mark as not done" : "Mark as done"}
       className={cn(
         // 18px visual, 32px hit area — comfortable for thumbs on iPhone.
@@ -59,7 +65,9 @@ export function Checkbox({ done, onToggle, priority }: { done: boolean; onToggle
           : "border-foreground/30 hover:bg-foreground/[0.05]"
       )}
     >
-      {done && <Check className="w-3 h-3" strokeWidth={3} />}
+      {done && <Check className={cn("w-3 h-3", justDone && "animate-pop")} strokeWidth={3} />}
+      {/* Ring that ripples out once on completion (absolute: no layout shift). */}
+      {done && justDone && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full border-2 border-emerald-500 animate-[check-burst_500ms_var(--ease-out-expo)_forwards]" />}
     </button>
   );
 }
@@ -123,7 +131,7 @@ export function TaskRow({ task, today, onToggle, onOpen, justDone, onMoveUp, onM
         </span>
       )}
 
-      <Checkbox done={done} onToggle={onToggle} priority={task.priority as TaskPriority} />
+      <Checkbox done={done} onToggle={onToggle} priority={task.priority as TaskPriority} justDone={justDone} />
 
       <span className={cn("flex-1 min-w-0 truncate text-[15px]", done && "line-through text-muted-foreground")}>
         {isArea(task.area) && <span className="mr-1.5 text-[13px]" title={AREA_META[task.area].label} aria-label={AREA_META[task.area].label}>{AREA_META[task.area].emoji}</span>}

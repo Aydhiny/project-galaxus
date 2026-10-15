@@ -99,7 +99,7 @@ export default async function LeaderboardPage() {
                       </div>
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+                      <div className="h-full rounded-full bar-fill" style={{ width: `${pct}%`, background: color }} />
                     </div>
                   </div>
                 );

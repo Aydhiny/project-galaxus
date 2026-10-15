@@ -67,8 +67,8 @@ function ProjectCard({ p, data, onChanged }: { p: Project; data: OpsOverview; on
           </div>
         );
       })()}
-      <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full", p.status === "done" ? "bg-emerald-400" : "bg-[#6b8afd]")} style={{ width: `${p.status === "done" ? 100 : pct}%` }} /></div>
-      {toTarget != null && <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden" title="Toward the goal's number"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${toTarget}%` }} /></div>}
+      <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full bar-fill", p.status === "done" ? "bg-emerald-400" : "bg-[#6b8afd]")} style={{ width: `${p.status === "done" ? 100 : pct}%` }} /></div>
+      {toTarget != null && <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden" title="Toward the goal's number"><div className="h-full rounded-full bg-emerald-400 bar-fill" style={{ width: `${toTarget}%` }} /></div>}
       <p className="mt-1.5 text-[11px] text-white/60 flex flex-wrap gap-x-2">
         {count && <span className="text-emerald-300 tabular-nums" title={toTarget != null ? `${toTarget}% of the goal's number` : "Rows in the merged sheet"}>{count}</span>}
         <span>{p.done} done</span>{p.review > 0 && <span className="text-amber-300">{p.review} to review</span>}<span>{p.active} in progress</span>

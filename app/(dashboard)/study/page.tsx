@@ -384,7 +384,7 @@ function CourseCard({
             <span className="text-[var(--gold)] font-medium">{course.progress}%</span>
           </div>
           <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
-            <div className="h-full rounded-full progress-bar transition-all duration-500" style={{ width: `${course.progress}%` }} />
+            <div className="h-full rounded-full progress-bar bar-fill" style={{ width: `${course.progress}%` }} />
           </div>
           {onProgress && (
             <div className="flex gap-2 items-center">

@@ -34,7 +34,7 @@ export function WeekOverview({ w }: { w: Week }) {
           <Trophy className="w-4 h-4 text-teal-500" />
           <span>
             <span className={cn("block text-lg leading-none", hud)}>LV {w.level} · {w.rank}</span>
-            <span className="block mt-1 h-1.5 w-28 bg-muted overflow-hidden -skew-x-12"><span className="block h-full bg-teal-400" style={{ width: `${w.progress}%` }} /></span>
+            <span className="block mt-1 h-1.5 w-28 bg-muted overflow-hidden -skew-x-12"><span className="block h-full bg-teal-400 bar-fill" style={{ width: `${w.progress}%` }} /></span>
           </span>
         </Link>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Wind, Circle, Play, Pause, RotateCcw, Sparkles } from "lucide-react";
+import { Wind, Circle, Play, Pause, RotateCcw, Sparkles, Flower2 } from "lucide-react";
 import { upsertCheckin } from "@/lib/actions/checkin";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -195,7 +195,7 @@ export default function MeditationPage() {
     <div className="page max-w-xl">
       {/* Header */}
       <div className="flex items-center gap-3 min-w-0">
-        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-purple-500/12 text-purple-600 dark:text-purple-400"><Sparkles className="w-5 h-5" /></span>
+        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-purple-500/12 text-purple-600 dark:text-purple-400"><Flower2 className="w-5 h-5" /></span>
         <div className="min-w-0">
         <p className="section-label">Meditation</p>
         <h1 className="text-3xl font-bold tracking-tight leading-tight">Box Breathing</h1>

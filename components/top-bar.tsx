@@ -37,7 +37,7 @@ export function TopBar() {
     // @container: the bar adapts to ITS width (sidebar open or not), not just the screen.
     <div className="@container hidden md:block border-b border-border/70 bg-background/80 shrink-0">
       <div className="flex items-center gap-1.5 @4xl:gap-3 h-14 px-2.5 @4xl:px-4 min-w-0">
-        {hud ? <HudLevel hud={hud} /> : <span className="h-7 w-24 rounded bg-muted/50 animate-pulse" aria-hidden />}
+        {hud ? <HudLevel hud={hud} /> : <span className="h-7 w-24 rounded skeleton" aria-hidden />}
         <p className="hidden @7xl:block font-hud uppercase tracking-wider text-[13px] text-muted-foreground truncate border-l border-border pl-3">{title}</p>
         <div className="flex-1 min-w-0" />
         {hud && <HudStats hud={hud} />}
@@ -82,7 +82,7 @@ export function MeetingsPill({ compact }: { compact?: boolean }) {
     setRefreshing(false);
   }
 
-  if (!state) return <span className="h-8 w-40 rounded-lg bg-muted/50 animate-pulse" aria-hidden />;
+  if (!state) return <span className="h-8 w-40 rounded-lg skeleton" aria-hidden />;
 
   if (!state.connected) {
     return (
@@ -109,7 +109,7 @@ export function MeetingsPill({ compact }: { compact?: boolean }) {
         )}
         aria-label="Upcoming meetings"
       >
-        {live ? <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> : <CalendarClock className="w-3.5 h-3.5 shrink-0" />}
+        {live ? <span className="relative w-2 h-2 rounded-full bg-emerald-500 live-dot" /> : <CalendarClock className="w-3.5 h-3.5 shrink-0" />}
         {!next ? (
           <span>No meetings ahead</span>
         ) : compact ? (

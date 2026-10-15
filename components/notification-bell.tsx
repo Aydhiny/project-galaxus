@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, BellOff, CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { RowSkeleton } from "@/components/ui/skeleton";
 import { getNotifications, markRead, markAllRead } from "@/lib/actions/notifications";
 import { useNotificationCount } from "@/lib/store/notifications";
 import { cn } from "@/lib/utils";
@@ -50,12 +52,12 @@ export function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        className="relative flex items-center justify-center w-7 h-7 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+        className="group/bell relative flex items-center justify-center w-7 h-7 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
         aria-label="Notifications"
       >
-        <Bell className="w-4 h-4" />
+        <Bell className="w-4 h-4 origin-top group-hover/bell:animate-[bell-ring_600ms_ease-in-out]" />
         {unread > 0 && (
-          <Badge variant="destructive" className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[9px] rounded-full">
+          <Badge key={unread} variant="destructive" className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[9px] rounded-full animate-pop">
             {unread > 9 ? "9+" : unread}
           </Badge>
         )}
@@ -71,9 +73,9 @@ export function NotificationBell() {
         </div>
         <div className="max-h-80 overflow-y-auto scrollbar-hide">
           {!loaded ? (
-            <p className="text-xs text-muted-foreground text-center py-6">Loading…</p>
+            <RowSkeleton count={3} className="p-2" />
           ) : items.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">No notifications yet.</p>
+            <EmptyState compact icon={BellOff} title="All quiet">No notifications yet.</EmptyState>
           ) : (
             items.map((n) => (
               <button

@@ -31,11 +31,11 @@ export function BudgetMeter({ b }: { b: OpsOverview["budget"] }) {
     <div className="space-y-2">
       <div>
         <div className="flex justify-between text-[11px] text-white/60"><span>This month</span><span className="font-mono">{formatUsd(b.spentMonthCents)} / {formatUsd(b.monthlyBudgetCents)}</span></div>
-        <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full", b.spentMonthCents >= b.monthlyBudgetCents ? "bg-rose-400" : "bg-[#6b8afd]")} style={{ width: `${pct(b.spentMonthCents, b.monthlyBudgetCents)}%` }} /></div>
+        <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full bar-fill", b.spentMonthCents >= b.monthlyBudgetCents ? "bg-rose-400" : "bg-[#6b8afd]")} style={{ width: `${pct(b.spentMonthCents, b.monthlyBudgetCents)}%` }} /></div>
       </div>
       <div>
         <div className="flex justify-between text-[11px] text-white/60"><span>Today&apos;s share</span><span className="font-mono">{formatUsd(b.spentTodayCents)} / {formatUsd(b.allowanceToday)}</span></div>
-        <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full", b.exhausted ? "bg-amber-400" : "bg-emerald-400")} style={{ width: `${pct(b.spentTodayCents, b.allowanceToday)}%` }} /></div>
+        <div className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className={cn("h-full rounded-full bar-fill", b.exhausted ? "bg-amber-400" : "bg-emerald-400")} style={{ width: `${pct(b.spentTodayCents, b.allowanceToday)}%` }} /></div>
         <p className="mt-1 text-[10px] text-white/45">{b.exhausted ? (b.freeFallback ? "Today's Claude share is used: cloud agents carry on with free models (if you added any)." : "Today's share is used: cloud agents have logged off until tomorrow.") : `${formatUsd(b.leftToday)} left today · ${b.runsToday} cloud run${b.runsToday === 1 ? "" : "s"} so far · ${b.daysLeft} day${b.daysLeft === 1 ? "" : "s"} left this month`}</p>
       </div>
     </div>

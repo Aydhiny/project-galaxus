@@ -295,7 +295,7 @@ export function FeedClient({ quote, dateStr, streaks, freezeStatus, prayersDone,
                 <span className="text-2xl font-bold text-foreground">{goalPct}%</span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
-                <div className="h-full rounded-full progress-bar transition-all duration-700" style={{ width: `${goalPct}%` }} />
+                <div className="h-full rounded-full progress-bar bar-fill" style={{ width: `${goalPct}%` }} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[

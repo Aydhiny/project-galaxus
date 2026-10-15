@@ -8,12 +8,16 @@ import { useRoomStore, type RoomTheme } from "@/lib/store/room";
 import { cn } from "@/lib/utils";
 import { searchContent, type SearchResult } from "@/lib/actions/search";
 import {
-  Home, Trophy, BookOpen, GraduationCap, Dumbbell, Moon, Music2, NotebookPen,
-  HeartPulse, Sparkles, Activity, BarChart3, BookMarked, StickyNote,
-  LayoutDashboard, CloudRain, Flame, Wind, Timer, Plus, Sunrise, Search, X,
-  Leaf, Mountain,
-  Square, ListTodo, FileText, Gauge,
+  BookOpen, Moon, NotebookPen, CloudRain, Flame, Wind, Timer, Plus, Search, X,
+  Leaf, Mountain, Square,
 } from "lucide-react";
+import { NAV_ICON, type NavHref } from "@/lib/nav-icons";
+
+/** The page's own icon (same as in the sidebar). */
+function navIcon(href: NavHref) {
+  const Icon = NAV_ICON[href];
+  return <Icon className="w-4 h-4" />;
+}
 
 /* ─── Command definitions ──────────────────────────────────────────────────── */
 
@@ -89,25 +93,25 @@ export function CommandPalette() {
 
   const COMMANDS: Cmd[] = [
     // Navigate
-    { id:"dash",     kind:"navigate", label:"Dashboard",      icon:<Home className="w-4 h-4"/>,           run:()=>nav("/dashboard")  },
-    { id:"overview", kind:"navigate", label:"Daily Overview", icon:<Sunrise className="w-4 h-4"/>,        run:()=>nav("/overview"),  keywords:"morning evening ritual" },
-    { id:"opps",     kind:"navigate", label:"Opportunities",  icon:<Trophy className="w-4 h-4"/>,         run:()=>nav("/opportunities"), keywords:"hackathon game jam grant competition eu deadline" },
-    { id:"review",   kind:"navigate", label:"Weekly Review",  icon:<BarChart3 className="w-4 h-4"/>,     run:()=>nav("/review")     },
-    { id:"training", kind:"navigate", label:"Training",       icon:<Dumbbell className="w-4 h-4"/>,      run:()=>nav("/training")   },
-    { id:"workout",  kind:"navigate", label:"Home Workout",   icon:<HeartPulse className="w-4 h-4"/>,   run:()=>nav("/workout")    },
-    { id:"meditate", kind:"navigate", label:"Meditation",     icon:<Sparkles className="w-4 h-4"/>,      run:()=>nav("/meditation") },
-    { id:"metrics",  kind:"navigate", label:"Body Metrics",   icon:<Activity className="w-4 h-4"/>,      run:()=>nav("/metrics")    },
-    { id:"study",    kind:"navigate", label:"Study",          icon:<GraduationCap className="w-4 h-4"/>, run:()=>nav("/study"),     keywords:"courses learn" },
-    { id:"reading",  kind:"navigate", label:"Reading",        icon:<BookOpen className="w-4 h-4"/>,      run:()=>nav("/reading"),   keywords:"books library" },
-    { id:"productivity", kind:"navigate", label:"Productivity", icon:<Gauge className="w-4 h-4"/>,     run:()=>nav("/productivity"), keywords:"dashboard stats completed chart" },
-    { id:"tasks",    kind:"navigate", label:"Tasks",          icon:<ListTodo className="w-4 h-4"/>,      run:()=>nav("/tasks"),     keywords:"todo kanban board productivity" },
-    { id:"pages",    kind:"navigate", label:"Pages",          icon:<FileText className="w-4 h-4"/>,      run:()=>nav("/pages"),     keywords:"docs notion write notes" },
-    { id:"notes",    kind:"navigate", label:"Notes",          icon:<StickyNote className="w-4 h-4"/>,    run:()=>nav("/notes"),     keywords:"brain dump write" },
-    { id:"heatmap",  kind:"navigate", label:"Habit Map",      icon:<LayoutDashboard className="w-4 h-4"/>, run:()=>nav("/heatmap") },
-    { id:"spiritual",kind:"navigate", label:"Spiritual",      icon:<Moon className="w-4 h-4"/>,           run:()=>nav("/spiritual"), keywords:"prayers islam" },
-    { id:"duas",     kind:"navigate", label:"Duas & Dhikr",   icon:<BookMarked className="w-4 h-4"/>,    run:()=>nav("/duas")       },
-    { id:"creative", kind:"navigate", label:"Creative",       icon:<Music2 className="w-4 h-4"/>,        run:()=>nav("/creative"),  keywords:"music beats producer" },
-    { id:"diary",    kind:"navigate", label:"Diary",          icon:<NotebookPen className="w-4 h-4"/>,   run:()=>nav("/diary"),     keywords:"journal gratitude private" },
+    { id:"dash",     kind:"navigate", label:"Dashboard",      icon:navIcon("/dashboard"),           run:()=>nav("/dashboard")  },
+    { id:"overview", kind:"navigate", label:"Daily Overview", icon:navIcon("/overview"),        run:()=>nav("/overview"),  keywords:"morning evening ritual" },
+    { id:"opps",     kind:"navigate", label:"Opportunities",  icon:navIcon("/opportunities"),         run:()=>nav("/opportunities"), keywords:"hackathon game jam grant competition eu deadline" },
+    { id:"review",   kind:"navigate", label:"Weekly Review",  icon:navIcon("/review"),     run:()=>nav("/review")     },
+    { id:"training", kind:"navigate", label:"Training",       icon:navIcon("/training"),      run:()=>nav("/training")   },
+    { id:"workout",  kind:"navigate", label:"Home Workout",   icon:navIcon("/workout"),   run:()=>nav("/workout")    },
+    { id:"meditate", kind:"navigate", label:"Meditation",     icon:navIcon("/meditation"),      run:()=>nav("/meditation") },
+    { id:"metrics",  kind:"navigate", label:"Body Metrics",   icon:navIcon("/metrics"),      run:()=>nav("/metrics")    },
+    { id:"study",    kind:"navigate", label:"Study",          icon:navIcon("/study"), run:()=>nav("/study"),     keywords:"courses learn" },
+    { id:"reading",  kind:"navigate", label:"Reading",        icon:navIcon("/reading"),      run:()=>nav("/reading"),   keywords:"books library" },
+    { id:"productivity", kind:"navigate", label:"Productivity", icon:navIcon("/productivity"),     run:()=>nav("/productivity"), keywords:"dashboard stats completed chart" },
+    { id:"tasks",    kind:"navigate", label:"Tasks",          icon:navIcon("/tasks"),      run:()=>nav("/tasks"),     keywords:"todo kanban board productivity" },
+    { id:"pages",    kind:"navigate", label:"Pages",          icon:navIcon("/pages"),      run:()=>nav("/pages"),     keywords:"docs notion write notes" },
+    { id:"notes",    kind:"navigate", label:"Notes",          icon:navIcon("/notes"),    run:()=>nav("/notes"),     keywords:"brain dump write" },
+    { id:"heatmap",  kind:"navigate", label:"Habit Map",      icon:navIcon("/heatmap"), run:()=>nav("/heatmap") },
+    { id:"spiritual",kind:"navigate", label:"Spiritual",      icon:navIcon("/spiritual"),           run:()=>nav("/spiritual"), keywords:"prayers islam" },
+    { id:"duas",     kind:"navigate", label:"Duas & Dhikr",   icon:navIcon("/duas"),    run:()=>nav("/duas")       },
+    { id:"creative", kind:"navigate", label:"Creative",       icon:navIcon("/creative"),        run:()=>nav("/creative"),  keywords:"music beats producer" },
+    { id:"diary",    kind:"navigate", label:"Diary",          icon:navIcon("/diary"),   run:()=>nav("/diary"),     keywords:"journal gratitude private" },
     // Actions
     { id:"capture",  kind:"action",   label:"Quick Capture",  subtitle:"Brain-dump to Notes",
       icon:<Plus className="w-4 h-4"/>, run:()=>{ closePalette(); setTimeout(openCapture, 80); }, keywords:"note idea brain dump" },
@@ -187,11 +191,11 @@ export function CommandPalette() {
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh]" onClick={closePalette}>
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-md" />
+      <div className="overlay-backdrop absolute inset-0 bg-background/70 backdrop-blur-md" />
 
       {/* Panel */}
       <div
-        className="relative w-full max-w-lg mx-4 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
+        className="overlay-panel relative w-full max-w-lg mx-4 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
         style={{ boxShadow: "0 24px 80px oklch(0 0 0 / 55%), 0 0 0 1px oklch(1 0 0 / 6%)" }}
         onClick={e => e.stopPropagation()}
       >
