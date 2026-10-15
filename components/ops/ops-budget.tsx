@@ -8,7 +8,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, PauseCircle, Wallet } from "lucide-react";
+import { Bot, Loader2, PauseCircle, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatUsd, type CloudModel, type NotifyLevel } from "@/lib/ops";
 import { Dialog, btnGhost, btnPrimary, field } from "@/components/ops/ops-dialog";
@@ -48,6 +48,7 @@ export function BudgetDialog({ data, onClose, onChanged }: { data: OpsOverview; 
   const [model, setModel] = useState<CloudModel>(b.model);
   const [notify, setNotify] = useState<NotifyLevel>(b.notify);
   const [pushes, setPushes] = useState(String(b.maxPushesPerDay));
+  const [autonomy, setAutonomy] = useState(b.autonomy !== "ask"); // on by default (older data has no field yet)
   const [busy, start] = useTransition();
 
   return (
@@ -96,11 +97,22 @@ export function BudgetDialog({ data, onClose, onChanged }: { data: OpsOverview; 
       </label>
       <p className="mt-1 text-[10px] text-white/45">Quiet hours follow your bedtime in <Link href="/settings" className="text-[#8ea6ff] hover:underline">Settings → Sleep Guardian</Link>; only urgent things get through then. Everything still lands in your inbox.</p>
 
+      <button type="button" role="switch" aria-checked={autonomy} onClick={() => setAutonomy((v) => !v)}
+        className={cn("mt-4 w-full flex items-start gap-2.5 rounded-xl border p-2.5 text-left", autonomy ? "border-[#6b8afd]/60 bg-[#6b8afd]/10" : "border-white/10 hover:bg-white/5")}>
+        <span className={cn("mt-0.5 w-8 h-4.5 shrink-0 rounded-full p-0.5 transition-colors", autonomy ? "bg-[#6b8afd]" : "bg-white/20")}>
+          <span className={cn("block w-3.5 h-3.5 rounded-full bg-white transition-transform", autonomy && "translate-x-3.5")} />
+        </span>
+        <span>
+          <span className="block text-xs font-semibold inline-flex items-center gap-1"><Bot className="w-3.5 h-3.5 text-[#8ea6ff]" /> Full autonomy: the Chief answers agents&apos; questions</span>
+          <span className="block text-[10px] text-white/50 leading-tight mt-0.5">Money, contacting real people, legal or account steps and your private data still come to you; change any decision in the Inbox.</span>
+        </span>
+      </button>
+
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onClose} className={btnGhost}>Close</button>
         <button disabled={busy} className={btnPrimary}
           onClick={() => start(async () => {
-            try { await saveOpsSettingsC({ monthlyBudgetUsd: Number(usd), cloudModel: model, notify, maxPushesPerDay: Number(pushes) }); toast.success("Saved."); onChanged(); onClose(); }
+            try { await saveOpsSettingsC({ monthlyBudgetUsd: Number(usd), cloudModel: model, notify, maxPushesPerDay: Number(pushes), autonomy: autonomy ? "full" : "ask" }); toast.success("Saved."); onChanged(); onClose(); }
             catch (e) { toast.error((e as Error).message); }
           })}>
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}Save

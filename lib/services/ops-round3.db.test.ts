@@ -163,6 +163,7 @@ describe("free models", () => {
 
   it("a free-model agent can ask you; your answer is remembered and the mission resumes", async () => {
     const nova = (await testDb.select().from(opsAgents).where(and(eq(opsAgents.userId, me), eq(opsAgents.name, "Nova"))))[0];
+    await inbox.saveOpsSettingsFor(me, { autonomy: "ask" }); // questions come to you (full autonomy: ops-autonomy.db.test.ts)
     h.reply = () => llm("QUESTION: Logos only, or also social media templates?\nOPTIONS: Logos only | Both");
     const m = await ops.createMissionFor(me, { title: "Price my design services", kind: "research", agentId: nova.id }) as { id: number };
     // Nova's previous mission is submitted (not claimed), so it's free to take this one.

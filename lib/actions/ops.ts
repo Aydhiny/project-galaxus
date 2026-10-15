@@ -146,7 +146,7 @@ export async function answerQuestion(id: number, answer: string) {
 export async function markInboxRead(ids: number[]) {
   return toResult(async () => { await markReadFor(await requireUserId(), ids); done(); });
 }
-export async function saveOpsSettings(raw: { monthlyBudgetUsd?: number; cloudModel?: string; notify?: string; maxPushesPerDay?: number; freeFallback?: boolean; freeFirst?: boolean }) {
+export async function saveOpsSettings(raw: { monthlyBudgetUsd?: number; cloudModel?: string; notify?: string; maxPushesPerDay?: number; freeFallback?: boolean; freeFirst?: boolean; autonomy?: "full" | "ask" }) {
   return toResult(async () => { await saveOpsSettingsFor(await requireUserId(), raw); done(); });
 }
 export async function resumeCloud() {
@@ -274,5 +274,15 @@ export async function getBeatUrl(rotate = false) {
     const { beatKeyFor, lastBeatFor } = await import("@/lib/services/ops-beat");
     const key = await beatKeyFor(userId, rotate);
     return { path: `/api/ops/beat?u=${userId}&k=${key}`, lastBeatAt: (await lastBeatFor(userId))?.toISOString() ?? null };
+  });
+}
+
+// ─── Full autonomy: change a decision the Chief made for you ───
+export async function changeDecision(id: number, answer: string) {
+  return toResult(async () => {
+    const { changeDecisionFor } = await import("@/lib/services/ops-autonomy");
+    const r = await changeDecisionFor(await requireUserId(), id, answer);
+    done();
+    return r;
   });
 }

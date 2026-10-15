@@ -74,3 +74,6 @@ export const saveNightShiftC = unwrapped(saveNightShift);
 import { getBeatUrl, opsBeat } from "@/lib/actions/ops";
 export const getBeatUrlC = unwrapped(getBeatUrl);
 export { opsBeat };
+// ─── Full autonomy ───
+import { changeDecision } from "@/lib/actions/ops";
+export const changeDecisionC = unwrapped(changeDecision);

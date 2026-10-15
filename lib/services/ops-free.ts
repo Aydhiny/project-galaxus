@@ -91,7 +91,7 @@ export async function healFreeRuns(userId: number) {
     .where(and(eq(opsMissions.userId, userId), eq(opsMissions.status, "claimed"), eq(opsMissions.jobId, FREE_JOB), sql`${opsMissions.claimedAt} < now() - interval '10 minutes'`));
 }
 
-type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_project_final" | "ops_review" | "ops_lead_reply";
+type PlannerKind = "ops_standup" | "ops_debrief" | "ops_project_day" | "ops_project_final" | "ops_review" | "ops_lead_reply" | "ops_chief_decide";
 
 /**
  * The lead's thinking jobs (stand-up plan, debrief notes, a project's day plan / final solution).
@@ -198,6 +198,10 @@ export async function plannerJobFailed(userId: number, kind: string, payload: Re
     // Reply watch: no engine could draft it, so the template asks the user instead.
     const { leadReplyFailed } = await import("@/lib/services/reply-watch");
     await leadReplyFailed(userId, Number(payload.replyId));
+  } else if (kind === "ops_chief_decide") {
+    // Full autonomy: no engine could decide, so the Chief's fixed rule does (the agent never waits).
+    const { decideByRuleFor } = await import("@/lib/services/ops-autonomy");
+    await decideByRuleFor(userId, Number(payload.messageId));
   } else if (kind === "ops_review") {
     await db.update(opsMissions).set({ chiefNote: `The review failed (${why.slice(0, 120)}): it's yours to check.` })
       .where(and(eq(opsMissions.id, Number(payload.missionId)), eq(opsMissions.userId, userId)));

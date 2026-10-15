@@ -285,7 +285,8 @@ export async function applyProjectDayResult(userId: number, projectId: number, l
   }
   if (lead && r.question_for_user?.question) {
     const { askUserForAgent } = await import("@/lib/services/ops-inbox");
-    await askUserForAgent(lead, { question: r.question_for_user.question, options: r.question_for_user.options ?? [] }).catch(() => null);
+    // Full autonomy routes it like any agent question (usually the Chief decides); the project's goal is its context.
+    await askUserForAgent(lead, { question: r.question_for_user.question, options: r.question_for_user.options ?? [], context: `Project "${p.title}" (day ${d.dayNo} of ${d.totalDays}): ${p.goal.slice(0, 1000)}` }).catch(() => null);
   }
   const { dispatchCloudFor } = await import("@/lib/services/ops");
   await dispatchCloudFor(userId).catch(() => {});

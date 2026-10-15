@@ -212,8 +212,9 @@ export function registerOpsTools(server: McpServer) {
     {
       title: "Ask the user",
       description:
-        "Ask your user a question when a decision is truly theirs. Give 2-4 short options when you can (they answer with one tap). " +
-        "blocking=true pauses that mission until they answer. Their answer arrives in ops_get_messages. Ask rarely: they're busy.",
+        "Only when you are truly blocked: decide yourself wherever a reasonable choice exists (note the assumption in your deliverable). " +
+        "Usually the Chief answers for the user within moments; spending, contacting real people, legal or account matters go to the user. " +
+        "Give 2-4 short options (the first = your recommendation). blocking=true pauses that mission until answered. The answer arrives in ops_get_messages.",
       inputSchema: z.object({
         question: z.string().min(5).max(600),
         options: z.array(z.string().max(60)).max(4).optional(),

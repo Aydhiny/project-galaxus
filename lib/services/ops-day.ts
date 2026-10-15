@@ -154,6 +154,9 @@ export async function debriefMarkdown(userId: number, day: string) {
   const name = (id: number | null) => agents.find((a) => a.id === id)?.name ?? "—";
   const { nightDoneOn } = await import("@/lib/services/ops-night");
   const nightDone = await nightDoneOn(userId, day);
+  // Full autonomy: what the Chief decided for you that day ("" when nothing).
+  const { decisionsDigestMarkdown } = await import("@/lib/services/ops-autonomy");
+  const decided = await decisionsDigestMarkdown(userId, day);
   const todays = missions.filter((m) => String(m.day) === day);
   const done = todays.filter((m) => m.status === "done"), review = missions.filter((m) => m.status === "submitted");
   const doing = missions.filter((m) => m.status === "claimed"), open = missions.filter((m) => m.status === "open");
@@ -169,6 +172,7 @@ export async function debriefMarkdown(userId: number, day: string) {
     `## Done`, list(done, (m) => `${m.title} (${name(m.submittedBy)}, ${cents(m.spentCents)})`),
     `## Waiting for your review`, list(review, (m) => `${m.title} (${name(m.submittedBy ?? m.agentId)})`),
     `## Blocked or still running`, list(doing, (m) => `${m.title} (${name(m.agentId)})`),
+    ...(decided ? [decided] : []),
     ...(waiting.length ? [`## Agents that waited for you`, waiting.map((w) => `- ${name(w.agentId)}: ${w.label}`).join("\n")] : []),
     `## Tomorrow`,
     list(open.slice(0, 10), (m) => `${m.title}${m.role ? ` (any ${ROLES[roleOf(m.role)].label})` : m.agentId ? ` (${name(m.agentId)})` : ""}`),
@@ -190,6 +194,10 @@ export async function debriefFor(userId: number, row: Pick<OpsDay, "id" | "day">
   if (row) await db.update(opsDays).set({ debriefPageId: pageId }).where(eq(opsDays.id, row.id));
   const { pushFor } = await import("@/lib/services/ops-inbox");
   await pushFor(userId, "report", false, "Your Ops debrief is ready", md.split("\n\n")[1] ?? "", `ops-debrief-${day}`);
+  // The "Decided for you" digest: one push a day, under the normal push policy.
+  const { decisionsDigestFor } = await import("@/lib/services/ops-autonomy");
+  const digest = await decisionsDigestFor(userId, day).catch(() => null);
+  if (digest?.decided) await pushFor(userId, "report", false, "Decided for you", `${digest.line} Change any of them in the Inbox.`, `ops-decided-${day}`);
   const chief = await cloudChief(userId);
   if (chief) {
     const { runPlannerJob } = await import("@/lib/services/ops-free");
@@ -218,6 +226,9 @@ export async function opsTickFor(userId: number) {
   const tz = await tzFor(userId);
   const day = dayIn(tz), now = hhmmIn(tz);
   const posted = await postDueRecurringFor(userId);
+  // Full autonomy: a question the Chief never got to (its function died) is decided by the rule, so nobody waits.
+  const { healChiefQuestionsFor } = await import("@/lib/services/ops-autonomy");
+  await healChiefQuestionsFor(userId).catch(() => 0);
   const { refreshAboutMeIfStale } = await import("@/lib/services/ops-memory");
   await refreshAboutMeIfStale(userId).catch(() => false);
   const [[today], [yesterday]] = await Promise.all([

@@ -128,8 +128,8 @@ export function parseFindLine(brief: string | null | undefined) {
   const text = String(brief ?? "");
   const m = text.match(/^\s*FIND:\s*([a-z_]+)\s*@\s*([^\n]{2,80})$/im);
   if (!m || !osmType(m[1].toLowerCase())) return null;
-  // You answered "which city?": that wins over whatever the planner wrote.
-  const answered = text.match(/You asked: Which city[^\n]*\nThe user answered: ([^\n]{2,60})/i)?.[1];
+  // You (or the Chief, for you) answered "which city?": that wins over whatever the planner wrote. The newest answer wins (you can change the Chief's).
+  const answered = [...text.matchAll(/You asked: Which city[^\n]*\nThe (?:user|Chief) answered(?: for the user)?: ([^\n]{2,60})/gi)].at(-1)?.[1];
   const city = cleanCity(answered ?? m[2]);
   return city ? { type: m[1].toLowerCase(), city } : null;
 }
