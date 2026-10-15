@@ -5,6 +5,8 @@ import GitHub from "next-auth/providers/github";
 import { headers } from "next/headers";
 import { createHmac, timingSafeEqual } from "crypto";
 import { checkRateLimit, resetRateLimit } from "@/lib/ratelimit";
+import { hitRateLimit } from "@/lib/rate-limit-db";
+import { findOrCreateOAuthUser } from "@/lib/auth-oauth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -90,6 +92,16 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         if (!email || !password) return null;
 
+        // The in-memory bucket above is per serverless instance. These two are
+        // shared (Postgres): one account can't be guessed at from many IPs
+        // (password, then 2FA codes), and one IP can't spray many accounts.
+        // Generous on purpose — the owner should never notice them.
+        const [perEmail, perIp] = await Promise.all([
+          hitRateLimit(`login-email:${email}`, 50, 60 * 60 * 1000),
+          hitRateLimit(`login-ip:${ip}`, 100, 15 * 60 * 1000),
+        ]);
+        if (!perEmail.allowed || !perIp.allowed) throw new RateLimitedError();
+
         const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
         const user = rows[0];
         if (!user) {
@@ -128,27 +140,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
       // OAuth: find-or-create a row in our own `users` table by email, then
       // overwrite user.id with OUR id so the jwt/session callbacks (shared
-      // with Credentials) pick it up identically.
-      const email = user.email.toLowerCase();
-      const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      let dbUser = existing[0];
-
-      if (!dbUser) {
-        const [created] = await db
-          .insert(users)
-          .values({
-            name: user.name ?? email.split("@")[0],
-            email,
-            passwordHash: null,
-            emailVerified: new Date(), // the OAuth provider already verified ownership of this email
-          })
-          .returning();
-        dbUser = created;
-      } else if (!dbUser.emailVerified) {
-        await db.update(users).set({ emailVerified: new Date() }).where(eq(users.id, dbUser.id));
-      }
-
-      user.id = String(dbUser.id);
+      // with Credentials) pick it up identically. findOrCreateOAuthUser also
+      // evicts a squatter who registered this address before its owner
+      // (see lib/auth-oauth.ts).
+      user.id = String(await findOrCreateOAuthUser(user.email, user.name));
       return true;
     },
 

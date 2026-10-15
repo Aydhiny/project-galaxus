@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { users, userSettings, notifications } from "@/lib/db/schema";
 import { eq, isNotNull } from "drizzle-orm";
@@ -12,8 +13,8 @@ import { getWeeklyStats } from "@/lib/reports";
  * server-to-server call. Excluded from proxy.ts's session-based auth guard.
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (!process.env.CRON_SECRET || !sameSecret(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -44,4 +45,11 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true, sent, candidates: recipients.length });
+}
+
+/** Constant-time compare (hashing first makes the lengths equal, so length doesn't leak either). */
+function sameSecret(given: string, expected: string) {
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
 }

@@ -4,6 +4,7 @@
 // If Claude can't run, the headlines alone still make a good page.
 
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { safeFetch } from "@/lib/safe-fetch";
 import { db } from "@/lib/db";
 import { digests, outreachSettings, userSettings, voiceCommands, type Digest } from "@/lib/db/schema";
 import { FEEDS, SECTION_META, articleSummary, isThumbnail, ogImageFrom, parseFeed, parseBriefing, pickTopStories, selectItems, upgradeImage, type DigestItem } from "@/lib/digest";
@@ -19,7 +20,8 @@ async function timezoneFor(userId: number) {
 }
 
 async function fetchText(url: string, maxBytes: number, timeoutMs: number): Promise<string> {
-  const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "*/*" }, signal: AbortSignal.timeout(timeoutMs), cache: "no-store", redirect: "follow" });
+  // Article links come from third-party feeds: public hosts only, every redirect re-checked.
+  const res = await safeFetch(url, { headers: { "User-Agent": UA, Accept: "*/*" }, cache: "no-store" }, { timeoutMs });
   if (!res.ok || !res.body) return "";
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];

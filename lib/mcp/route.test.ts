@@ -222,6 +222,21 @@ describe("voice-scoped tokens", () => {
     expect(deleteGoalFor).not.toHaveBeenCalled();
   });
 
+  it("can only use the voice tools (allowlist): no Reddit drafts, no web reads, no memory", async () => {
+    draftTodayFor.mockClear();
+    const client = await connect("glx_voice");
+    const calls: [string, Record<string, unknown>][] = [
+      ["draft_reddit_post", {}], ["reach_read", { url: "https://example.com" }], ["mem_search", { query: "keys" }], ["ops_checkin", {}],
+    ];
+    for (const [name, args] of calls) {
+      const res = await client.callTool({ name, arguments: args });
+      expect(res.isError).toBe(true);
+      expect(JSON.stringify(res.content)).toMatch(/isn't available to voice commands/);
+    }
+    expect(draftTodayFor).not.toHaveBeenCalled();
+    await client.close();
+  });
+
   it("records what a voice call changed; full tokens aren't recorded", async () => {
     recordToolResultFor.mockClear();
     createRoutineFor.mockResolvedValue({ id: 5, title: "Read", days: "1111111", time: "22:00", priority: "none", area: null, active: true });

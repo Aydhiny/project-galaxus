@@ -12,6 +12,8 @@
 // YouTube transcripts and logged-in sites need the real Agent Reach on your
 // computer (yt-dlp / OpenCLI); the connect wizard sets that up for local agents.
 
+import { checkUrl, readTextCapped, safeFetch } from "@/lib/safe-fetch";
+
 const UA = "Mozilla/5.0 (compatible; GalaxusReach/1.0; +https://project-galaxus.vercel.app)";
 // Reddit asks for a descriptive User-Agent; generic ones are throttled first.
 const REDDIT_UA = "web:galaxus:1.0 (personal research tool; read-only)";
@@ -25,10 +27,14 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s
 
 // ─── Low-level backends ───────────────────────────────────────────────────────
 
+// The URL can come from an agent or a web page, so it goes through the SSRF
+// guard (public addresses only, every redirect re-checked) and the body is capped.
+const MAX_DIRECT_BYTES = 4_000_000;
+
 async function direct(url: string, accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", ua = UA, timeoutMs = 15_000) {
-  const res = await fetch(url, { headers: { "User-Agent": ua, Accept: accept }, signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
+  const res = await safeFetch(url, { headers: { "User-Agent": ua, Accept: accept }, cache: "no-store" }, { timeoutMs });
+  if (!res.ok) { res.body?.cancel().catch(() => {}); throw new Error(`HTTP ${res.status}`); }
+  return readTextCapped(res, MAX_DIRECT_BYTES);
 }
 
 async function jina(url: string) {
@@ -101,8 +107,8 @@ async function chain<T>(channel: string, routes: [string, () => Promise<T>][]): 
 
 /** Read any page as text/markdown. */
 export async function reachRead(url: string, maxChars = 12_000) {
-  const u = new URL(url);
-  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("Only http(s) pages.");
+  // Public http(s) pages only: no localhost, private/metadata IPs or internal names (see lib/safe-fetch.ts).
+  const u = checkUrl(url);
   const r = await chain("web", [
     ["direct", async () => { const t = htmlToText(await direct(u.toString())); if (t.length < 200) throw new Error("too little text (JS page?)"); return t; }],
     ["jina", () => jina(u.toString())],

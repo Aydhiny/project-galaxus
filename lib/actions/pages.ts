@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { safeFetch } from "@/lib/safe-fetch";
 import { workspacePages } from "@/lib/db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -134,7 +135,8 @@ export async function linkPreview(url: string) {
   const host = u.hostname.toLowerCase();
   if (u.protocol !== "https:" || /^[\d.]+$/.test(host) || host.includes(":") || host === "localhost" || /\.(local|internal|lan|home)$/.test(host) || !host.includes(".")) return null;
   try {
-    const res = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (compatible; GalaxusBot/1.0; link preview)", Accept: "text/html" }, signal: AbortSignal.timeout(6000), redirect: "follow" });
+    // safeFetch also checks what the name resolves to and every redirect hop (a redirect to 169.254.169.254 used to be followed).
+    const res = await safeFetch(u, { headers: { "User-Agent": "Mozilla/5.0 (compatible; GalaxusBot/1.0; link preview)", Accept: "text/html" } }, { timeoutMs: 6000, httpsOnly: true });
     if (!res.ok || !(res.headers.get("content-type") ?? "").includes("text/html")) return { title: host, site: host };
     const reader = res.body?.getReader();
     let html = "", got = 0;

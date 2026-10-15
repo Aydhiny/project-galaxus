@@ -1113,9 +1113,16 @@ const STATEMENTS = [
   `UPDATE "free_llm_keys" SET "model" = 'z-ai/glm-5.3-flash' WHERE "provider" = 'nvidia' AND "model" = 'z-ai/glm-5.2'`,
   // A rate limit or a missing model never made a provider unhealthy: wipe those failure counts and rests.
   `UPDATE "free_llm_keys" SET "health_fails" = 0, "cooldown_until" = NULL WHERE "health_fails" > 0 AND "last_error" ~* '429|rate.?limit|too many requests|model_unavailable|model_not_found|currently unavailable' AND "last_error" NOT LIKE 'No model works%'`,
+  // Security: rate limits that hold across serverless instances (lib/rate-limit-db.ts).
+  `CREATE TABLE IF NOT EXISTS "rate_limits" (
+    "key" varchar(200) PRIMARY KEY NOT NULL,
+    "hits" integer DEFAULT 0 NOT NULL,
+    "reset_at" timestamp NOT NULL
+  )`,
 
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
+  `DELETE FROM "rate_limits" WHERE "reset_at" < now()`,
 ];
 
 async function main() {

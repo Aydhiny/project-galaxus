@@ -759,7 +759,7 @@ export function shiftEnded(shift: { startsAt: string; endsAt: string; debriefAt:
 // ─── Pull requests on the Builder's desk ─────────────────────────────────────
 
 export function parsePrUrl(raw: unknown): { owner: string; repo: string; number: number; url: string } | null {
-  const m = String(raw ?? "").match(/^https:\/\/github\.com\/([\w.-]{1,100})\/([\w.-]{1,100})\/pull\/(\d{1,7})(?:[/?#].*)?$/);
+  const m = String(raw ?? "").match(/^https:\/\/github\.com\/(?!\.\.?\/)([\w.-]{1,100})\/(?!\.\.?\/)([\w.-]{1,100})\/pull\/(\d{1,7})(?:[/?#].*)?$/);
   return m ? { owner: m[1], repo: m[2], number: Number(m[3]), url: `https://github.com/${m[1]}/${m[2]}/pull/${m[3]}` } : null;
 }
 

@@ -4,6 +4,7 @@ import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { hitRateLimit } from "@/lib/rate-limit-db";
 import { createVerificationToken } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/email";
 
@@ -15,11 +16,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Too many attempts. Try again in ${retryAfterSeconds}s.` }, { status: 429 });
     }
 
-    const { name, email, password } = await req.json();
+    // Shared across instances: at most 10 new accounts per IP per hour.
+    const perIp = await hitRateLimit(`register-ip:${ip}`, 10, 60 * 60 * 1000);
+    if (!perIp.allowed) {
+      return NextResponse.json({ error: `Too many attempts. Try again in ${Math.ceil(perIp.retryAfterSeconds / 60)} min.` }, { status: 429 });
+    }
 
-    if (!name?.trim()) return NextResponse.json({ error: "Name is required." }, { status: 400 });
-    if (!email?.includes("@")) return NextResponse.json({ error: "Enter a valid email." }, { status: 400 });
-    if (!password || password.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+    const body = (await req.json().catch(() => null)) as { name?: unknown; email?: unknown; password?: unknown } | null;
+    const name = typeof body?.name === "string" ? body.name : "";
+    const email = typeof body?.email === "string" ? body.email.trim() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+
+    if (!name.trim() || name.trim().length > 100) return NextResponse.json({ error: "Name is required (up to 100 characters)." }, { status: 400 });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return NextResponse.json({ error: "Enter a valid email." }, { status: 400 });
+    // bcrypt only reads the first 72 bytes; a longer "password" would silently be cut.
+    if (password.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+    if (Buffer.byteLength(password, "utf8") > 72) return NextResponse.json({ error: "Password must be at most 72 bytes." }, { status: 400 });
 
     const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email.toLowerCase())).limit(1);
     if (existing[0]) return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });

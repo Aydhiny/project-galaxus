@@ -15,6 +15,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { freeLlmKeys, type FreeLlmKey } from "@/lib/db/schema";
 import { tryDecrypt } from "@/lib/crypto-box";
+import { safeFetch } from "@/lib/safe-fetch";
+import { scrubSecret } from "@/lib/scrub-secret";
 import { cooldownMs, freeProvider, modelTrouble, modelsToTry, readRateHeaders } from "@/lib/free-llm";
 import { HEALTH_MAX_TOKENS, HEALTH_PROMPT, HEALTH_TIMEOUT_MS, healthSkip } from "@/lib/free-health";
 import { NO_MODEL_WORKS, classifyFailure, healable, healthFailsAfter, healthOutcome } from "@/lib/free-limits";
@@ -30,15 +32,15 @@ type Probe = { ok: boolean; res: Response | null; status: number; body: string; 
 async function probe(k: FreeLlmKey, model: string): Promise<Probe> {
   const key = tryDecrypt(k.keyEnc);
   try {
-    const res = await fetch(`${baseOf(k)}/chat/completions`, {
+    const res = await safeFetch(`${baseOf(k)}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(key ? { Authorization: `Bearer ${key}` } : {}), ...(k.provider === "openrouter" ? { "HTTP-Referer": "https://project-galaxus.vercel.app", "X-Title": "Galaxus Ops" } : {}) },
       body: JSON.stringify({ model, messages: [{ role: "system", content: HEALTH_PROMPT.system }, { role: "user", content: HEALTH_PROMPT.prompt }], max_tokens: HEALTH_MAX_TOKENS, temperature: 0 }),
       signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
       cache: "no-store",
-    });
+    }, { timeoutMs: HEALTH_TIMEOUT_MS });
     const body = await res.text();
-    if (!res.ok) return { ok: false, res, status: res.status, body, error: `HTTP ${res.status} (${model}): ${body.slice(0, 200)}`, tokens: 0, model };
+    if (!res.ok) return { ok: false, res, status: res.status, body, error: scrubSecret(`HTTP ${res.status} (${model}): ${body.slice(0, 200)}`, key), tokens: 0, model };
     // A 200 is a pass even if a reasoning model spent all 300 tokens thinking: the key, the quota and the model all work.
     let tokens = 0;
     try { tokens = (JSON.parse(body) as { usage?: { total_tokens?: number } }).usage?.total_tokens ?? 0; } catch { /* not JSON: still alive */ }
