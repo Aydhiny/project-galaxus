@@ -1668,3 +1668,11 @@ export const leadReplies = pgTable(
   (t) => [index("idx_lead_replies_user").on(t.userId, t.createdAt), index("idx_lead_replies_message").on(t.messageId), index("idx_lead_replies_lead").on(t.leadId)]
 );
 export type LeadReply = typeof leadReplies.$inferSelect;
+
+// Rate limits shared by every serverless instance (login, register, password reset).
+// One row per key ("login-email:<email>", …), a fixed window; see lib/rate-limit-db.ts.
+export const rateLimits = pgTable("rate_limits", {
+  key: varchar("key", { length: 200 }).primaryKey(),
+  hits: integer("hits").notNull().default(0),
+  resetAt: timestamp("reset_at").notNull(),
+});

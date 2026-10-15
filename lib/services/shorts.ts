@@ -25,7 +25,7 @@ export async function appendShortChunkFor(userId: number, id: number, bytes: Buf
     audioData: sql`coalesce(${shortJobs.audioData}, '') || ${bytes.toString("base64")}`,
     audioBytes: sql`coalesce(${shortJobs.audioBytes}, 0) + ${bytes.length}`,
     ...(final ? { status: "queued" } : {}),
-  }).where(eq(shortJobs.id, id));
+  }).where(and(eq(shortJobs.id, id), eq(shortJobs.userId, userId)));
 }
 
 export async function createShortJobFor(userId: number, input: { name: string; mime: string; bytes: Buffer; notes?: string | null; count?: number; final?: boolean }) {
@@ -61,7 +61,7 @@ export async function retryShortJobFor(userId: number, id: number) {
   const [j] = await db.select({ data: shortJobs.audioData }).from(shortJobs).where(and(eq(shortJobs.id, id), eq(shortJobs.userId, userId))).limit(1);
   if (!j) throw new Error("Not found.");
   if (!j.data) throw new Error("The recording was already cleaned up — upload it again.");
-  await db.update(shortJobs).set({ status: "queued", log: null, claimedAt: null, finishedAt: null }).where(eq(shortJobs.id, id));
+  await db.update(shortJobs).set({ status: "queued", log: null, claimedAt: null, finishedAt: null }).where(and(eq(shortJobs.id, id), eq(shortJobs.userId, userId)));
 }
 
 export async function deleteShortJobFor(userId: number, id: number) {

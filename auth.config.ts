@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { reportOnlyCsp } from "@/lib/csp";
 
 // Routes a logged-in user should be bounced away from (back to /dashboard)
 const AUTHED_REDIRECT_PATHS = new Set(["/login", "/register"]); // "/" (the landing page) stays visible when signed in
@@ -12,6 +13,26 @@ const GUEST_ALLOWED_PATHS = new Set(["/", "/login", "/register", "/privacy", "/t
 // isn't, so it needs an explicit allowance here. Reset/verify links are visited
 // by definition while logged out (or from a different device/session).
 const GUEST_ALLOWED_PREFIXES = ["/api/register", "/reset-password/", "/verify-email/", "/p/"]; // /p/<slug> = public demo sites for leads
+
+/**
+ * Let the request through, adding a nonce-based Content-Security-Policy-Report-Only
+ * (a dry run of a strict CSP — nothing is blocked, see lib/csp.ts). The policy also
+ * goes on the REQUEST headers because that is where Next.js reads the nonce from to
+ * stamp its own <script> tags. API routes don't render HTML, so they're left alone.
+ *
+ * ⚠ This must stay a returned Response from `authorized`. Passing a handler to
+ * NextAuth's auth(...) instead would skip its "not authorized → sign-in" redirect.
+ */
+export function allowWithReportOnlyCsp(request: NextRequest): NextResponse | true {
+  if (request.nextUrl.pathname.startsWith("/api/")) return true;
+  const nonce = btoa(crypto.randomUUID());
+  const policy = reportOnlyCsp(nonce);
+  const headers = new Headers(request.headers);
+  headers.set("content-security-policy-report-only", policy);
+  const res = NextResponse.next({ request: { headers } });
+  res.headers.set("Content-Security-Policy-Report-Only", policy);
+  return res;
+}
 
 /**
  * Edge-safe base config — no Credentials provider here (it needs bcrypt +
@@ -63,7 +84,7 @@ export const authConfig = {
       if (!isLoggedIn && !isGuestAllowed) {
         return false; // NextAuth redirects to pages.signIn with ?callbackUrl=
       }
-      return true;
+      return allowWithReportOnlyCsp(request);
     },
   },
 } satisfies NextAuthConfig;

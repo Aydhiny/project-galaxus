@@ -1,24 +1,18 @@
 // Loads a lead's homepage and turns what it finds into gaps (lib/outreach.ts).
 
 import { analyzeHtml, bizKey, extractEmail, extractPhone, gapsFor, isSocialUrl, type Gap } from "@/lib/outreach";
+import { isPublicUrl, safeFetch } from "@/lib/safe-fetch";
 
 const MAX_BYTES = 1_500_000;
 const UA = "Mozilla/5.0 (compatible; GalaxusSiteCheck/1.0; one-off homepage check)";
 
-/** Only public http(s) hosts — never localhost/private IPs (SSRF guard). */
-function isFetchable(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-    const h = u.hostname;
-    return !(
-      h === "localhost" || h.endsWith(".local") || h.endsWith(".internal") ||
-      /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)/.test(h) || h.includes(":") || h === "[::1]"
-    );
-  } catch {
-    return false;
-  }
-}
+/**
+ * Only public http(s) hosts — never localhost/private IPs (SSRF guard). This
+ * is the quick syntax check; safeFetch() below also checks what the name
+ * resolves to and every redirect (the old guard let a redirect or a DNS name
+ * pointing at 127.0.0.1 straight through).
+ */
+const isFetchable = (url: string) => isPublicUrl(url);
 
 async function readCapped(res: Response): Promise<string> {
   if (!res.body) return "";
@@ -40,12 +34,7 @@ export async function auditWebsite(website: string | null): Promise<{ gaps: Gap[
   if (!website || isSocialUrl(website)) return { gaps: gapsFor(website, null), phone: null };
   if (!isFetchable(website)) return { gaps: ["site_down"], phone: null };
   try {
-    const res = await fetch(website, {
-      headers: { "User-Agent": UA, Accept: "text/html" },
-      redirect: "follow",
-      signal: AbortSignal.timeout(9_000),
-      cache: "no-store",
-    });
+    const res = await safeFetch(website, { headers: { "User-Agent": UA, Accept: "text/html" }, cache: "no-store" }, { timeoutMs: 9_000 });
     if (!res.ok) return { gaps: gapsFor(website, null), phone: null };
     const html = await readCapped(res);
     if (html.length < 200) return { gaps: gapsFor(website, null), phone: null }; // parked/empty page
@@ -60,7 +49,7 @@ export async function auditWebsite(website: string | null): Promise<{ gaps: Gap[
 async function getHtml(url: string, timeoutMs = 7_000): Promise<{ html: string; url: string } | null> {
   if (!isFetchable(url)) return null;
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "text/html" }, redirect: "follow", signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
+    const res = await safeFetch(url, { headers: { "User-Agent": UA, Accept: "text/html" }, cache: "no-store" }, { timeoutMs });
     if (!res.ok || !(res.headers.get("content-type") ?? "").includes("html")) return null;
     return { html: await readCapped(res), url: res.url || url };
   } catch {

@@ -1096,8 +1096,16 @@ const STATEMENTS = [
   `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "last_beat_at" timestamp`,
   `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "beat_key" varchar(40)`,
 
+  // Security: rate limits that hold across serverless instances (lib/rate-limit-db.ts).
+  `CREATE TABLE IF NOT EXISTS "rate_limits" (
+    "key" varchar(200) PRIMARY KEY NOT NULL,
+    "hits" integer DEFAULT 0 NOT NULL,
+    "reset_at" timestamp NOT NULL
+  )`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
+  `DELETE FROM "rate_limits" WHERE "reset_at" < now()`,
 ];
 
 async function main() {

@@ -4,6 +4,7 @@
 // Nothing here SENDS anything: it prepares leads and messages; you press send.
 
 import { randomBytes } from "crypto";
+import { safeFetch } from "@/lib/safe-fetch";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leadSearches, leads, siteChecks, type Lead } from "@/lib/db/schema";
@@ -51,7 +52,7 @@ export async function demoBySlug(slug: string) {
 async function checkUrl(url: string): Promise<{ ok: boolean; ms: number; status: number | null }> {
   const t0 = Date.now();
   try {
-    const res = await fetch(url, { method: "GET", headers: { "User-Agent": UA }, redirect: "follow", signal: AbortSignal.timeout(10_000), cache: "no-store" });
+    const res = await safeFetch(url, { method: "GET", headers: { "User-Agent": UA }, cache: "no-store" }, { timeoutMs: 10_000 }); // SSRF guard: lead websites come from maps data and agents
     res.body?.cancel().catch(() => {});
     return { ok: res.status < 500 && res.status !== 404 && res.status !== 410, ms: Date.now() - t0, status: res.status };
   } catch {

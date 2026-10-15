@@ -6,6 +6,7 @@
 // stored encrypted in user_secrets and never sent back to the browser.
 
 import { getSecret, setSecret } from "@/lib/services/secrets";
+import { readTextCapped, safeFetch } from "@/lib/safe-fetch";
 import { isValidFeedUrl, meetingsFromIcs, normalizeFeedUrl, type Meeting } from "@/lib/calendar";
 
 type Feed = { label: string; url: string };
@@ -24,13 +25,10 @@ async function feedsFor(userId: number): Promise<Feed[]> {
 }
 
 async function fetchIcs(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Galaxus/1.0 (calendar sync)", Accept: "text/calendar" },
-    signal: AbortSignal.timeout(12_000),
-    cache: "no-store",
-  });
+  // A pasted link: public https hosts only, redirects re-checked (lib/safe-fetch.ts).
+  const res = await safeFetch(url, { headers: { "User-Agent": "Galaxus/1.0 (calendar sync)", Accept: "text/calendar" }, cache: "no-store" }, { timeoutMs: 12_000, httpsOnly: true });
   if (!res.ok) throw new Error(res.status === 404 ? "Calendar link not found — it may have been reset." : `Calendar returned HTTP ${res.status}.`);
-  const text = await res.text();
+  const text = await readTextCapped(res, 5_000_000);
   if (!text.includes("BEGIN:VCALENDAR")) throw new Error("That link isn't an iCal calendar (.ics).");
   return text.slice(0, 5_000_000);
 }

@@ -8,6 +8,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { freeLlmKeys, type FreeLlmKey } from "@/lib/db/schema";
 import { encrypt, tryDecrypt } from "@/lib/crypto-box";
+import { isPublicUrl, safeFetch } from "@/lib/safe-fetch";
+import { scrubSecret } from "@/lib/scrub-secret";
 import { FREE_PROVIDERS, cooldownMs, freeProvider, isUnhealthy, modelTrouble, modelsToTry, pickOrder, readRateHeaders, remainingToday } from "@/lib/free-llm";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -46,6 +48,8 @@ export async function saveFreeKeyFor(userId: number, raw: { provider: string; ke
       if (u.protocol !== "https:") throw new Error();
       baseUrl = u.toString().replace(/\/+$/, "");
     } catch { throw new Error("Base URL must be an https:// address, e.g. https://api.groq.com/openai/v1"); }
+    // SSRF guard: the server calls this address with your key, so it must be on the public internet.
+    if (!isPublicUrl(baseUrl, { httpsOnly: true })) throw new Error("Base URL must be a public https:// address (not localhost or a private network).");
   }
   const key = raw.key?.trim();
   if (key != null && key !== "" && (key.length < 8 || key.length > 400)) throw new Error("That key doesn't look right.");
@@ -86,7 +90,7 @@ const baseOf = (k: FreeLlmKey) => (k.baseUrl ?? freeProvider(k.provider)?.baseUr
 async function listModels(k: FreeLlmKey) {
   const key = tryDecrypt(k.keyEnc);
   try {
-    const r = await fetch(`${baseOf(k)}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(15_000), cache: "no-store" });
+    const r = await safeFetch(`${baseOf(k)}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {}, cache: "no-store" }, { timeoutMs: 15_000 });
     if (!r.ok) return [];
     // OpenAI shape ({data:[{id}]}); Gemini's OpenAI layer answers ids like "models/gemini-…".
     return (((await r.json()) as { data?: { id: string }[] }).data ?? []).map((m) => m.id.replace(/^models\//, "")).slice(0, 300);
@@ -95,13 +99,13 @@ async function listModels(k: FreeLlmKey) {
 
 async function call(k: FreeLlmKey, model: string, messages: Msg[], maxTokens: number, json: boolean) {
   const key = tryDecrypt(k.keyEnc);
-  const res = await fetch(`${baseOf(k)}/chat/completions`, {
+  // safeFetch: a custom/OmniRoute base URL is user-chosen, so public addresses only (and the key never follows a redirect off-origin).
+  const res = await safeFetch(`${baseOf(k)}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(key ? { Authorization: `Bearer ${key}` } : {}), ...(k.provider === "openrouter" ? { "HTTP-Referer": "https://project-galaxus.vercel.app", "X-Title": "Galaxus Ops" } : {}) },
     body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4, ...(json ? { response_format: { type: "json_object" } } : {}) }),
-    signal: AbortSignal.timeout(60_000),
     cache: "no-store",
-  });
+  }, { timeoutMs: 60_000 });
   return res;
 }
 
@@ -116,7 +120,7 @@ async function noteUse(k: FreeLlmKey, res: Response | null, tokens: number, erro
     ...(fresh ? {} : { healthChecks: 0 }), // a new day: today's health-check count starts over
     ...(h.remainingRequests != null ? { remainingRequests: h.remainingRequests, limitRequests: h.limitRequests, remainingTokens: h.remainingTokens, headersAt: new Date() } : {}),
     ...(error
-      ? { lastError: error.slice(0, 300), cooldownUntil: new Date(Date.now() + cooldownMs(status, error, retryAfter)) }
+      ? { lastError: scrubSecret(error, tryDecrypt(k.keyEnc)).slice(0, 300), cooldownUntil: new Date(Date.now() + cooldownMs(status, error, retryAfter)) }
       : { lastError: null, lastOkAt: new Date(), healthFails: 0 }), // real work succeeding counts as passing a health check
   }).where(eq(freeLlmKeys.id, k.id));
 }
@@ -166,7 +170,7 @@ export async function askFree(userId: number, o: { system: string; prompt: strin
       // Every model was missing/busy: rest briefly if busy (it passes), longer if nothing exists for this key.
       const busy = modelTrouble(last.status, last.error) === "busy";
       await noteUse(k, last.res, 0, last.error, busy ? 503 : last.status, busy ? "120" : last.res?.headers.get("retry-after") ?? null);
-      reasons.push(`${k.provider}: ${last.error.slice(0, 80)}`);
+      reasons.push(`${k.provider}: ${scrubSecret(last.error, tryDecrypt(k.keyEnc)).slice(0, 80)}`);
     }
   }
   throw new Error(`Every free model failed (${reasons.join("; ")}).`);

@@ -3,7 +3,10 @@
 // labelled as a proposal — never presented as the business's real site.
 
 import type { Metadata } from "next";
+import { cache } from "react";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { checkRateLimit } from "@/lib/ratelimit";
 import { CalendarCheck, Clock, MapPin, MessageCircle, Phone, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { demoBySlug } from "@/lib/services/leads-auto";
 import { formatPhone } from "@/lib/outreach";
@@ -12,8 +15,17 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
+// Public and unauthenticated: a per-IP budget stops slug guessing and scraping
+// from turning into a DB query per request. cache() = one lookup (and one
+// count) per request, shared by generateMetadata and the page.
+const demoFor = cache(async (slug: string) => {
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`demo-page:${ip}`, 60, 60_000).allowed) return null;
+  return demoBySlug(slug);
+});
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const d = await demoBySlug((await params).slug);
+  const d = await demoFor((await params).slug);
   return { title: d ? `${d.name} — prijedlog web stranice` : "Prijedlog", robots: { index: false, follow: false } };
 }
 
@@ -56,7 +68,7 @@ const COPY: Record<Kind, { accent: string; tagline: string; cta: string; service
 };
 
 export default async function DemoPage({ params }: Props) {
-  const d = await demoBySlug((await params).slug);
+  const d = await demoFor((await params).slug);
   if (!d) notFound();
   const kind = kindOf(d.category, d.name);
   // Copy written for this business (an agent, grounded in what's known) replaces the generic copy.

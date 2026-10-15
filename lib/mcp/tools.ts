@@ -15,7 +15,7 @@ import { AREAS } from "@/lib/areas";
 import { describeDays, isPastRoutine } from "@/lib/tasks";
 import { goalPace, goalProgress, groupByPhase, monthKey, monthLabel, PACE_LABEL } from "@/lib/goals";
 import type { Task } from "@/lib/db/schema";
-import { VOICE_BLOCKED_TOOLS } from "@/lib/voice";
+import { VOICE_ALLOWED_TOOLS, VOICE_BLOCKED_TOOLS } from "@/lib/voice";
 import { AGENT_TOOLS } from "@/lib/ops";
 import { registerMemoryReachTools } from "@/lib/mcp/memory-reach-tools";
 import { registerOpsTools } from "@/lib/mcp/ops-tools";
@@ -35,17 +35,21 @@ type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean
 
 /**
  * Wraps registerTool so every tool gets the same two guarantees:
- *  1. Tokens with scope "voice" can't run destructive tools, and tokens with
- *     scope "agent" can only run the ops_* tools — enforced here, on the
- *     server, whatever the client was told it may call.
+ *  1. Tokens with scope "voice" can only run the voice tools (VOICE_ALLOWED_TOOLS,
+ *     the same list voice.yml gives Claude) and never the destructive ones, and
+ *     tokens with scope "agent" can only run AGENT_TOOLS — enforced here, on the
+ *     server, whatever the client was told it may call. An allowlist, not a
+ *     blocklist: a new tool is unavailable to a scoped token until it's added.
  *  2. Successful calls are reported to hooks.onToolResult.
  */
+const VOICE_TOOL_SET = new Set<string>(VOICE_ALLOWED_TOOLS);
+
 function instrument(server: McpServer, hooks: McpHooks): McpServer {
   const original = server.registerTool.bind(server) as unknown as (name: string, config: unknown, handler: unknown) => unknown;
   const registerTool = (name: string, config: unknown, handler: (args: unknown, ctx: Ctx) => Promise<ToolResult>) =>
     original(name, config, async (args: unknown, ctx: Ctx) => {
       const scope = String(ctx.http?.authInfo?.extra?.scope ?? "full");
-      if (scope === "voice" && VOICE_BLOCKED_TOOLS.has(name)) {
+      if (scope === "voice" && (VOICE_BLOCKED_TOOLS.has(name) || !VOICE_TOOL_SET.has(name))) {
         return fail(new Error(`"${name}" isn't available to voice commands. Ask the user to do it in the app.`));
       }
       if (scope === "agent" && !AGENT_TOOLS.has(name)) {

@@ -9,6 +9,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { freeLlmKeys, type FreeLlmKey } from "@/lib/db/schema";
 import { tryDecrypt } from "@/lib/crypto-box";
+import { safeFetch } from "@/lib/safe-fetch";
+import { scrubSecret } from "@/lib/scrub-secret";
 import { cooldownMs, freeProvider, modelTrouble, readRateHeaders } from "@/lib/free-llm";
 import { HEALTH_MAX_TOKENS, HEALTH_PROMPT, HEALTH_TIMEOUT_MS, healthSkip, nextHealthFails } from "@/lib/free-health";
 import { freeKeysFor } from "@/lib/services/free-llm";
@@ -20,15 +22,14 @@ const baseOf = (k: FreeLlmKey) => (k.baseUrl ?? freeProvider(k.provider)?.baseUr
 async function probe(k: FreeLlmKey) {
   const key = tryDecrypt(k.keyEnc);
   try {
-    const res = await fetch(`${baseOf(k)}/chat/completions`, {
+    const res = await safeFetch(`${baseOf(k)}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(key ? { Authorization: `Bearer ${key}` } : {}), ...(k.provider === "openrouter" ? { "HTTP-Referer": "https://project-galaxus.vercel.app", "X-Title": "Galaxus Ops" } : {}) },
       body: JSON.stringify({ model: k.model, messages: [{ role: "system", content: HEALTH_PROMPT.system }, { role: "user", content: HEALTH_PROMPT.prompt }], max_tokens: HEALTH_MAX_TOKENS, temperature: 0 }),
-      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
       cache: "no-store",
-    });
+    }, { timeoutMs: HEALTH_TIMEOUT_MS });
     const body = await res.text();
-    if (!res.ok) return { ok: false, res, status: res.status, error: `HTTP ${res.status} (${k.model}): ${body.slice(0, 200)}`, tokens: 0 };
+    if (!res.ok) return { ok: false, res, status: res.status, error: scrubSecret(`HTTP ${res.status} (${k.model}): ${body.slice(0, 200)}`, key), tokens: 0 };
     // A 200 is a pass even if a reasoning model spent all 300 tokens thinking: the key, the quota and the model all work.
     let tokens = 0;
     try { tokens = (JSON.parse(body) as { usage?: { total_tokens?: number } }).usage?.total_tokens ?? 0; } catch { /* not JSON: still alive */ }
