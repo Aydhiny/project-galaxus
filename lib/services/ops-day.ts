@@ -173,7 +173,7 @@ export async function debriefMarkdown(userId: number, day: string) {
     `## Waiting for your review`, list(review, (m) => `${m.title} (${name(m.submittedBy ?? m.agentId)})`),
     `## Blocked or still running`, list(doing, (m) => `${m.title} (${name(m.agentId)})`),
     ...(decided ? [decided] : []),
-    ...(waiting.length ? [`## Agents that waited for you`, waiting.map((w) => `- ${name(w.agentId)}: ${w.label}`).join("\n")] : []),
+    ...(waiting.length ? [`## Agents that waited for a decision`, waiting.map((w) => `- ${name(w.agentId)}: ${w.label}`).join("\n")] : []),
     `## Tomorrow`,
     list(open.slice(0, 10), (m) => `${m.title}${m.role ? ` (any ${ROLES[roleOf(m.role)].label})` : m.agentId ? ` (${name(m.agentId)})` : ""}`),
     ...nextRecurring.filter((r) => r.days[wd] === "1").map((r) => `- [repeats] ${r.title} (${describeRepeat(r.days, r.time)})`),

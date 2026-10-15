@@ -862,7 +862,7 @@ export async function applyCloudMissionResult(userId: number, missionId: number,
     await db.update(opsMissions).set({ status: "open", claimedAt: null, jobId: null, agentId: a.id, role: null }).where(eq(opsMissions.id, m.id));
     const { askUserForAgent } = await import("@/lib/services/ops-inbox");
     await askUserForAgent(a, { question: q.question, options: q.options, missionId: m.id, blocking: true });
-    await recordEventForAgent(a, { kind: "waiting", label: `Waiting for your answer: ${q.question}`.slice(0, 200), url: null, status: "idle" }, { missionId: m.id });
+    await recordEventForAgent(a, { kind: "waiting", label: `Waiting for a decision (Chief or you): ${q.question}`.slice(0, 200), url: null, status: "idle" }, { missionId: m.id });
     return `${a.name} has a question about "${m.title}"`;
   }
   await submitDeliverableForAgent(a, { missionId: m.id, markdown: text.trim() || "(empty answer)", costCents: costCents ?? 0, measured: costCents != null });
