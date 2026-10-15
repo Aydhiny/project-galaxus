@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Activity, ArrowLeft, Brain, Cable, ClipboardList, Cloud, Eye, Gift, Hand, History, Inbox as InboxIcon, Megaphone, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus, Wallet } from "lucide-react";
+import { Activity, ArrowLeft, BarChart3, Brain, Cable, ClipboardList, Cloud, Eye, Gift, Hand, History, Inbox as InboxIcon, Megaphone, MoreHorizontal, Plus, Radio as RadioIcon, Sparkles, Trash2, Trophy, UserPlus, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BUILTIN_SKILLS, PRESENCE_LOOK, PROVIDERS, ROLES, TEAMS, formatUsd, presence, presenceNote, prLabel, providerOf, roleOf, type ProviderKey } from "@/lib/ops";
 import { ProviderIcon } from "@/components/ops/provider-logos";
@@ -209,6 +209,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
                 [Megaphone, "Talk to the Chief", "Standing orders every plan follows", () => setDialog("chief")],
                 [Wallet, "Budget & alerts", data.budget.paused ? "Paused by a usage limit" : "Spend per day, model, notifications", () => setDialog("budget")],
                 [Trophy, "Scoreboard", "Levels, accept rate, cost, wins", () => setScores(true)],
+                [BarChart3, "Project results", "Sheets, results and timelines per project", () => router.push("/ops/results")],
               ] as const).map(([Icon, label, hint, go]) => (
                 <button key={label} onClick={() => { setMore(false); go(); }} className="w-full flex items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-white/[0.06]">
                   <Icon className="w-4 h-4 mt-0.5 text-[#8ea6ff]" />
