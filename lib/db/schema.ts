@@ -1354,6 +1354,11 @@ export const opsMessages = pgTable(
     body: text("body").notNull(),
     readAt: timestamp("read_at"),
     at: timestamp("at").defaultNow().notNull(),
+    // Full autonomy (lib/services/ops-autonomy.ts): who a question went to. null/"user" = you (pushed),
+    // "held" = needs you but waits without a push (today's cap), "chief" = the Chief decides.
+    route: varchar("route", { length: 8 }),
+    chiefAnswer: text("chief_answer"), // what the Chief decided (kept when you change it)
+    changedAt: timestamp("changed_at"), // you changed the Chief's decision
   },
   (t) => [index("idx_ops_messages_user_at").on(t.userId, t.at), index("idx_ops_messages_to").on(t.toAgentId)]
 );
@@ -1472,6 +1477,7 @@ export const opsSettings = pgTable("ops_settings", {
   nightStartedAt: timestamp("night_started_at"), // the night shift running now started then (cleared by the morning summary)
   lastBeatAt: timestamp("last_beat_at"), // the crew's heartbeat: at most one beat a minute (lib/services/ops-beat.ts)
   beatKey: varchar("beat_key", { length: 40 }), // the private key in your 24/7 beat URL (can only trigger a beat)
+  autonomy: varchar("autonomy", { length: 8 }).notNull().default("full"), // full: the Chief answers agents' questions | ask: they come to you
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

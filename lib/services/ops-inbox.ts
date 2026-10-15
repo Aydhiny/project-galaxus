@@ -14,6 +14,7 @@ import {
   CLOUD_MODELS, NOTIFY_LEVELS, dailyAllowance, hhmmIn, parseQuestion, redact, shouldPush, usageLimitPause,
   type CloudModel, type NotifyLevel, type PushKind,
 } from "@/lib/ops";
+import { AUTONOMY_MODES, autonomyOf, isLeaveIt, type AutonomyMode } from "@/lib/ops-autonomy";
 
 const MAX_QUESTIONS_PER_AGENT_DAY = 10;
 const MAX_UPDATES_PER_AGENT_DAY = 20;
@@ -27,7 +28,7 @@ export async function opsSettingsFor(userId: number) {
   return s;
 }
 
-export async function saveOpsSettingsFor(userId: number, raw: { monthlyBudgetUsd?: unknown; cloudModel?: unknown; notify?: unknown; maxPushesPerDay?: unknown; freeFallback?: unknown; freeFirst?: unknown }) {
+export async function saveOpsSettingsFor(userId: number, raw: { monthlyBudgetUsd?: unknown; cloudModel?: unknown; notify?: unknown; maxPushesPerDay?: unknown; freeFallback?: unknown; freeFirst?: unknown; autonomy?: unknown }) {
   await opsSettingsFor(userId);
   const set: Partial<typeof opsSettings.$inferInsert> = { updatedAt: new Date() };
   if (raw.monthlyBudgetUsd !== undefined) {
@@ -45,6 +46,10 @@ export async function saveOpsSettingsFor(userId: number, raw: { monthlyBudgetUsd
   }
   if (raw.freeFallback !== undefined) set.freeFallback = !!raw.freeFallback;
   if (raw.freeFirst !== undefined) set.freeFirst = !!raw.freeFirst;
+  if (raw.autonomy !== undefined) {
+    if (!(AUTONOMY_MODES as readonly unknown[]).includes(raw.autonomy)) throw new Error("Autonomy is full or ask.");
+    set.autonomy = raw.autonomy as AutonomyMode;
+  }
   if (raw.maxPushesPerDay !== undefined) {
     const n = Number(raw.maxPushesPerDay);
     if (!Number.isInteger(n) || n < 0 || n > 50) throw new Error("Pushes per day: 0 to 50.");
@@ -83,7 +88,7 @@ export async function budgetFor(userId: number) {
   return {
     monthlyBudgetCents: s.monthlyBudgetCents, spentMonthCents: row?.month ?? 0, spentTodayCents: row?.today ?? 0, runsToday: row?.runsToday ?? 0,
     ...a, model: s.cloudModel as CloudModel, notify: s.notify as NotifyLevel, maxPushesPerDay: s.maxPushesPerDay, paused,
-    freeFallback: s.freeFallback, freeFirst: s.freeFirst, nightShift: s.nightShift,
+    freeFallback: s.freeFallback, freeFirst: s.freeFirst, nightShift: s.nightShift, autonomy: autonomyOf(s.autonomy),
   };
 }
 export type OpsBudget = Awaited<ReturnType<typeof budgetFor>>;
@@ -125,22 +130,40 @@ async function sentTodayBy(agentId: number, kind: "question" | "update") {
 /**
  * An agent asks you something. `blocking`: the mission it's on waits for your
  * answer (cloud agents always block — they can't wait mid-run).
+ * With full autonomy (the default) the Chief answers instead, unless only you may
+ * decide (lib/ops-autonomy.ts); `toUser` always asks you (reply watch: real clients).
+ * `context`: extra facts for the Chief and the classifier (e.g. the project's goal).
  */
-export async function askUserForAgent(agent: OpsAgent, input: { question: unknown; options?: unknown; urgent?: boolean; missionId?: number | null; blocking?: boolean }) {
+export async function askUserForAgent(agent: OpsAgent, input: { question: unknown; options?: unknown; urgent?: boolean; missionId?: number | null; blocking?: boolean; toUser?: boolean; context?: string | null }) {
   const q = parseQuestion({ question: input.question, options: input.options });
   if ((await sentTodayBy(agent.id, "question")) >= MAX_QUESTIONS_PER_AGENT_DAY) throw new Error(`That's ${MAX_QUESTIONS_PER_AGENT_DAY} questions today. Decide yourself and note the assumption in your deliverable.`);
-  let missionId: number | null = null;
+  let mission: { id: number; title: string; brief: string | null } | null = null;
   if (input.missionId) {
-    const [m] = await db.select({ id: opsMissions.id }).from(opsMissions).where(and(eq(opsMissions.id, input.missionId), eq(opsMissions.userId, agent.userId))).limit(1);
-    missionId = m?.id ?? null;
+    const [m] = await db.select({ id: opsMissions.id, title: opsMissions.title, brief: opsMissions.brief }).from(opsMissions).where(and(eq(opsMissions.id, input.missionId), eq(opsMissions.userId, agent.userId))).limit(1);
+    mission = m ?? null;
   }
+  const missionId = mission?.id ?? null;
+  // The classifier reads the mission's own words (a question inside a "send the offers" mission is yours);
+  // input.context (e.g. a project goal) only informs the Chief.
+  const missionText = mission ? `${mission.title}\n${(mission.brief ?? "").slice(0, 600)}` : null;
+  const { routeQuestionFor, scheduleChiefDecision } = await import("@/lib/services/ops-autonomy");
+  const route = await routeQuestionFor(agent.userId, { question: q.question, options: q.options, context: missionText, urgent: !!input.urgent, toUser: input.toUser });
   const [row] = await db.insert(opsMessages).values({
     userId: agent.userId, fromAgentId: agent.id, toUser: true, kind: "question", urgent: !!input.urgent, options: q.options.length ? q.options : null, missionId, body: q.question,
+    route: route === "direct" ? null : route,
   }).returning();
   if (input.blocking && missionId) await db.update(opsMissions).set({ waitingOn: row.id }).where(eq(opsMissions.id, missionId));
   const { recordEventForAgent } = await import("@/lib/services/ops");
-  await recordEventForAgent(agent, { kind: "message", label: `Asked you: ${q.question}`.slice(0, 200), url: null, status: input.blocking ? "waiting" : "working" }, { missionId });
-  await pushFor(agent.userId, "question", !!input.urgent || !!input.blocking, `${agent.name} asks`, q.question, `ops-q-${row.id}`);
+  if (route === "chief") {
+    // Not "waiting": that status pushes "needs you" to your phone, and this doesn't.
+    await recordEventForAgent(agent, { kind: "message", label: `Asked the Chief: ${q.question}`.slice(0, 200), url: null, status: input.blocking ? "idle" : "working" }, { missionId });
+    await scheduleChiefDecision(agent.userId, row.id, input.context ?? null);
+    return { asked: true, id: row.id, note: "The Chief decides for the user, usually within a minute; the answer arrives in ops_get_messages. Keep working on anything that doesn't depend on it." };
+  }
+  // A held question waits quietly: "idle", since "waiting" would push to your phone too.
+  await recordEventForAgent(agent, { kind: "message", label: `Asked you: ${q.question}`.slice(0, 200), url: null, status: input.blocking ? (route === "held" ? "idle" : "waiting") : "working" }, { missionId });
+  // "held": it needs you, but today's question already went out: it waits in "Needs you" without buzzing your phone.
+  if (route !== "held") await pushFor(agent.userId, "question", !!input.urgent || !!input.blocking, `${agent.name} asks`, q.question, `ops-q-${row.id}`);
   return { asked: true, id: row.id, note: "The user's answer arrives in ops_get_messages. Keep working on anything that doesn't depend on it." };
 }
 
@@ -154,28 +177,45 @@ export async function notifyUserForAgent(agent: OpsAgent, input: { text: unknown
   return { sent: true };
 }
 
-/** You answer. The agent gets it on its radio; a mission that waited on it picks up again with the answer in its brief. */
-export async function answerFor(userId: number, messageId: number, answerRaw: string) {
+/**
+ * You answer. The agent gets it on its radio; a mission that waited on it picks up again with the answer in its brief.
+ * `byChief`: the Chief answers for you (full autonomy, lib/services/ops-autonomy.ts) — same path, said as the Chief's.
+ */
+export async function answerFor(userId: number, messageId: number, answerRaw: string, byChief: { chief: OpsAgent | null; why?: string; engine?: string } | null = null) {
   const answer = redact(String(answerRaw ?? "")).trim().slice(0, 2000);
   if (!answer) throw new Error("Write an answer.");
-  const [q] = await db.update(opsMessages).set({ answer, answeredAt: new Date(), readAt: new Date() })
+  const [q] = await db.update(opsMessages).set({ answer, answeredAt: new Date(), ...(byChief ? { chiefAnswer: answer } : { readAt: new Date() }) })
     .where(and(eq(opsMessages.id, messageId), eq(opsMessages.userId, userId), eq(opsMessages.toUser, true), eq(opsMessages.kind, "question"), isNull(opsMessages.answeredAt))).returning();
   if (!q) throw new Error("That question is already answered (or gone).");
   // Reply watch: an answer about a lead's reply draft also acts on the lead (use it, reprice, or not now).
   const { onReplyAnswer } = await import("@/lib/services/reply-watch");
   await onReplyAnswer(userId, q.id, answer, q.fromAgentId).catch(() => false);
-  if (q.fromAgentId) await db.insert(opsMessages).values({ userId, fromAgentId: null, toAgentId: q.fromAgentId, missionId: q.missionId, body: `Answer to your question "${q.body.slice(0, 200)}": ${answer}` });
+  const why = byChief?.why ? ` (${byChief.why})` : "";
+  if (q.fromAgentId) {
+    await db.insert(opsMessages).values(byChief
+      ? { userId, fromAgentId: byChief.chief?.id ?? null, toAgentId: q.fromAgentId, missionId: q.missionId, body: `Decided for the user on "${q.body.slice(0, 200)}": ${answer}${why}`.slice(0, 2000) }
+      : { userId, fromAgentId: null, toAgentId: q.fromAgentId, missionId: q.missionId, body: `Answer to your question "${q.body.slice(0, 200)}": ${answer}` });
+  }
   // Every answer is a decision all agents should know about (shared memory).
   const { remember } = await import("@/lib/services/ops-memory");
-  await remember(userId, { type: "decision", title: q.body.slice(0, 200), body: `Asked: ${q.body}\nYou decided: ${answer}`, source: `answer:${q.id}`, agentId: q.fromAgentId }).catch(() => null);
+  await remember(userId, byChief
+    ? { type: "decision", title: q.body.slice(0, 200), body: `Asked: ${q.body}\nThe Chief decided for you: ${answer}${why}`, source: `chief-decided:${q.id}`, agentId: q.fromAgentId }
+    : { type: "decision", title: q.body.slice(0, 200), body: `Asked: ${q.body}\nYou decided: ${answer}`, source: `answer:${q.id}`, agentId: q.fromAgentId }).catch(() => null);
+  if (byChief?.chief) {
+    const { recordEventForAgent } = await import("@/lib/services/ops");
+    // Keeps the Chief's own status (it may be busy planning); "waiting" is never set here, it would buzz your phone.
+    const status = byChief.chief.status === "working" || byChief.chief.status === "error" ? byChief.chief.status : "idle";
+    await recordEventForAgent(byChief.chief, { kind: "message", label: `Decided: ${answer} · ${q.body}`.slice(0, 200), url: null, status }).catch(() => {});
+  }
   const waiting = await db.select().from(opsMissions).where(and(eq(opsMissions.userId, userId), eq(opsMissions.waitingOn, q.id)));
   // "Leave it" / "Cancel": the waiting mission stops instead of resuming.
-  if (/^(leave it|cancel( it)?|skip( it)?|stop)$/i.test(answer)) {
+  if (isLeaveIt(answer)) {
     for (const m of waiting) await db.update(opsMissions).set({ waitingOn: null, status: "cancelled" }).where(eq(opsMissions.id, m.id));
     return { resumed: 0 };
   }
   for (const m of waiting) {
-    await db.update(opsMissions).set({ waitingOn: null, brief: `${m.brief ?? ""}\n\nYou asked: ${q.body}\nThe user answered: ${answer}`.trim() }).where(eq(opsMissions.id, m.id));
+    const said = byChief ? "The Chief answered for the user" : "The user answered";
+    await db.update(opsMissions).set({ waitingOn: null, brief: `${m.brief ?? ""}\n\nYou asked: ${q.body}\n${said}: ${answer}`.trim() }).where(eq(opsMissions.id, m.id));
   }
   if (waiting.length) {
     const { dispatchCloudFor } = await import("@/lib/services/ops");
@@ -197,6 +237,8 @@ export async function inboxFor(userId: number) {
   return rows.map(({ m, agent, provider, cloud }) => ({
     id: m.id, kind: m.kind as "question" | "update", body: m.body, options: m.options ?? [], urgent: m.urgent, missionId: m.missionId,
     answer: m.answer, answeredAt: m.answeredAt, readAt: m.readAt, at: m.at, agentId: m.fromAgentId, agent: agent ?? (m.fromAgentId ? "Agent" : "Galaxus"), provider: provider ?? "other", cloud: !!cloud,
+    // Full autonomy: "chief" = the Chief decides (chiefAnswer; changedAt once you changed it), "held" = needs you, no push.
+    route: (m.route ?? "direct") as "direct" | "chief" | "user" | "held", chiefAnswer: m.chiefAnswer, changedAt: m.changedAt,
   }));
 }
 export type OpsInboxItem = Awaited<ReturnType<typeof inboxFor>>[number];

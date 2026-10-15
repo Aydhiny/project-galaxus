@@ -139,6 +139,10 @@ export async function buildJobPrompt(row: Pick<VoiceCommand, "userId" | "kind" |
       const { buildLeadReplyPrompt } = await import("@/lib/services/reply-watch");
       return buildLeadReplyPrompt(row.userId, Number(p.replyId));
     }
+    case "ops_chief_decide": {
+      const { buildChiefDecidePrompt } = await import("@/lib/services/ops-autonomy");
+      return buildChiefDecidePrompt(row.userId, Number(p.messageId), p.context ? String(p.context) : null);
+    }
     case "scout":
       return buildScoutPrompt(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger));
     case "digest": {
@@ -221,6 +225,10 @@ export async function applyJobResult(row: VoiceCommand, text: string, costCents:
     case "ops_lead_reply": {
       const { applyLeadReplyResult } = await import("@/lib/services/reply-watch");
       return applyLeadReplyResult(row.userId, Number(p.replyId), text);
+    }
+    case "ops_chief_decide": {
+      const { applyChiefDecisionResult } = await import("@/lib/services/ops-autonomy");
+      return applyChiefDecisionResult(row.userId, Number(p.messageId), text);
     }
     case "scout":
       return applyScoutResult(row.userId, ((p.threadIds as unknown[]) ?? []).map(Number).filter(Number.isInteger), text);

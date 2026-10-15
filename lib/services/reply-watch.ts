@@ -194,7 +194,8 @@ async function ask(userId: number, agent: OpsAgent | null, question: string, opt
   if (agent) {
     try {
       const { askUserForAgent } = await import("@/lib/services/ops-inbox");
-      return (await askUserForAgent(agent, { question, options })).id;
+      // Always you, even with full autonomy: this is about sending to a real client.
+      return (await askUserForAgent(agent, { question, options, toUser: true })).id;
     } catch { /* that agent's question cap for today: Galaxus asks instead */ }
   }
   const q = parseQuestion({ question, options });

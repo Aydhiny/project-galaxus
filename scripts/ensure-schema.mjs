@@ -1096,6 +1096,12 @@ const STATEMENTS = [
   `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "last_beat_at" timestamp`,
   `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "beat_key" varchar(40)`,
 
+  // Full autonomy: agents' questions go to the Chief (lib/services/ops-autonomy.ts); you can change any decision.
+  `ALTER TABLE "ops_settings" ADD COLUMN IF NOT EXISTS "autonomy" varchar(8) DEFAULT 'full' NOT NULL`,
+  `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "route" varchar(8)`,
+  `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "chief_answer" text`,
+  `ALTER TABLE "ops_messages" ADD COLUMN IF NOT EXISTS "changed_at" timestamp`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
 ];
