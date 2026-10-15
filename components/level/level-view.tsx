@@ -30,7 +30,7 @@ function SegmentBar({ progress, tone }: { progress: number; tone: string }) {
         const fill = Math.max(0, Math.min(1, progress / 10 - i));
         return (
           <span key={i} className="h-2.5 flex-1 bg-muted overflow-hidden">
-            <span className={cn("block h-full transition-[width] duration-700", TONE[tone]?.bar)} style={{ width: `${fill * 100}%`, transitionDelay: `${i * 40}ms` }} />
+            <span className={cn("block h-full bar-fill", TONE[tone]?.bar)} style={{ width: `${fill * 100}%`, transitionDelay: `${i * 40}ms` }} />
           </span>
         );
       })}
@@ -77,7 +77,7 @@ export function LevelView({ hud: h, name, image }: { hud: Hud; name: string; ima
           </div>
         </div>
         <div className="mt-6 h-3 bg-muted overflow-hidden -skew-x-12">
-          <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-[width] duration-1000" style={{ width: `${h.progress}%` }} />
+          <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 bar-fill" style={{ width: `${h.progress}%` }} />
         </div>
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
           {stats.map((s) => (

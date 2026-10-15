@@ -52,6 +52,35 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── MOTION SYSTEM ────────────────────────────────────────────────────────────
+   One place for how Galaxus moves. CSS first (cheap, no JS); lib/motion.ts
+   mirrors these numbers for framer-motion and JS tweens (CountUp).
+   - durations: --motion-instant/fast/base/slow
+   - easings:   ease-out-expo (entrances), ease-spring (a little overshoot),
+                ease-snappy (presses)
+   Every animation here is switched off by the prefers-reduced-motion block
+   near the bottom of this file.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --motion-instant: 80ms;
+  --motion-fast: 140ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --motion-bar: 700ms;
+  --motion-stagger: 30ms;
+}
+
+/* Tailwind utilities: ease-spring, ease-out-expo, ease-snappy, animate-pop, … */
+@theme {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+  --animate-pop: pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  --animate-rise: rise 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  --animate-float-soft: float-soft 3.6s ease-in-out infinite;
+  --animate-nav-pop: nav-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 /* ── GitHub chart ─────────────────────────────────────────────────── */
 :root { --gh-chart-filter: saturate(1.3); }
 .dark { --gh-chart-filter: invert(1) hue-rotate(175deg) saturate(1.4) brightness(0.85); }
@@ -327,8 +356,17 @@ html.dark[data-room="mountain"] body {
   ::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--foreground) 14%, transparent); border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; }
   ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--foreground) 26%, transparent); background-clip: padding-box; }
 
-  /* Button active */
-  button:active:not(:disabled) { transform: scale(0.97); }
+  /* Press feedback: every button squeezes a little and springs back on
+     release. Uses the individual `scale` property (not `transform`) so it
+     composes with Tailwind's translate/skew/rotate instead of clobbering them. */
+  button:active:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:active:not([aria-disabled="true"]) { scale: 0.97; }
+  /* Checkboxes and switches: squash on press, pop back with a spring. A
+     transition (not an animation) so already-checked boxes don't pop on load. */
+  input[type="checkbox"]:active:not(:disabled),
+  input[type="radio"]:active:not(:disabled),
+  [role="checkbox"]:active { scale: 0.86; }
+  [role="switch"]:active:not(:disabled):not([data-disabled]) { scale: 0.94; }
   input[type="range"] { accent-color: var(--primary); border-radius: 9999px; }
 
   /* Popover/select surface */
@@ -340,12 +378,93 @@ html.dark[data-room="mountain"] body {
   /* Focus rings */
   :focus-visible { outline: 2px solid color-mix(in oklab, var(--ring) 60%, transparent); outline-offset: 2px; }
 
-  /* Production-grade global transitions */
-  button, a, input, textarea, select {
-    transition-property: color, background-color, border-color, opacity, box-shadow, transform;
-    transition-duration: 140ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Production-grade global transitions. Colours ease quickly; scale and
+     translate get the spring so a released press overshoots a hair. (Any
+     Tailwind transition-* utility on an element overrides this, by design.) */
+  button, a, input, textarea, select, [role="button"], [role="checkbox"], [role="switch"] {
+    transition-property: color, background-color, border-color, opacity, box-shadow, transform, scale, translate;
+    transition-duration: var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), 320ms, 320ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1), cubic-bezier(0.4, 0, 0.2, 1), cubic-bezier(0.4, 0, 0.2, 1), cubic-bezier(0.4, 0, 0.2, 1), cubic-bezier(0.4, 0, 0.2, 1), cubic-bezier(0.4, 0, 0.2, 1), var(--ease-spring), var(--ease-spring);
   }
+}
+
+/* ── Motion utilities (part of the motion system above) ───────────────────── */
+
+/* Press: a quick squeeze on :active, a springy release. For buttons/cards. */
+@utility press {
+  transition-property: color, background-color, border-color, outline-color, opacity, box-shadow, filter, scale, translate;
+  transition-duration: var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), 320ms, 320ms;
+  transition-timing-function: var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-spring), var(--ease-spring);
+  &:active:not(:disabled):not([aria-disabled="true"]) { scale: 0.97; transition-duration: var(--motion-instant); }
+}
+/* A softer press for big clickable cards (0.97 on a 400px card is a lot). */
+@utility press-soft {
+  transition-property: color, background-color, border-color, opacity, box-shadow, scale, translate;
+  transition-duration: var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-fast), var(--motion-base), 320ms, 320ms;
+  transition-timing-function: var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-snappy), var(--ease-spring), var(--ease-spring);
+  &:active:not(:disabled) { scale: 0.985; transition-duration: var(--motion-instant); }
+}
+/* Hover lift: 1px up and a soft shadow. Only on devices that really hover. */
+@utility lift {
+  @media (hover: hover) {
+    &:hover:not(:disabled):not([aria-disabled="true"]) {
+      translate: 0 -1px;
+      box-shadow: 0 6px 18px -8px color-mix(in oklab, var(--primary) 45%, transparent);
+    }
+  }
+}
+/* Card hover lift: for clickable cards and stat tiles. */
+@utility card-lift {
+  transition-property: border-color, box-shadow, translate, scale, background-color;
+  transition-duration: var(--motion-base), var(--motion-base), 320ms, 320ms, var(--motion-fast);
+  transition-timing-function: var(--ease-snappy), var(--ease-snappy), var(--ease-spring), var(--ease-spring), var(--ease-snappy);
+  @media (hover: hover) {
+    &:hover { translate: 0 -2px; box-shadow: 0 10px 28px -14px rgb(0 0 0 / 0.45); }
+  }
+}
+/* Children rise in one after another (first render only — CSS animations run
+   when a node mounts, so a data refresh that keeps the same nodes is silent).
+   Capped at ~180ms so nothing waits long. */
+@utility stagger {
+  & > * { animation: rise var(--motion-base) var(--ease-out-expo) backwards; }
+  & > :nth-child(2) { animation-delay: calc(var(--motion-stagger) * 1); }
+  & > :nth-child(3) { animation-delay: calc(var(--motion-stagger) * 2); }
+  & > :nth-child(4) { animation-delay: calc(var(--motion-stagger) * 3); }
+  & > :nth-child(5) { animation-delay: calc(var(--motion-stagger) * 4); }
+  & > :nth-child(6) { animation-delay: calc(var(--motion-stagger) * 5); }
+  & > :nth-child(n+7) { animation-delay: calc(var(--motion-stagger) * 6); }
+}
+/* Progress fills: wipe in on mount, then ease to each new value. */
+@utility bar-fill {
+  transition: width var(--motion-bar) var(--ease-out-expo);
+  animation: bar-wipe var(--motion-bar) var(--ease-out-expo) backwards;
+}
+/* Live indicator: a soft ring breathes out of the dot. The dot must be
+   positioned (relative/absolute); the ring takes the dot's own colour. */
+@utility live-dot {
+  &::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: inherit; pointer-events: none;
+    animation: live-ping 2.4s var(--ease-out-expo) infinite;
+  }
+}
+/* Loading placeholder with a moving sheen instead of a blink. */
+@utility skeleton {
+  background-color: color-mix(in oklab, var(--muted) 70%, transparent);
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--foreground) 6%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-sheen 1.5s ease-in-out infinite;
+}
+/* Modals: the backdrop fades, the panel scales in with a little spring.
+   Add data-closing to play the exit (see components/ops/ops-dialog.tsx). */
+@utility overlay-backdrop {
+  animation: fade-in var(--motion-base) var(--ease-out-expo) backwards;
+  &[data-closing] { animation: fade-out var(--motion-fast) ease-in forwards; }
+}
+@utility overlay-panel {
+  animation: panel-in 260ms var(--ease-spring) backwards;
+  &[data-closing] { animation: panel-out var(--motion-fast) ease-in forwards; }
 }
 
 /* ── Animations ───────────────────────────────────────────────────── */
@@ -416,6 +535,63 @@ html.dark[data-room="mountain"] body {
   from { opacity: 0; transform: translateY(16px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
+/* Motion-system keyframes. Individual transform properties (scale/translate)
+   so they compose with whatever transform an element already has. */
+@keyframes pop {
+  0%   { scale: 0.6; opacity: 0; }
+  55%  { scale: 1.14; opacity: 1; }
+  100% { scale: 1; }
+}
+@keyframes rise {
+  from { opacity: 0; translate: 0 6px; }
+}
+@keyframes route-in {
+  from { opacity: 0; translate: 0 4px; }
+}
+@keyframes float-soft {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -4px; }
+}
+@keyframes nav-pop {
+  0%   { scale: 1; }
+  40%  { scale: 1.18; }
+  100% { scale: 1; }
+}
+@keyframes bell-ring {
+  0%, 100% { rotate: 0deg; }
+  20% { rotate: 14deg; }
+  40% { rotate: -10deg; }
+  60% { rotate: 6deg; }
+  80% { rotate: -3deg; }
+}
+@keyframes check-burst {
+  from { scale: 0.6; opacity: 0.7; }
+  to   { scale: 2.4; opacity: 0; }
+}
+@keyframes nav-bar-in {
+  from { scale: 1 0; opacity: 0; }
+}
+@keyframes bar-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@keyframes live-ping {
+  0%       { scale: 1; opacity: 0.55; }
+  70%, 100% { scale: 2.6; opacity: 0; }
+}
+@keyframes skeleton-sheen {
+  from { background-position: 150% 0; }
+  to   { background-position: -50% 0; }
+}
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+@keyframes panel-in {
+  from { opacity: 0; scale: 0.95; translate: 0 8px; }
+}
+@keyframes panel-out {
+  to { opacity: 0; scale: 0.97; translate: 0 4px; }
+}
 @keyframes onboard-glow-pulse {
   0%,100% { box-shadow: 0 0 40px #173eff30, 0 0 80px #173eff10; }
   50%     { box-shadow: 0 0 60px #173eff50, 0 0 120px #173eff20; }
@@ -435,8 +611,21 @@ html.dark[data-room="mountain"] body {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    animation: fade-in-up 0.35s cubic-bezier(0.16,1,0.3,1) both;
   }
+  /* Sections of a .page rise in one after another (see the stagger utility). */
+  .page > * { animation: rise var(--motion-base) var(--ease-out-expo) backwards; }
+  .page > :nth-child(2) { animation-delay: 30ms; }
+  .page > :nth-child(3) { animation-delay: 60ms; }
+  .page > :nth-child(4) { animation-delay: 90ms; }
+  .page > :nth-child(n+5) { animation-delay: 120ms; }
+
+  /* Route change: the new page fades/slides in, quick (≤200ms) and with no
+     delay. Pages remount on navigation, so a mount animation is all it takes:
+     no wrapper element (a template.tsx would add one) and no JS. `backwards`
+     (not `both`) so no transform lingers afterwards: a leftover transform
+     would trap position:fixed children. .page roots animate their sections
+     instead (above), so they're skipped here. */
+  [data-route-stage] > :not(.page) { animation: route-in 180ms var(--ease-out-expo) backwards; }
   .page-fade-in { animation: fade-slide-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
 }
 
@@ -554,18 +743,17 @@ html.dark[data-room="mountain"] body {
     box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
     backdrop-filter: none;
   }
-  .card-interactive {
-    transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+  /* Interactive cards: border brightens and the card lifts a touch. */
+  .card-interactive, .lw-card-glow {
+    transition: border-color 0.25s, box-shadow 0.25s, translate 320ms var(--ease-spring), scale 320ms var(--ease-spring);
   }
-  .card-interactive:hover {
+  .card-interactive:hover, .lw-card-glow:hover {
     border-color: color-mix(in oklab, var(--foreground) 18%, transparent) !important;
   }
-  .lw-card-glow {
-    transition: box-shadow 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
+  @media (hover: hover) {
+    .card-interactive:hover, .lw-card-glow:hover { translate: 0 -2px; }
   }
-  .lw-card-glow:hover {
-    border-color: color-mix(in oklab, var(--foreground) 18%, transparent) !important;
-  }
+  .card-interactive:active, .lw-card-glow:active { scale: 0.985; }
   .lw-btn-primary {
     background: linear-gradient(135deg, #173eff 0%, #3758f9 100%);
     color: white; border: none; border-radius: 8px;
@@ -734,13 +922,33 @@ html.dark[data-room="mountain"] body {
    window rain, snowfall), which had no motion-preference check at all before.
    Interactive transitions (hover/focus states) become instant too, which is
    the expected/correct behavior for this media query, not a side effect. */
+/* ── Toasts (sonner): a little bounce ─────────────────────────────────────────
+   Sonner injects its own stylesheet at runtime (after ours), so these use one
+   extra attribute of specificity to win. The slide-in gets the spring curve
+   (a small overshoot) and the status icon pops once the toast lands. */
+[data-sonner-toaster] [data-sonner-toast]:not([data-swiping="true"]) {
+  transition-timing-function: var(--ease-spring), ease, ease, ease;
+}
+[data-sonner-toaster] [data-sonner-toast][data-mounted="true"] [data-icon] {
+  animation: pop 420ms var(--ease-spring) 120ms backwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Delays too: a staggered item with `backwards` fill would otherwise
+       stay invisible for its delay even though it no longer animates. */
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
+  /* No squash/lift either: these are state changes, not transitions. */
+  button:active, [role="button"]:active, [role="checkbox"]:active, [role="switch"]:active,
+  input:active, .press:active, .press-soft:active, .card-interactive:active, .lw-card-glow:active { scale: none !important; }
+  .lift:hover, .card-lift:hover, .card-interactive:hover, .lw-card-glow:hover { translate: none !important; }
+  .live-dot::after { display: none; }
 }
 
 /* ─── Marketing (landing) — sleek monochrome: near-black, white, one violet accent for italic words ─── */

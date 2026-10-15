@@ -92,7 +92,7 @@ export function FreeModelsDialog({ data, onClose, onChanged }: { data: OpsOvervi
                 {p.left.requests == null
                   ? <span className="text-emerald-300">No daily request cap</span>
                   : <>
-                      <span className="h-1.5 w-28 rounded-full bg-white/10 overflow-hidden"><span className={cn("block h-full rounded-full", (pct ?? 0) < 15 ? "bg-amber-400" : "bg-emerald-400")} style={{ width: `${pct ?? 0}%` }} /></span>
+                      <span className="h-1.5 w-28 rounded-full bg-white/10 overflow-hidden"><span className={cn("block h-full rounded-full bar-fill", (pct ?? 0) < 15 ? "bg-amber-400" : "bg-emerald-400")} style={{ width: `${pct ?? 0}%` }} /></span>
                       <span className="font-mono text-white/75">{p.left.requests.toLocaleString("en-GB")}{p.left.limit ? ` / ${p.left.limit.toLocaleString("en-GB")}` : ""} left today</span>
                       <span className="text-white/40">{p.left.exact ? "(reported by provider)" : "(estimate)"}</span>
                     </>}

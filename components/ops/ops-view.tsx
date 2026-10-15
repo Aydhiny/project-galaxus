@@ -169,7 +169,7 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
       <div ref={bar} className="pointer-events-none absolute top-3 left-3 right-3 z-30 flex flex-wrap items-center gap-2">
         <Link href="/empire" title="Back to your city" className={cn(chip, "w-9 px-0 justify-center")}><ArrowLeft className="w-4 h-4" /></Link>
         <span className={cn(chip, "font-hud uppercase tracking-wider text-[13px]")}>
-          <span className={cn("w-2 h-2 rounded-full", waiting.length ? "bg-rose-400 animate-pulse" : working ? "bg-emerald-400 animate-pulse" : "bg-white/30")} />
+          <span className={cn("relative w-2 h-2 rounded-full", waiting.length ? "bg-rose-400 live-dot" : working ? "bg-emerald-400 live-dot" : "bg-white/30")} />
           Ops · {working} working{waiting.length ? ` · ${waiting.length} need you` : ""}
         </span>
         <div className="pointer-events-auto flex rounded-xl bg-black/60 backdrop-blur-md border border-white/10 p-0.5">
@@ -181,14 +181,14 @@ export function OpsView({ data, openInbox: deepInbox = false }: { data: OpsOverv
         <span className="flex-1" />
         <button onClick={() => setConnect("pick")} className={cn(chip, "bg-[#6b8afd] text-[#0f1222] border-transparent font-semibold")}><UserPlus className="w-4 h-4" /> <span className="hidden sm:inline">Hire</span></button>
         <button onClick={() => setLeft(flip)} className={cn(chip, left === true && "bg-white text-black", left === null && "lg:bg-white lg:text-black")}>
-          <ClipboardList className="w-4 h-4" /> Plan{review > 0 && <span className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold">{review}</span>}
+          <ClipboardList className="w-4 h-4" /> Plan{review > 0 && <span key={review} className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold animate-pop">{review}</span>}
         </button>
         <button onClick={() => setRight(flip)} className={cn(chip, right === true && "bg-white text-black", right === null && "lg:bg-white lg:text-black")}><Activity className="w-4 h-4" /> Live</button>
         <button onClick={() => { setSelected(null); setReplay((r) => !r); }} disabled={!ready} title="Replay a day: who worked on what, hour by hour"
           className={cn(chip, replay && "bg-[#6b8afd] text-[#0f1222] border-transparent")}><History className="w-4 h-4" /><span className="hidden md:inline">Replay</span></button>
         <button onClick={openInbox} aria-label="Inbox" className={cn(chip, "relative", unread > 0 && "border-amber-300/50")}>
           <InboxIcon className="w-4 h-4" /><span className="hidden md:inline">Inbox</span>
-          {unread > 0 && <span className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold">{unread}</span>}
+          {unread > 0 && <span key={unread} className="ml-0.5 rounded-full bg-amber-400 text-black text-[11px] px-1.5 font-bold animate-pop">{unread}</span>}
         </button>
         <button onClick={() => setDialog("free")} title="Free models: what your agents can still use today when Claude runs out"
           className={cn(chip, "hidden sm:inline-flex", data.free.usableCount ? "text-emerald-200" : "text-white/60")}>

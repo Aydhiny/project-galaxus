@@ -7,6 +7,7 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recha
 import { Plus, Target, Trash2, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CURRENCIES, INCOME_SOURCES, SOURCE_META, formatKm, monthlySeries, monthSummary, mrrKm, type Currency, type IncomeSource } from "@/lib/money";
+import { CountUp } from "@/components/ui/count-up";
 import { addIncomeC, deleteIncomeC, saveMoneySettingsC, saveStripeKeyC, type MoneyState } from "@/lib/client/money";
 
 export function MoneyView({ state }: { state: MoneyState }) {
@@ -27,20 +28,20 @@ export function MoneyView({ state }: { state: MoneyState }) {
         <p className="text-sm text-muted-foreground mt-1">Every income stream in one place — clients, retainers, beats, gigs and Stripe — in KM.</p>
       </header>
 
-      <section data-room-spot="pile" className="grid sm:grid-cols-3 gap-3">
+      <section data-room-spot="pile" className="grid sm:grid-cols-3 gap-3 stagger">
         <div className="rounded-2xl border border-border bg-card p-4 sm:col-span-2">
           <p className="text-xs text-muted-foreground">{format(new Date(), "MMMM")} so far</p>
-          <p className="text-3xl font-bold tabular-nums mt-1">{formatKm(sum.totalCents)}</p>
+          <p className="text-3xl font-bold tabular-nums mt-1"><CountUp value={sum.totalCents} format={formatKm} /></p>
           {state.goalKm ? (
             <>
-              <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-emerald-500 transition-[width]" style={{ width: `${sum.goalPct}%` }} /></div>
+              <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-emerald-500 bar-fill" style={{ width: `${sum.goalPct}%` }} /></div>
               <p className="text-xs text-muted-foreground mt-1.5">{sum.goalPct}% of your {state.goalKm.toLocaleString("en-US")} KM goal</p>
             </>
           ) : <GoalSetter />}
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Recurring every month</p>
-          <p className="text-3xl font-bold tabular-nums mt-1">{mrr.toLocaleString("en-US")} KM</p>
+          <p className="text-3xl font-bold tabular-nums mt-1"><CountUp value={mrr} /> KM</p>
           <p className="text-xs text-muted-foreground mt-1.5">{state.clients.filter((c) => c.retainerKm).length} client retainer{state.clients.filter((c) => c.retainerKm).length === 1 ? "" : "s"}{top ? ` · top: ${SOURCE_META[top[0] as IncomeSource]?.label ?? top[0]}` : ""}</p>
         </div>
       </section>

@@ -87,7 +87,7 @@ export function GoalPage({ goal: initialGoal, initialTasks, goals, serverToday }
           <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", PACE_STYLE[pace])}>{PACE_LABEL[pace]}</span>
         </div>
         <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${progress.pct}%` }} />
+          <div className="h-full rounded-full bg-primary bar-fill" style={{ width: `${progress.pct}%` }} />
         </div>
         {stretch && (
           <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">

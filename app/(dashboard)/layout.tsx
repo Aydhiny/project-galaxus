@@ -173,7 +173,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               viewport-sized element that's one of the most expensive things
               you can do in CSS, regardless of GPU strength. The 2px blur was
               barely visible; bg-background/88 alone gives the same tint. */}
-          <div className={cn("relative z-[1] flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]", hasRoom ? "bg-background/60" : theme === "minimal" ? "bg-background" : "bg-background/88")}>
+          {/* data-route-stage: each new page fades/slides in (globals.css, ≤180ms, no delay). */}
+          <div data-route-stage className={cn("relative z-[1] flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]", hasRoom ? "bg-background/60" : theme === "minimal" ? "bg-background" : "bg-background/88")}>
             {children}
           </div>
         </ErrorBoundary>

@@ -2,7 +2,7 @@ import { getRecentCheckins } from "@/lib/actions/checkin";
 import { getBooks } from "@/lib/actions/books";
 import { getCourses } from "@/lib/actions/courses";
 import { getJournalEntries } from "@/lib/actions/journal";
-import { BarChart3, TrendingUp, Trophy, Calendar, Star } from "lucide-react";
+import { ClipboardCheck, TrendingUp, Trophy, Calendar, Star, Flower2, Music2, BookHeart } from "lucide-react";
 import { format, startOfWeek, endOfWeek, subWeeks, eachDayOfInterval, isWithinInterval } from "date-fns";
 import type { DailyCheckin } from "@/lib/db/schema";
 import { listTaskHistory } from "@/lib/actions/tasks";
@@ -137,7 +137,7 @@ export default async function ReviewPage() {
   return (
     <div className="page max-w-4xl">
       {/* Header */}
-      <PageTitle icon={BarChart3} tone="bg-indigo-500/12 text-indigo-600 dark:text-indigo-400" eyebrow="Reflect" title="Weekly Review"
+      <PageTitle icon={ClipboardCheck} tone="bg-indigo-500/12 text-indigo-600 dark:text-indigo-400" eyebrow="Reflect" title="Weekly Review"
         subtitle={`${format(thisWeek.start, "MMM d")} – ${format(thisWeek.end, "MMM d, yyyy")}`} />
 
       {/* Everything this week, across the whole app */}
@@ -202,9 +202,9 @@ export default async function ReviewPage() {
         {[
           { label: "Prayers", icon: <Star className="w-4 h-4" />, value: `${totalPrayers}/35`, prev: lastPrayers, curr: totalPrayers, color: "var(--emerald)" },
           { label: "Training", icon: <TrendingUp className="w-4 h-4" />, value: `${trainingDays}/7 days`, prev: lastTraining, curr: trainingDays, color: "var(--gold)" },
-          { label: "Meditation", icon: <BarChart3 className="w-4 h-4" />, value: `${meditationDays}/7 days`, prev: lastMeditation, curr: meditationDays, color: "#a78bfa" },
-          { label: "Music", icon: <BarChart3 className="w-4 h-4" />, value: `${musicDays}/7 days`, prev: null, curr: musicDays, color: "#60a5fa" },
-          { label: "Journal Entries", icon: <BarChart3 className="w-4 h-4" />, value: `${journalThisWeek}`, prev: null, curr: null, color: "#f97316" },
+          { label: "Meditation", icon: <Flower2 className="w-4 h-4" />, value: `${meditationDays}/7 days`, prev: lastMeditation, curr: meditationDays, color: "#a78bfa" },
+          { label: "Music", icon: <Music2 className="w-4 h-4" />, value: `${musicDays}/7 days`, prev: null, curr: musicDays, color: "#60a5fa" },
+          { label: "Journal Entries", icon: <BookHeart className="w-4 h-4" />, value: `${journalThisWeek}`, prev: null, curr: null, color: "#f97316" },
           { label: "Books Finished", icon: <Trophy className="w-4 h-4" />, value: `${booksThisWeek}`, prev: null, curr: null, color: "var(--gold)" },
         ].map((card, i) => (
           <div key={i} className="glass p-4 space-y-2">

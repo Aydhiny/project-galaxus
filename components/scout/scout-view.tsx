@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Bookmark, ExternalLink, EyeOff, Lightbulb, Loader2, RefreshCw } from "lucide-react";
+import { Binoculars, Bookmark, ExternalLink, EyeOff, Loader2, RefreshCw } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { claimScore } from "@/lib/scout";
 import { saveScoutSettingsC, scanScoutNowC, setScoutMarkC, type ScoutOverview } from "@/lib/client/scout";
@@ -39,7 +40,7 @@ export function ScoutView({ data }: { data: ScoutOverview }) {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-amber-500/12 text-amber-600 dark:text-amber-400 flex items-center justify-center"><Lightbulb className="w-5 h-5" /></span>
+            <span className="w-9 h-9 rounded-xl bg-amber-500/12 text-amber-600 dark:text-amber-400 flex items-center justify-center"><Binoculars className="w-5 h-5" /></span>
             Scout
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-xl">
@@ -72,14 +73,13 @@ export function ScoutView({ data }: { data: ScoutOverview }) {
       </div>
 
       {list.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-border p-10 text-center">
-          <Lightbulb className="w-8 h-8 mx-auto text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            {tab === "saved" ? "Nothing saved yet." : "Nothing analysed yet. Tap Scan now; results arrive over the next hour or two (Reddit allows about one request a minute)."}
-          </p>
+        <div className="mt-6 rounded-2xl border border-dashed border-border">
+          <EmptyState icon={tab === "saved" ? Bookmark : Binoculars} title={tab === "saved" ? "Nothing saved yet" : "Nothing analysed yet"}>
+            {tab === "saved" ? "Save a thread to keep it here." : "Tap Scan now; results arrive over the next hour or two (Reddit allows about one request a minute)."}
+          </EmptyState>
         </div>
       ) : (
-        <ul className="mt-6 space-y-3">
+        <ul className="mt-6 space-y-3 stagger">
           {list.map((t) => <Card key={t.id} t={t} saved={mark(t) === "saved"} onMark={(m) => setMark(t.id, m)} />)}
         </ul>
       )}

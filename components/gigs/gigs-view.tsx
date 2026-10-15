@@ -486,7 +486,7 @@ function LearningPanel({ learning: l, teach, onTeach }: { learning: RadarState["
             <span className="font-semibold tabular-nums">{acc != null ? `${acc}%` : "after 8 reviews"} <span className="text-muted-foreground font-normal">/ {target}% goal</span></span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className={cn("h-full rounded-full transition-all duration-700", (acc ?? 0) >= target ? "bg-emerald-500" : (acc ?? 0) >= 80 ? "bg-violet-500" : "bg-amber-500")} style={{ width: `${Math.min(100, acc ?? 0)}%` }} />
+            <div className={cn("h-full rounded-full bar-fill", (acc ?? 0) >= target ? "bg-emerald-500" : (acc ?? 0) >= 80 ? "bg-violet-500" : "bg-amber-500")} style={{ width: `${Math.min(100, acc ?? 0)}%` }} />
           </div>
           {(l.likes.length > 0 || l.dislikes.length > 0) && (
             <div className="mt-3 flex flex-wrap gap-1.5">

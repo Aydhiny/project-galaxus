@@ -14,6 +14,7 @@ import { useHydrated, useLocalToday } from "@/lib/hooks/client-values";
 import { bestDay, completionStreak, completionsByDay, heatmapWeeks, mergeHistory, pointsSummary, dayKey, type CompletableTask } from "@/lib/productivity";
 import { CompletionsChart } from "@/components/productivity/completions-chart";
 import { CompletionHeatmap } from "@/components/productivity/completion-heatmap";
+import { CountUp } from "@/components/ui/count-up";
 
 const RANGES = [7, 14, 30] as const;
 type Range = (typeof RANGES)[number];
@@ -91,7 +92,7 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
       </header>
 
       {/* ── Stat tiles: the four numbers worth glancing at ───────────────── */}
-      <div className="grid grid-cols-2 @3xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 @3xl:grid-cols-4 gap-3 stagger">
         <StatTile
           icon={CheckCircle2}
           label="Completed today"
@@ -143,7 +144,7 @@ export function ProductivityDashboard({ initialTasks, history, goals, serverToda
           </div>
           {planDay === "today" && (
             <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-4" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's progress">
-              <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-500" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-emerald-500 bar-fill" style={{ width: `${pct}%` }} />
             </div>
           )}
 
@@ -238,11 +239,11 @@ function StatTile({ icon: Icon, label, value, detail }: {
   detail?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-4 card-lift">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="w-3.5 h-3.5" /> {label}
       </div>
-      <p className="text-3xl font-semibold tracking-tight tabular-nums mt-2">{value}</p>
+      <p className="text-3xl font-semibold tracking-tight tabular-nums mt-2"><CountUp value={value} /></p>
       {detail && <p className="text-xs text-muted-foreground mt-1">{detail}</p>}
     </div>
   );

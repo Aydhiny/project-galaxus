@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CountUp } from "@/components/ui/count-up";
 
 /**
  * The one page header every screen uses: a tinted icon tile, a small
@@ -16,7 +17,7 @@ export function PageTitle({ icon: Icon, tone, eyebrow, title, subtitle, children
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-wrap items-end justify-between gap-4 animate-in fade-in-0 slide-in-from-bottom-1", className)}>
+    <header className={cn("flex flex-wrap items-end justify-between gap-4 animate-rise", className)}>
       <div className="flex items-center gap-3 min-w-0">
         <span className={cn("w-11 h-11 rounded-2xl flex items-center justify-center shrink-0", tone)}><Icon className="w-5 h-5" /></span>
         <div className="min-w-0">
@@ -33,10 +34,11 @@ export function PageTitle({ icon: Icon, tone, eyebrow, title, subtitle, children
 /** A compact stat tile with an icon — used across the refreshed pages. */
 export function StatTile({ icon: Icon, tone, value, label, className }: { icon: LucideIcon; tone: string; value: React.ReactNode; label: string; className?: string }) {
   return (
-    <div className={cn("rounded-2xl border border-border bg-card p-4 flex items-center gap-3 transition-colors hover:border-foreground/15", className)}>
-      <span className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", tone)}><Icon className="w-5 h-5" /></span>
+    <div className={cn("group/stat rounded-2xl border border-border bg-card p-4 flex items-center gap-3 card-lift hover:border-foreground/15", className)}>
+      <span className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-[scale,rotate] duration-300 ease-spring group-hover/stat:scale-110 group-hover/stat:-rotate-6", tone)}><Icon className="w-5 h-5" /></span>
       <div className="min-w-0">
-        <p className="font-hud uppercase tracking-wide text-2xl leading-none tabular-nums">{value}</p>
+        {/* Plain numbers roll up (CountUp); anything else renders as given. */}
+        <p className="font-hud uppercase tracking-wide text-2xl leading-none tabular-nums">{typeof value === "number" ? <CountUp value={value} /> : value}</p>
         <p className="text-[11px] text-muted-foreground mt-1 truncate">{label}</p>
       </div>
     </div>

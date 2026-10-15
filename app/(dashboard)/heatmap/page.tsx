@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { getRecentCheckins } from "@/lib/actions/checkin";
 import type { DailyCheckin } from "@/lib/db/schema";
-import { LayoutDashboard, Moon, Dumbbell, Sparkles, Music2, Heart, PenLine } from "lucide-react";
+import { Grid3x3, Moon, Dumbbell, Flower2, Music2, Heart, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, subDays, eachDayOfInterval } from "date-fns";
 
@@ -34,7 +34,7 @@ const HABITS: HabitConfig[] = [
   {
     key: "meditation",
     label: "Meditation",
-    icon: <Sparkles className="w-3.5 h-3.5" />,
+    icon: <Flower2 className="w-3.5 h-3.5" />,
     color: "bg-purple-500",
     getValue: (r) => !!r.meditation,
   },
@@ -140,7 +140,7 @@ export default function HeatmapPage() {
     <div className="page">
       {/* Header */}
       <div className="flex items-center gap-3 min-w-0">
-        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-green-500/12 text-green-600 dark:text-green-400"><LayoutDashboard className="w-5 h-5" /></span>
+        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-green-500/12 text-green-600 dark:text-green-400"><Grid3x3 className="w-5 h-5" /></span>
         <div className="min-w-0">
         <p className="section-label">Progress</p>
         <h1 className="text-3xl font-bold tracking-tight leading-tight">Habit Heatmap</h1>

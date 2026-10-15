@@ -2,7 +2,8 @@ import { cn } from "@/lib/utils";
 
 export function Skeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("animate-pulse rounded-lg bg-muted/50", className)} />
+    // `skeleton` (globals.css): a sheen sweeping across instead of a blink.
+    <div aria-hidden className={cn("skeleton rounded-lg", className)} />
   );
 }
 

@@ -47,9 +47,9 @@ export function ShortcutCheatsheet() {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center" onClick={() => setOpen(false)}>
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-md" />
+      <div className="overlay-backdrop absolute inset-0 bg-background/70 backdrop-blur-md" />
       <div
-        className="relative w-full max-w-md mx-4 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
+        className="overlay-panel relative w-full max-w-md mx-4 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
         style={{ boxShadow: "0 24px 80px oklch(0 0 0 / 55%)" }}
         onClick={e => e.stopPropagation()}
       >
