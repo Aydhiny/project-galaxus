@@ -726,7 +726,9 @@ export const youtubeIdeas = pgTable(
     videoId: varchar("video_id", { length: 20 }), // set once published
     dueDate: date("due_date"),
     hooks: jsonb("hooks").$type<string[]>().notNull().default([]), // Hook lab options
-    source: varchar("source", { length: 20 }), // 'devlog' when drafted from commits
+    source: varchar("source", { length: 20 }), // 'devlog' when drafted from commits, 'longform' when pitched
+    plan: jsonb("plan").$type<import("@/lib/youtube-longform").LongPlan>(), // long-form pitch + structured script/shot list
+    brain: varchar("brain", { length: 80 }), // which model wrote the plan ("Claude Opus 5.5", "Groq · gpt-oss-120b")
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -762,6 +764,29 @@ export const voiceCommands = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [index("idx_voice_commands_user_status").on(t.userId, t.status)]
+);
+
+// ─── YouTube long-form edits ───────────────────────────────────────────────────
+// A recording's transcript (timed lines from Whisper or a pasted SRT) and
+// silences, both measured in the browser — the video itself never leaves the
+// PC. The model's cut decisions are per line; timestamps are computed by code.
+export const youtubeEdits = pgTable(
+  "youtube_edits",
+  {
+    id: serial("id").primaryKey(),
+    userId: userIdCol(),
+    ideaId: integer("idea_id").references(() => youtubeIdeas.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    durationSec: real("duration_sec").notNull(),
+    segments: jsonb("segments").$type<import("@/lib/youtube-longform").Segment[]>().notNull().default([]),
+    silences: jsonb("silences").$type<import("@/lib/youtube-longform").Span[]>().notNull().default([]),
+    decision: jsonb("decision").$type<import("@/lib/youtube-longform").EditDecision>(),
+    brain: varchar("brain", { length: 80 }),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("idx_youtube_edits_user").on(t.userId)]
 );
 
 // ─── YouTube comments (inbox) ──────────────────────────────────────────────────
@@ -1092,6 +1117,7 @@ export type OutreachDay = typeof outreachDays.$inferSelect;
 export type YoutubeChannel = typeof youtubeChannels.$inferSelect;
 export type YoutubeVideo = typeof youtubeVideos.$inferSelect;
 export type YoutubeIdea = typeof youtubeIdeas.$inferSelect;
+export type YoutubeEdit = typeof youtubeEdits.$inferSelect;
 export type VoiceCommand = typeof voiceCommands.$inferSelect;
 export type YoutubeComment = typeof youtubeComments.$inferSelect;
 export type GameSettings = typeof gameSettings.$inferSelect;

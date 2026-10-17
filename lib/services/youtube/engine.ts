@@ -14,6 +14,8 @@ import { getSecret, getYoutubeKey, setSecret } from "@/lib/services/secrets";
 import { fetchChannel, fetchComments, fetchUploads } from "./api";
 import { enqueueJobFor } from "@/lib/services/claude-jobs";
 import { localNow } from "@/lib/outreach";
+import { editsFor } from "./longform";
+import { brainStatusFor } from "./brain";
 
 async function requireYoutubeKey(userId: number) {
   const key = await getYoutubeKey(userId);
@@ -221,7 +223,7 @@ export async function removeChannelFor(userId: number, channelRowId: number) {
 }
 
 export async function studioFor(userId: number) {
-  const [channels, videos, ideas, keys, comments, ideaTasks] = await Promise.all([
+  const [channels, videos, ideas, keys, comments, ideaTasks, edits, brain] = await Promise.all([
     db.select().from(youtubeChannels).where(eq(youtubeChannels.userId, userId)).orderBy(asc(youtubeChannels.createdAt)),
     db.select().from(youtubeVideos).where(eq(youtubeVideos.userId, userId)).orderBy(desc(youtubeVideos.publishedAt)),
     db.select().from(youtubeIdeas).where(eq(youtubeIdeas.userId, userId)).orderBy(desc(youtubeIdeas.updatedAt)),
@@ -230,8 +232,10 @@ export async function studioFor(userId: number) {
       .orderBy(desc(youtubeComments.publishedAt)).limit(100),
     db.select({ id: tasks.id, ideaId: tasks.youtubeIdeaId, phase: tasks.phase, dueDate: tasks.dueDate, status: tasks.status })
       .from(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.youtubeIdeaId), isNull(tasks.deletedAt))),
+    editsFor(userId),
+    brainStatusFor(userId),
   ]);
-  return { channels, videos, ideas, keys, comments, ideaTasks };
+  return { channels, videos, ideas, keys, comments, ideaTasks, edits, brain };
 }
 
 // ─── Videos ───────────────────────────────────────────────────────────────────

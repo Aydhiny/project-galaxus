@@ -16,7 +16,11 @@ type Idea = StudioState["ideas"][number] | YoutubeIdea;
 
 type IdeaTask = StudioState["ideaTasks"][number];
 
-export function IdeaDetail({ idea, canAsk, onDeleted, calendar = [] }: { idea: Idea; canAsk: boolean; onDeleted: () => void; calendar?: IdeaTask[] }) {
+export function IdeaDetail({ idea, canAsk, onDeleted, calendar = [], plan }: {
+  idea: Idea; canAsk: boolean; onDeleted: () => void; calendar?: IdeaTask[];
+  /** Long-form: the pitch, full script and shot list, right under the title. */
+  plan?: React.ReactNode;
+}) {
   const [hookJob, setHookJob] = useState<{ id: number; dispatched: boolean } | null>(null);
   const [title, setTitle] = useState(idea.title);
   const [hook, setHook] = useState(idea.hook ?? "");
@@ -47,6 +51,8 @@ export function IdeaDetail({ idea, canAsk, onDeleted, calendar = [] }: { idea: I
           className="w-full bg-transparent text-lg font-semibold outline-none" aria-label="Title" />
         <SheetDescription className="mt-1 capitalize">{idea.format} video</SheetDescription>
       </div>
+
+      {plan}
 
       <div className="p-6 space-y-6">
         <div>
@@ -123,12 +129,12 @@ export function IdeaDetail({ idea, canAsk, onDeleted, calendar = [] }: { idea: I
         <div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-muted-foreground">Script</span>
-            <button
+            {idea.format !== "long" && <button
               onClick={() => startBusy(async () => { try { await writeScript(idea.id); toast.success("Script written."); } catch (e) { toast.error(e instanceof Error ? e.message : "Failed."); } })}
               disabled={busy || !canAsk} title={canAsk ? undefined : "Add an Anthropic key in Setup"}
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-border text-xs hover:bg-accent disabled:opacity-50">
               {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} {script ? "Rewrite with Claude" : "Write with Claude"}
-            </button>
+            </button>}
           </div>
           <textarea value={script} onChange={(e) => setScript(e.target.value)} onBlur={() => { if (script !== (idea.script ?? "")) save({ script }); }}
             rows={10} placeholder="Hook, beats, ending that loops back…" className="mt-1.5 w-full rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed" />

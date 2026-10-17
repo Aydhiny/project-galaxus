@@ -10,6 +10,12 @@ import {
   type IdeaInput, type VideoPatch,
 } from "@/lib/services/youtube/engine";
 
+import {
+  createEditFor, deleteEditFor, editFor, pitchLongformFor, planEditFor, saveGroqKeyFor, toggleCutFor, writeLongScriptFor,
+} from "@/lib/services/youtube/longform";
+import type { BrainPref } from "@/lib/youtube-longform";
+import type { Segment, Span } from "@/lib/youtube-longform";
+
 const refresh = () => revalidatePath("/youtube");
 
 export async function getStudio() {
@@ -115,4 +121,60 @@ export async function draftReplies() {
 
 export async function runHookLab(ideaId: number) {
   return toResult(async () => hookLabFor(await requireUserId(), ideaId));
+}
+
+// ─── Long-form ────────────────────────────────────────────────────────────────
+
+export async function pitchLongform(input: { channelRowId: number | null; steer?: string; count?: number; prefer?: BrainPref }) {
+  return toResult(async () => {
+    const r = await pitchLongformFor(await requireUserId(), input);
+    refresh();
+    return r;
+  });
+}
+
+export async function writeLongScript(ideaId: number, prefer?: BrainPref) {
+  return toResult(async () => {
+    const row = await writeLongScriptFor(await requireUserId(), ideaId, prefer);
+    refresh();
+    return { id: row.id, brain: row.brain };
+  });
+}
+
+export async function createEdit(input: { title: string; fileName: string; durationSec: number; ideaId: number | null; segments: Segment[]; silences: Span[] }) {
+  return toResult(async () => {
+    const row = await createEditFor(await requireUserId(), input);
+    refresh();
+    return row;
+  });
+}
+
+export async function planEdit(id: number, prefer?: BrainPref) {
+  return toResult(async () => {
+    const r = await planEditFor(await requireUserId(), id, prefer);
+    refresh();
+    return r;
+  });
+}
+
+export async function loadEdit(id: number) {
+  return toResult(async () => editFor(await requireUserId(), id));
+}
+
+export async function toggleCut(id: number, seg: number) {
+  return toResult(async () => toggleCutFor(await requireUserId(), id, seg));
+}
+
+export async function deleteEdit(id: number) {
+  return toResult(async () => {
+    await deleteEditFor(await requireUserId(), id);
+    refresh();
+  });
+}
+
+export async function saveGroqKey(key: string) {
+  return toResult(async () => {
+    await saveGroqKeyFor(await requireUserId(), key);
+    refresh();
+  });
 }

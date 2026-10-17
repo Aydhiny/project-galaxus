@@ -1120,6 +1120,27 @@ const STATEMENTS = [
     "reset_at" timestamp NOT NULL
   )`,
 
+  // ── 2026-10 · YouTube long-form: pitched ideas with a structured plan + recording edits ──
+  `ALTER TABLE "youtube_ideas" ADD COLUMN IF NOT EXISTS "plan" jsonb`,
+  `ALTER TABLE "youtube_ideas" ADD COLUMN IF NOT EXISTS "brain" varchar(80)`,
+  `CREATE TABLE IF NOT EXISTS "youtube_edits" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "user_id" integer NOT NULL,
+    "idea_id" integer,
+    "title" varchar(255) NOT NULL,
+    "file_name" varchar(255) NOT NULL,
+    "duration_sec" real NOT NULL,
+    "segments" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "silences" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    "decision" jsonb,
+    "brain" varchar(80),
+    "created_at" timestamp DEFAULT now(),
+    "updated_at" timestamp DEFAULT now(),
+    CONSTRAINT "youtube_edits_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade,
+    CONSTRAINT "youtube_edits_idea_id_youtube_ideas_id_fk" FOREIGN KEY ("idea_id") REFERENCES "youtube_ideas"("id") ON DELETE set null
+  )`,
+  `CREATE INDEX IF NOT EXISTS "idx_youtube_edits_user" ON "youtube_edits" ("user_id")`,
+
   // Housekeeping: expired reset/verify tokens are useless — clear them.
   `DELETE FROM "verification_tokens" WHERE "expires_at" < now()`,
   `DELETE FROM "rate_limits" WHERE "reset_at" < now()`,

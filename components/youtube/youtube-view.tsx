@@ -13,15 +13,18 @@ import {
   isStalled, likeRate, type AuditVideo, type Issue,
 } from "@/lib/youtube";
 import {
-  connectChannel, createIdea, removeChannel, runChannelReport, saveYoutubeKeys, syncChannel, type StudioState,
+  connectChannel, createIdea, removeChannel, runChannelReport, saveGroqKey, saveYoutubeKeys, syncChannel, type StudioState,
 } from "@/lib/client/youtube";
+import type { BrainPref } from "@/lib/youtube-longform";
+import { LongformTab } from "./longform-tab";
+import { LongPlanView } from "./long-idea-sheet";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { VideoDetail } from "./video-sheet";
 import { IssueList, ReportText } from "./shared";
 import { CommentsTab } from "./comments-tab";
 import { IdeaDetail } from "./idea-sheet";
 
-type Tab = "channel" | "work" | "comments" | "setup";
+type Tab = "channel" | "long-form" | "work" | "comments" | "setup";
 
 const toAudit = (v: YoutubeVideo): AuditVideo => ({ ...v, description: v.description ?? "", tags: v.tags ?? [] });
 
@@ -31,6 +34,8 @@ export function YoutubeView({ state }: { state: StudioState }) {
   const [openVideo, setOpenVideo] = useState<number | null>(null);
   const [openIdea, setOpenIdea] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+  const [prefer, setPrefer] = useState<BrainPref>("auto");
+  const [recordIdeaId, setRecordIdeaId] = useState<number | null>(null);
 
   const channel = state.channels.find((c) => c.id === channelId) ?? state.channels[0] ?? null;
   const videos = useMemo(() => state.videos.filter((v) => v.channelRowId === channel?.id), [state.videos, channel?.id]);
@@ -66,10 +71,10 @@ export function YoutubeView({ state }: { state: StudioState }) {
           </p>
         </div>
         <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50">
-          {(["channel", "work", "comments", "setup"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} data-room-spot={t === "channel" ? "screen" : t === "work" ? "board" : t === "comments" ? "shelf" : "prop"}
+          {(["channel", "long-form", "work", "comments", "setup"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)} data-room-spot={t === "channel" ? "screen" : t === "work" ? "board" : t === "comments" ? "shelf" : t === "setup" ? "prop" : undefined}
               className={cn("px-3 h-7 rounded-md text-sm capitalize transition-colors", tab === t ? "bg-background shadow-xs text-foreground" : "text-muted-foreground hover:text-foreground")}>
-              {t === "comments" && state.comments.filter((c) => c.status !== "replied").length > 0 ? `comments · ${state.comments.length}` : t}
+              {t === "comments" && state.comments.filter((c) => c.status !== "replied").length > 0 ? `comments · ${state.comments.length}` : t === "long-form" ? <span className="normal-case">Long-form</span> : t}
             </button>
           ))}
         </div>
@@ -144,6 +149,11 @@ export function YoutubeView({ state }: { state: StudioState }) {
         )
       )}
 
+      {tab === "long-form" && (
+        <LongformTab state={state} channelRowId={channel?.id ?? null} prefer={prefer} setPrefer={setPrefer}
+          onOpenIdea={(id) => setOpenIdea(id)} recordIdeaId={recordIdeaId} />
+      )}
+
       {tab === "work" && <WorkTab state={state} channelRowId={channel?.id ?? null} onOpen={(id) => setOpenIdea(id)} />}
 
       {tab === "comments" && <CommentsTab state={state} />}
@@ -156,8 +166,12 @@ export function YoutubeView({ state }: { state: StudioState }) {
         </SheetContent>
       </Sheet>
       <Sheet open={idea !== null} onOpenChange={(o) => { if (!o) setOpenIdea(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0 gap-0 overflow-y-auto">
-          {idea && <IdeaDetail key={idea.id} idea={idea} canAsk={state.keys.anthropic} onDeleted={() => setOpenIdea(null)} calendar={state.ideaTasks.filter((t) => t.ideaId === idea.id)} />}
+        <SheetContent side="right" className={cn("w-full p-0 gap-0 overflow-y-auto", idea?.format === "long" ? "data-[side=right]:sm:max-w-2xl" : "data-[side=right]:sm:max-w-lg")}>
+          {idea && <IdeaDetail key={idea.id}
+            plan={idea.format === "long" ? (
+              <LongPlanView idea={idea} prefer={prefer} canWrite={state.brain.claude || state.brain.freeModels > 0}
+                onRecord={() => { setRecordIdeaId(idea.id); setOpenIdea(null); setTab("long-form"); }} />
+            ) : null} idea={idea} canAsk={state.keys.anthropic} onDeleted={() => setOpenIdea(null)} calendar={state.ideaTasks.filter((t) => t.ideaId === idea.id)} />}
         </SheetContent>
       </Sheet>
     </div>
@@ -315,6 +329,7 @@ function SetupTab({ state, pending, run, onConnected }: {
   const [link, setLink] = useState("");
   const [ytKey, setYtKey] = useState("");
   const [aiKey, setAiKey] = useState("");
+  const [groqKey, setGroqKey] = useState("");
   const hasYoutube = state.keys.youtube || state.keys.googleFallback;
 
   return (
@@ -362,6 +377,13 @@ function SetupTab({ state, pending, run, onConnected }: {
           value={aiKey} onChange={setAiKey}
           onSave={() => run(async () => { await saveYoutubeKeys({ anthropic: aiKey }); setAiKey(""); return "Anthropic key saved."; }, "Couldn't save.")}
           help={<>Shared with Outreach. From <a className="underline" href="https://platform.claude.com/settings/keys" target="_blank" rel="noreferrer">platform.claude.com → API keys</a>.</>}
+        />
+        <KeyRow
+          label="Groq API key (free Whisper transcription + a free model)"
+          status={state.brain.whisper ? "Saved" : null}
+          value={groqKey} onChange={setGroqKey}
+          onSave={() => run(async () => { await saveGroqKey(groqKey); setGroqKey(""); return "Groq key saved."; }, "Couldn't save.")}
+          help={<>Free, no card: <a className="underline" href="https://console.groq.com/keys" target="_blank" rel="noreferrer">console.groq.com → API keys</a>. Transcribes your long-form recordings (about 2 hours of audio per hour) and doubles as a free script writer. It also appears in Ops → Free models.</>}
         />
       </section>
     </div>
